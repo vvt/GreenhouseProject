@@ -239,16 +239,23 @@ extern UniRegDispatcher UniDispatcher; // экземпляр класса дис
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 // абстрактный класс клиента, работающего с универсальным модулем по шине 1-Wire
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+typedef enum
+{
+    ssOneWire // с линии 1-Wire
+  , ssRadio // по радиоканаду
+  
+} UniScratchpadSource; // откуда был получен скратчпад
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 class AbstractUniClient
 {
     public:
       AbstractUniClient() {};
 
-      // регистрирует модуль в системе
+      // регистрирует модуль в системе, если надо - прописывает индексы виртуальным датчикам и т.п.
       virtual void Register(UniRawScratchpad* scratchpad) = 0; 
 
-      // обновляет данные с модуля
-      virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline) = 0;
+      // обновляет данные с модуля, в receivedThrough - откуда был получен скратчпад
+      virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough) = 0;
 
       void SetPin(byte p) { pin = p; }
 
@@ -264,7 +271,7 @@ class DummyUniClient : public AbstractUniClient
   public:
     DummyUniClient() : AbstractUniClient() {}
     virtual void Register(UniRawScratchpad* scratchpad) { UNUSED(scratchpad); }
-    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline) { UNUSED(scratchpad); UNUSED(isModuleOnline); }
+    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough) { UNUSED(scratchpad); UNUSED(isModuleOnline); UNUSED(receivedThrough); }
   
 };
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -275,7 +282,7 @@ class SensorsUniClient : public AbstractUniClient
   public:
     SensorsUniClient();
     virtual void Register(UniRawScratchpad* scratchpad);
-    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline);
+    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough);
 
   private:
 
@@ -294,7 +301,7 @@ class UniExecutionModuleClient  : public AbstractUniClient
 
     UniExecutionModuleClient();
     virtual void Register(UniRawScratchpad* scratchpad);
-    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline);
+    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough);
   
 };
 #endif
@@ -319,7 +326,7 @@ class NextionUniClient : public AbstractUniClient
   public:
     NextionUniClient();
     virtual void Register(UniRawScratchpad* scratchpad);
-    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline);
+    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough);
 
   private:
 
@@ -329,6 +336,48 @@ class NextionUniClient : public AbstractUniClient
 };
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_UNI_NEXTION_MODULE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_RS485_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+enum {RS485FromMaster = 1, RS485FromSlave = 2};
+enum {RS485ControllerStatePacket = 1, RS485SensorDataPacket = 2};
+//----------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  byte header1;
+  byte header2;
+
+  byte direction; // направление: 1 - от меги, 2 - от слейва
+  byte type; // тип: 1 - пакет исполнительного модуля, 2 - пакет модуля с датчиками
+
+  byte data[sizeof(ControllerState)]; // N байт данных, для исполнительного модуля в этих данных содержится состояние контроллера
+  // для модуля с датчиками: первый байт - тип датчика, 2 байт - его индекс в системе. В обратку модуль с датчиками должен заполнить показания (4 байта следом за индексом 
+  // датчика в системе и отправить пакет назад, выставив direction и type.
+
+  byte tail1;
+  byte tail2;
+  
+} RS485Packet; // пакет, гоняющийся по RS-485 туда/сюда (20 байт)
+//----------------------------------------------------------------------------------------------------------------
+class UniRS485Gate // класс для работы универсальных модулей через RS-485
+{
+  public:
+    UniRS485Gate();
+    void Setup();
+    void Update(uint16_t dt);
+
+  private:
+
+    unsigned long updateTimer;
+
+    void enableSend();
+    void enableReceive();
+    
+};
+
+extern UniRS485Gate RS485;
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_RS485_GATE
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 // Фабрика клиентов
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -351,6 +400,8 @@ class UniClientsFactory
     // возвращает клиента по типу пакета скратчпада
     AbstractUniClient* GetClient(UniRawScratchpad* scratchpad);
 };
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+extern UniClientsFactory UniFactory; // наша фабрика клиентов
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #if UNI_WIRED_MODULES_COUNT > 0
 //-------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -12,6 +12,78 @@ UniRawScratchpad SHARED_SCRATCHPAD; // общий скратчпад для кл
   UniNextionWaitScreenData UNI_NX_SENSORS_DATA[] = { UNI_NEXTION_WAIT_SCREEN_SENSORS, {0,0,""} };
 #endif
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_RS485_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+UniRS485Gate::UniRS485Gate()
+{
+  updateTimer = 0;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::enableSend()
+{
+  digitalWrite(RS_485_DE_PIN,HIGH); // переводим контроллер RS-485 на передачу
+ // Serial.println(F("[RS485] - switch to send..."));
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::enableReceive()
+{
+  digitalWrite(RS_485_DE_PIN,LOW); // переводим контроллер RS-485 на приём
+ // Serial.println(F("[RS485] - switch to receive..."));
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::Setup()
+{
+  pinMode(RS_485_DE_PIN,OUTPUT);
+  
+  enableSend();
+  
+  RS_485_SERIAL.begin(57600);
+  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::Update(uint16_t dt)
+{
+  #ifdef USE_UNI_EXECUTION_MODULE
+
+  // посылаем в шину данные для исполнительных модулей
+  
+    updateTimer += dt;
+    if(updateTimer > 1000)
+    {
+      updateTimer -= 1000;
+
+      // тут посылаем слепок состояния контроллера
+     //   Serial.println(F("[RS485] - send data to the bus..."));
+
+        static RS485Packet packet;
+        memset(&packet,0,sizeof(RS485Packet));
+        
+        packet.header1 = 0xAB;
+        packet.header2 = 0xBA;
+        packet.tail1 = 0xDE;
+        packet.tail2 = 0xAD;
+
+        packet.direction = RS485FromMaster;
+        packet.type = RS485ControllerStatePacket;
+
+        void* dest = &(packet.data);
+        ControllerState curState = WORK_STATUS.GetState();
+        void* src = &curState;
+        memcpy(dest,src,sizeof(ControllerState));
+
+        // пишем в шину RS-495 слепок состояния контроллера
+        RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+
+     //   Serial.println(F("[RS485] - send data done."));
+
+    }
+  #endif // USE_UNI_EXECUTION_MODULE
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+UniRS485Gate RS485;
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_RS485_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 // UniClientsFactory
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 UniClientsFactory::UniClientsFactory()
@@ -62,7 +134,7 @@ void UniExecutionModuleClient::Register(UniRawScratchpad* scratchpad)
   UNUSED(scratchpad);
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-void UniExecutionModuleClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline)
+void UniExecutionModuleClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough)
 {
   if(!isModuleOnline) // когда модуль офлайн - ничего делать не надо
     return;
@@ -171,9 +243,12 @@ void UniExecutionModuleClient::Update(UniRawScratchpad* scratchpad, bool isModul
       ourScratch->slots[i].slotStatus = slotStatus;
    } // for
 
-   // пишем актуальное состояние слотов клиенту
-   UniScratchpad.begin(pin,scratchpad);
-   UniScratchpad.write();
+  if(receivedThrough == ssOneWire)
+  {
+    // пишем актуальное состояние слотов клиенту, если скратч был получен по 1-Wire, иначе - вызывающая сторона сама разберётся, что делать с изменениями
+    UniScratchpad.begin(pin,scratchpad);
+    UniScratchpad.write();
+  }
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_UNI_EXECUTION_MODULE
@@ -194,7 +269,7 @@ void NextionUniClient::Register(UniRawScratchpad* scratchpad)
   // нам регистрироваться не надо, ничего не делаем
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline)
+void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough)
 {
   // тут обновляем данные, полученные с Nextion, и записываем ему текущее состояние
   if(!isModuleOnline) // не надо ничего делать
@@ -420,9 +495,12 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline)
       // копируем скратчпад обратно
       memcpy(scratchpad->data,&ourScratch,sizeof(UniNextionScratchpad));
 
-      // и пишем его в Nextion
-      UniScratchpad.begin(pin,scratchpad);
-      UniScratchpad.write();
+      if(receivedThrough == ssOneWire)
+      {
+        // и пишем его в Nextion, если скратч был получен по 1-Wire, иначе - вызывающая сторона сама разберётся, куда пихать изменённый скратч
+        UniScratchpad.begin(pin,scratchpad);
+        UniScratchpad.write();
+      }
       
    } // needToWrite
    
@@ -464,7 +542,7 @@ void SensorsUniClient::Register(UniRawScratchpad* scratchpad)
     UniDispatcher.SaveState();
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-void SensorsUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline)
+void SensorsUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough)
 {
   
     // тут обновляем данные, полученный по проводу с модуля. 
@@ -498,13 +576,18 @@ void SensorsUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline)
 
     // тут запускаем конвертацию, чтобы при следующем вызове вычитать актуальные данные.
     // конвертацию не стоит запускать чаще, чем в 5, скажем, секунд.
-    unsigned long curMillis = millis();
-    if(curMillis - measureTimer > 5000)
+    if(receivedThrough == ssOneWire)
     {
-      measureTimer = curMillis;
-      UniScratchpad.begin(pin,scratchpad);
-      UniScratchpad.startMeasure();
-    }
+      // работаем таким образом только по шине 1-Wire, в остальном вызывающая сторона разберётся, что делать со скратчпадом
+      unsigned long curMillis = millis();
+      if(curMillis - measureTimer > 5000)
+      {
+        measureTimer = curMillis;
+        UniScratchpad.begin(pin,scratchpad);
+        UniScratchpad.startMeasure();
+      }
+      
+    } // if
 
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -620,7 +703,7 @@ void UniPermanentLine::Update(uint16_t dt)
   // теперь обновляем последнего клиента, если он был.
   // говорим ему, чтобы обновился, как будто модуля нет на линии.
   if(lastClient)
-    lastClient->Update(&SHARED_SCRATCHPAD,false);
+    lastClient->Update(&SHARED_SCRATCHPAD,false, ssOneWire);
 
   // теперь пытаемся прочитать скратчпад
   UniScratchpad.begin(pin,&SHARED_SCRATCHPAD);
@@ -636,7 +719,7 @@ void UniPermanentLine::Update(uint16_t dt)
     // получаем клиента для прочитанного скратчпада
     lastClient = UniFactory.GetClient(&SHARED_SCRATCHPAD);
     lastClient->SetPin(pin); // назначаем тот же самый пин, что у нас    
-    lastClient->Update(&SHARED_SCRATCHPAD,true);
+    lastClient->Update(&SHARED_SCRATCHPAD,true, ssOneWire);
     
   } // if
   else

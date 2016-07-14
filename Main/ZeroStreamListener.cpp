@@ -28,6 +28,11 @@ void ZeroStreamListener::Setup()
     // добавляем температуру часов
     State.AddState(StateTemperature,0);
   #endif
+
+  #ifdef USE_RS485_GATE
+    RS485.Setup();
+  #endif
+  
  }
 
 void ZeroStreamListener::Update(uint16_t dt)
@@ -59,6 +64,11 @@ void ZeroStreamListener::Update(uint16_t dt)
     Temperature t = rtc.getTemperature();
     State.UpdateState(StateTemperature,0,(void*)&t);
   }
+  #endif 
+
+
+  #ifdef USE_RS485_GATE
+    RS485.Update(dt);
   #endif  
 
 }
