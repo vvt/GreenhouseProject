@@ -235,6 +235,23 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
               }
             
           } // FLOW_CALIBRATION_COMMAND
+          else
+          if(t == RESET_COMMAND)
+          {
+            // сбросить показания датчиков расхода
+            uint16_t addr = WATERFLOW_EEPROM_ADDR;
+            for(byte i=0;i<sizeof(unsigned long)*2;i++)
+              EEPROM.write(addr++,0xFF);
+
+              pin2Flow.totalLitres = 0;
+              pin3Flow.totalLitres = 0;
+            
+            
+                  PublishSingleton.Status = true;
+                  if(wantAnswer)
+                    PublishSingleton = REG_SUCC;
+            
+          }
        } // else
   }
   else

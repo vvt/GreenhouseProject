@@ -52,6 +52,44 @@ view.OnEditSensorName = function(mnemonic, sensor, row)
   
 }
 //-----------------------------------------------------------------------------------------------------
+function resetFlowData()
+{
+  promptMessage("Вы уверены, что хотите сбросить показания счётчиков?",function(){
+  
+    controller.queryCommand(false,'FLOW|RST',function(obj,answer){
+    
+      controller.FlowIncrementalLitres = 0;
+      controller.FlowIncrementalLitres2 = 0;
+      
+      $('#flow_incremental').html(controller.FlowIncrementalLitres);
+      $('#flow_incremental2').html(controller.FlowIncrementalLitres2);
+    
+      showMessage("Данные успешно сброшены!");
+    
+    });
+  
+  });
+}
+//-----------------------------------------------------------------------------------------------------
+function showMessage(message)
+{
+  $('#message_dialog_message').html(message);
+
+  $("#message_dialog").dialog({modal:true, buttons: [
+    {text: "ОК", click: function(){$(this).dialog("close");} }
+  ] });     
+}
+//-----------------------------------------------------------------------------------------------------
+function promptMessage(message, yesFunc, cancelFunc)
+{
+  $('#prompt_dialog_message').html(message);
+
+  $("#prompt_dialog").dialog({modal:true, buttons: [
+    {text: "ОК", click: function(){$(this).dialog("close"); if(yesFunc) yesFunc(); } },
+    {text: "Отмена", click: function(){$(this).dialog("close");  if(cancelFunc) cancelFunc(); } }
+  ] });     
+}
+//-----------------------------------------------------------------------------------------------------
 var lastIsOnline = controller.IsOnline();
 // обработчик онлайн-статуса контроллера
 controller.OnStatus = function(obj)
@@ -332,6 +370,8 @@ window.setInterval(updateControllerData,5000); // повторяем опрос 
         primary: "ui-icon-refresh"
       }
     });
+    
+    $('#reset_flow_btn').button();
     
 
 });

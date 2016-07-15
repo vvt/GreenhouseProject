@@ -1,6 +1,14 @@
 {* Smarty *}
 {* Данные с контроллера *}
 
+<div id="prompt_dialog" title="Подтверждение" class='hdn'>
+  <p id='prompt_dialog_message'></p>
+</div>
+
+<div id="message_dialog" title="Сообщение" class='hdn'>
+  <p id='message_dialog_message'></p>
+</div>
+
 <div id="temp_settings_dialog" title="Настройки температур и моторов" class='hdn'>
   <form>
   T открытия:<br/>
@@ -100,8 +108,14 @@
 
 
                   <div class='content hdn' id='FLOW_MENU_CONTENT'>
+                  
 
                     <h3 class='ui-widget-header ui-corner-all'>Расход воды</h3> 
+                    
+                  <div style='margin-bottom:10px;'>
+                   <a href="javascript:resetFlowData();" id='reset_flow_btn'>Сбросить показания счётчиков</a>
+                  </div>
+                    
                     <div id='flow1_box' class='hdn'>
                       <h4 class='ui-widget-header ui-corner-all' style='margin-bottom:0px;'>Первый расходомер</h4>
                       
