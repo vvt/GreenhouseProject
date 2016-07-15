@@ -22,13 +22,11 @@ UniRS485Gate::UniRS485Gate()
 void UniRS485Gate::enableSend()
 {
   digitalWrite(RS_485_DE_PIN,HIGH); // переводим контроллер RS-485 на передачу
- // Serial.println(F("[RS485] - switch to send..."));
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::enableReceive()
 {
   digitalWrite(RS_485_DE_PIN,LOW); // переводим контроллер RS-485 на приём
- // Serial.println(F("[RS485] - switch to receive..."));
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::Setup()
@@ -37,12 +35,40 @@ void UniRS485Gate::Setup()
   
   enableSend();
   
-  RS_485_SERIAL.begin(57600);
+  RS_485_SERIAL.begin(RS485_SPEED);
+
   
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+byte UniRS485Gate::crc8(const byte *addr, byte len)
+{
+  byte crc = 0;
+  while (len--) 
+    {
+    byte inbyte = *addr++;
+    for (byte i = 8; i; i--)
+      {
+      byte mix = (crc ^ inbyte) & 0x01;
+      crc >>= 1;
+      if (mix) 
+        crc ^= 0x8C;
+      inbyte >>= 1;
+      }  // end of for
+    }  // end of while
+  return crc;  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::waitTransmitComplete()
+{
+  // ждём завершения передачи по UART
+  while(!(RS_485_UCSR & _BV(RS_485_TXC) ));
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::Update(uint16_t dt)
 {
+
+  static RS485Packet packet;
+  
   #ifdef USE_UNI_EXECUTION_MODULE
 
   // посылаем в шину данные для исполнительных модулей
@@ -50,12 +76,9 @@ void UniRS485Gate::Update(uint16_t dt)
     updateTimer += dt;
     if(updateTimer > 1000)
     {
-      updateTimer -= 1000;
+      updateTimer = 0;
 
       // тут посылаем слепок состояния контроллера
-     //   Serial.println(F("[RS485] - send data to the bus..."));
-
-        static RS485Packet packet;
         memset(&packet,0,sizeof(RS485Packet));
         
         packet.header1 = 0xAB;
@@ -66,18 +89,386 @@ void UniRS485Gate::Update(uint16_t dt)
         packet.direction = RS485FromMaster;
         packet.type = RS485ControllerStatePacket;
 
-        void* dest = &(packet.data);
+        void* dest = packet.data;
         ControllerState curState = WORK_STATUS.GetState();
         void* src = &curState;
         memcpy(dest,src,sizeof(ControllerState));
 
+        const byte* b = (const byte*) &packet;
+        packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
+
         // пишем в шину RS-495 слепок состояния контроллера
         RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
 
-     //   Serial.println(F("[RS485] - send data done."));
-
+        // теперь ждём завершения передачи
+        waitTransmitComplete();
+        
     }
   #endif // USE_UNI_EXECUTION_MODULE
+
+  #ifdef USE_UNIVERSAL_SENSORS
+
+
+   static byte _is_inited = false;
+   if(!_is_inited)
+   {
+      _is_inited = true;
+      // инициализируем очередь
+       for(byte sensorType=uniTemp;sensorType<=uniPH;sensorType++)
+       {
+         byte cnt = UniDispatcher.GetUniSensorsCount((UniSensorType) sensorType);
+    
+          for(byte k=0;k<cnt;k++)
+          {
+            RS485QueueItem qi;
+            qi.sensorType = sensorType;
+            qi.sensorIndex = k;
+            queue.push_back(qi);
+          } // for
+          
+       } // for
+    
+       currentQueuePos = 0;
+       sensorsTimer = 0;      
+    
+   } // if
+  
+
+    const int _upd_interval = 500; // интервал обновления
+  
+    sensorsTimer += dt;
+    if(sensorsTimer > _upd_interval)
+    {
+      sensorsTimer = 0;
+
+      // настало время опроса датчиков на шине
+      if(queue.size())
+      {
+        // есть очередь для опроса
+        RS485QueueItem* qi = &(queue[currentQueuePos]);
+        currentQueuePos++;
+
+        // мы не можем обновлять состояние датчика в дефолтные значения здесь, поскольку
+        // мы не знаем, откуда с него могут придти данные. В случае с работой через 1-Wire
+        // состояние автоматически обновляется, поскольку считается, что если модуль есть
+        // на линии - с него будут данные. У нас же ситуация обстоит по-другому:
+        // мы проходим все зарегистрированные универсальные датчики, и не можем
+        // делать вывод - висит ли модуль с датчиком на линии RS-485, или работает по радиоканалу,
+        // или - работает по 1-Wire. Поэтому мы не вправе делать никаких предположений и менять
+        // показания датчика на вид <нет данных>, поскольку очерёдность вызовов опроса
+        // универсальных модулей по разным шлюзам не определена. Лучшим вариантом в этой ситуации будет
+        // принудительный сброс показаний со всех датчиков через какой-то промежуток времени,
+        // и точно в начале очередного прохода loop. Или же - возложить обязанность скидывать
+        // показания с датчиков в дефолтные на модули, чтобы они это делали через некоторый промежуток времени.
+        // Думаю, последнее утверждение самое приемлемое.
+        
+        
+        if(currentQueuePos >= queue.size()) // достигли конца очереди, начинаем сначала
+          currentQueuePos = 0;
+
+
+        memset(&packet,0,sizeof(RS485Packet)); 
+        packet.header1 = 0xAB;
+        packet.header2 = 0xBA;
+        packet.tail1 = 0xDE;
+        packet.tail2 = 0xAD;
+
+        packet.direction = RS485FromMaster; // направление - от нас ведомым
+        packet.type = RS485SensorDataPacket; // это пакет - запрос на показания с датчиков
+
+        byte* dest = packet.data;
+        // в первом байте - тип датчика для опроса
+        *dest = qi->sensorType;
+        dest++;
+        // во втором байте - индекс датчика, зарегистрированный в системе
+        *dest = qi->sensorIndex;
+
+        // считаем контрольную сумму
+        const byte* b = (const byte*) &packet;
+        packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
+
+
+        #ifdef RS485_DEBUG
+
+        // отладочная информация
+        Serial.print(F("Request data for sensor type="));
+        Serial.print(qi->sensorType);
+        Serial.print(F(" and index="));
+        Serial.println(qi->sensorIndex);
+
+        #endif
+
+        // пакет готов к отправке, отправляем его
+        RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+        waitTransmitComplete(); // ждём окончания посыла
+        // теперь переключаемся на приём
+        enableReceive();
+
+        // поскольку мы сразу же переключились на приём - можем дать поработать критичному ко времени коду
+        yield();
+
+        // и получаем наши байты
+        memset(&packet,0,sizeof(RS485Packet));
+        byte* writePtr = (byte*) &packet;
+        byte bytesReaded = 0; // кол-во прочитанных байт
+        // запоминаем время начала чтения
+        unsigned long startReadingTime = micros();
+        // вычисляем таймаут как время для чтения трёх байт.
+        // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения пяти байт надо вычитать 30 бит.
+        const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*3; // кол-во микросекунд, необходимое для вычитки трёх байт
+
+        // начинаем читать данные
+        while(1)
+        {
+          if( micros() - startReadingTime > readTimeout)
+          {
+            #ifdef RS485_DEBUG
+              Serial.println(F("TIMEOUT REACHED!!!"));
+            #endif
+            
+            break;
+          } // if
+
+          if(RS_485_SERIAL.available())
+          {
+            startReadingTime = micros(); // сбрасываем таймаут
+            *writePtr++ = (byte) RS_485_SERIAL.read();
+            bytesReaded++;
+          } // if available
+
+          if(bytesReaded == sizeof(RS485Packet)) // прочитали весь пакет
+          {
+            #ifdef RS485_DEBUG
+              Serial.println(F("Packet received from slave!"));
+            #endif
+            
+            break;
+          }
+          
+        } // while
+
+        // затем опять переключаемся на передачу
+        enableSend();
+
+        // теперь парсим пакет
+        if(bytesReaded == sizeof(RS485Packet))
+        {
+          // пакет получен полностью, парсим его
+          #ifdef RS485_DEBUG
+            Serial.println(F("Packet from slave received, parse it..."));
+          #endif
+          
+          bool headOk = packet.header1 == 0xAB && packet.header2 == 0xBA;
+          bool tailOk = packet.tail1 == 0xDE && packet.tail2 == 0xAD;
+          if(headOk && tailOk)
+          {
+            #ifdef RS485_DEBUG
+              Serial.println(F("Header and tail ok."));
+            #endif
+            
+            // вычисляем crc
+            byte crc = crc8((const byte*)&packet,sizeof(RS485Packet)-1);
+            if(crc == packet.crc8)
+            {
+              #ifdef RS485_DEBUG
+                Serial.println(F("Checksum ok."));
+              #endif
+              
+              // теперь проверяем, нам ли пакет
+              if(packet.direction == RS485FromSlave && packet.type == RS485SensorDataPacket)
+              {
+                #ifdef RS485_DEBUG
+                  Serial.println(F("Packet type ok"));
+                #endif
+
+                byte* readDataPtr = packet.data;
+                // проверяем - байт типа и байт индекса должны совпадать с посланными в шину
+                byte sType = *readDataPtr++;
+                byte sIndex = *readDataPtr++;
+                
+                if(sType == qi->sensorType && sIndex == qi->sensorIndex)
+                {
+                  #ifdef RS485_DEBUG
+                    Serial.println(F("Reading sensor data..."));
+                  #endif
+
+                  // добавляем наш тип сенсора в систему, если этого ещё не сделано
+                  UniDispatcher.AddUniSensor((UniSensorType)sType,sIndex);
+
+                    // проверяем тип датчика, с которого читали показания
+                    switch(sType)
+                    {
+                      case uniTemp:
+                      {
+                        // температура
+                        // получаем данные температуры
+                        Temperature t;
+                        t.Value = (int8_t) *readDataPtr++;
+                        t.Fract = *readDataPtr;
+
+                        #ifdef RS485_DEBUG
+                          Serial.print(F("Temperature: "));
+                          Serial.println(t);
+                        #endif
+
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State1)
+                          {
+                            #ifdef RS485_DEBUG
+                              Serial.println(F("Update data in controller..."));
+                            #endif
+                            
+                            states.State1->Update(&t);
+                          }
+                        } // if
+                      }
+                      break;
+
+                      case uniHumidity:
+                      {
+                        // влажность
+                        Humidity h;
+                        h.Value = (int8_t) *readDataPtr++;
+                        h.Fract = *readDataPtr;
+
+                        #ifdef RS485_DEBUG
+                          Serial.print(F("Humidity: "));
+                          Serial.println(h);
+                        #endif
+
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State2)
+                          {
+                            #ifdef RS485_DEBUG
+                              Serial.println(F("Update data in controller..."));
+                            #endif
+                            
+                            states.State2->Update(&h);
+                          }
+                        } // if                        
+                      }
+                      break;
+
+                      case uniLuminosity:
+                      {
+                        // освещённость
+                        long lum;
+                        memcpy(&lum,readDataPtr,sizeof(long));
+
+                        #ifdef RS485_DEBUG
+                          Serial.print(F("Luminosity: "));
+                          Serial.println(lum);
+                        #endif
+
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State1)
+                          {
+                            #ifdef RS485_DEBUG
+                              Serial.println(F("Update data in controller..."));
+                            #endif
+                            
+                            states.State1->Update(&lum);
+                          }
+                        } // if                        
+                        
+                        
+                      }
+                      break;
+
+                      case uniSoilMoisture:
+                      {
+                        // влажность почвы
+                        Humidity h;
+                        h.Value = (int8_t) *readDataPtr++;
+                        h.Fract = *readDataPtr;
+
+                        #ifdef RS485_DEBUG
+                          Serial.print(F("Soil moisture: "));
+                          Serial.println(h);
+                        #endif
+
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State1)
+                          {
+                            #ifdef RS485_DEBUG
+                              Serial.println(F("Update data in controller..."));
+                            #endif
+                            
+                            states.State1->Update(&h);
+                          }
+                        } // if                        
+                        
+                      }
+                      break;
+
+                      case uniPH:
+                      {
+                        // показания pH
+                      }
+                      break;
+                      
+                    } // switch
+                }
+                #ifdef RS485_DEBUG
+                else
+                {
+                  Serial.println(F("Received data from unknown sensor :("));
+                }
+                #endif
+              }
+              #ifdef RS485_DEBUG
+              else
+              {
+                Serial.println(F("Wrong packet type :("));
+              }
+              #endif
+            }
+            #ifdef RS485_DEBUG
+            else
+            {
+              Serial.println(F("Bad checksum :("));
+            }
+            #endif
+          }
+          #ifdef RS485_DEBUG
+          else
+          {
+            Serial.println(F("Header or tail of packet is invalid :("));
+          } // else
+          #endif
+        }
+        #ifdef RS485_DEBUG
+        else
+        {
+          Serial.println(F("Received uncompleted packet :("));
+        } // else
+        #endif
+          
+        
+      } // if(queue.size())
+      #ifdef RS485_DEBUG
+      else
+      {
+        Serial.println(F("No queue size :("));
+      }
+      #endif
+        
+      
+    } // if(sensorsTimer > _upd_interval)
+    
+  #endif // USE_UNIVERSAL_SENSORS
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 UniRS485Gate RS485;

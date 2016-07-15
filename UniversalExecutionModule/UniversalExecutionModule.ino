@@ -16,6 +16,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 */
 //----------------------------------------------------------------------------------------------------------------
 #define USE_RS485_GATE // закомментировать, если не нужна работа через RS-485
+#define RS485_SPEED 57600 // скорость работы по RS-485
 //----------------------------------------------------------------------------------------------------------------
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -41,13 +42,13 @@ typedef struct
 //----------------------------------------------------------------------------------------------------------------
 SlotSettings SLOTS[8] = 
 {
-  {13, LOW} // пин 13, встроенный светодиод, начальное состояние LOW
- ,{6, RELAY_OFF} // и т.д. 0 вместо номера пина - нет поддержки привязки канала к пину
- ,{4, RELAY_OFF}
+  {3, RELAY_OFF} // пин 13, встроенный светодиод, начальное состояние LOW
+ ,{4, RELAY_OFF} // и т.д. 0 вместо номера пина - нет поддержки привязки канала к пину
  ,{5, RELAY_OFF}
- ,{13, LOW}
- ,{10, RELAY_OFF}
- ,{11, RELAY_OFF}
+ ,{6, RELAY_OFF}
+ ,{7, RELAY_OFF}
+ ,{8, RELAY_OFF}
+ ,{9, RELAY_OFF}
  ,{12, RELAY_OFF}
   
 };
@@ -250,6 +251,24 @@ void WriteROM()
 //----------------------------------------------------------------------------------------------------------------
 #ifdef USE_RS485_GATE // сказали работать ещё и через RS-485
 //----------------------------------------------------------------------------------------------------------------
+byte calcCrc8 (const byte *addr, byte len)
+{
+  byte crc = 0;
+  while (len--) 
+    {
+    byte inbyte = *addr++;
+    for (byte i = 8; i; i--)
+      {
+      byte mix = (crc ^ inbyte) & 0x01;
+      crc >>= 1;
+      if (mix) 
+        crc ^= 0x8C;
+      inbyte >>= 1;
+      }  // end of for
+    }  // end of while
+  return crc;
+}
+//----------------------------------------------------------------------------------------------------------------
 /*
  Структура пакета, передаваемого по RS-495:
  
@@ -290,6 +309,7 @@ typedef struct
 
   byte tail1;
   byte tail2;
+  byte crc8;
   
 } RS485Packet; // пакет, гоняющийся по RS-485 туда/сюда (20 байт)
 //----------------------------------------------------------------------------------------------------------------
@@ -359,9 +379,17 @@ void ProcessRS485Packet()
       rs485WritePtr = 0;
       return;
     }
-
     // данные мы получили, сразу обнуляем указатель записи, чтобы не забыть
     rs485WritePtr = 0;
+
+    // проверяем контрольную сумму
+    byte crc = calcCrc8((const byte*) rsPacketPtr,sizeof(RS485Packet) - 1);
+    if(crc != rs485Packet.crc8)
+    {
+      // не сошлось, игнорируем
+      return;
+    }
+
 
     // всё в пакете правильно, анализируем и выполняем
     // проверяем, наш ли пакет
@@ -379,7 +407,7 @@ void ProcessRS485Packet()
      {
         UniSlotData* slotData = &(scratchpadS.slots[i]);
 
-        byte slotStatus = 0;
+        byte slotStatus = RELAY_OFF;
         byte slotType = slotData->slotType;
        
         if(slotType == 0 || slotType == 0xFF) // нет привязки
@@ -400,7 +428,7 @@ void ProcessRS485Packet()
                 // умножить на 2.
                 byte bitNum = windowNumber*2;           
                 if(state->WindowsState & (1 << bitNum))
-                  slotStatus = 1; // выставляем в слоте значение 1
+                  slotStatus = RELAY_ON; // выставляем в слоте значение 1
               }
             }
             break;
@@ -421,7 +449,7 @@ void ProcessRS485Packet()
                 bitNum++;
                            
                 if(state->WindowsState & (1 << bitNum))
-                  slotStatus = 1; // выставляем в слоте значение 1
+                  slotStatus = RELAY_ON; // выставляем в слоте значение 1
               }
             }
             break;
@@ -433,7 +461,7 @@ void ProcessRS485Packet()
               if(wateringChannel< 8)
               {
                 if(state->WaterChannelsState & (1 << wateringChannel))
-                  slotStatus = 1; // выставляем в слоте значение 1
+                  slotStatus = RELAY_ON; // выставляем в слоте значение 1
                   
               }
             }        
@@ -446,7 +474,7 @@ void ProcessRS485Packet()
               if(lightChannel < 8)
               {
                 if(state->LightChannelsState & (1 << lightChannel))
-                  slotStatus = 1; // выставляем в слоте значение 1
+                  slotStatus = RELAY_ON; // выставляем в слоте значение 1
                   
               }
             }
@@ -459,12 +487,13 @@ void ProcessRS485Packet()
               byte byteNum = pinNumber/8;
               byte bitNum = pinNumber%8;
 
+              slotStatus = LOW;
      
               if(byteNum < 8)
               {
                 // если нужный бит с номером пина установлен - на пине высокий уровень
                 if(state->PinsState[byteNum] & (1 << bitNum))
-                  slotStatus = 1; // выставляем в слоте значение 1
+                  slotStatus = HIGH; // выставляем в слоте значение 1
               }
               
             }
@@ -484,12 +513,7 @@ void ProcessRS485Packet()
                 
                 if(SLOTS[i].Pin)
                 {
-                  if(slotType == slotPin) // для пина уровень копируем напрямую, для остальных типов - в зависимости от уровня срабатывания реле
-                  {
-                    digitalWrite(SLOTS[i].Pin, slotStatus ? HIGH : LOW);
-                  }
-                  else
-                    digitalWrite(SLOTS[i].Pin, slotStatus ? RELAY_ON : RELAY_OFF);
+                    digitalWrite(SLOTS[i].Pin, slotStatus);
                 }
                 
               } // if(slotStatus != SLOTS[i].State)
@@ -528,7 +552,9 @@ void UpdateSlots1Wire()
     if(slotType > 0 && slotType != 0xFF)
     {
       // на слот назначены настройки, надо обновить состояние связанного пина
-      byte slotStatus =  scratchpadS.slots[i].slotStatus;
+      byte slotStatus =  scratchpadS.slots[i].slotStatus ? RELAY_ON : RELAY_OFF;
+      if(slotType == slotPin)
+        slotStatus = scratchpadS.slots[i].slotStatus ? HIGH : LOW;
       
       if(!(slotStatus == HIGH || slotStatus == LOW)) // записан мусор в статусе слота
         continue;
@@ -540,10 +566,7 @@ void UpdateSlots1Wire()
         
         if(SLOTS[i].Pin)
         {
-          if(slotType == slotPin) // для пина уровень копируем напрямую, для остальных типов - в зависимости от уровня срабатывания реле
-            digitalWrite(SLOTS[i].Pin, slotStatus ? HIGH : LOW);
-          else
-            digitalWrite(SLOTS[i].Pin, slotStatus ? RELAY_ON : RELAY_OFF);
+            digitalWrite(SLOTS[i].Pin, slotStatus);
         }
       }
       
@@ -555,7 +578,7 @@ void UpdateSlots1Wire()
 void setup()
 {
   #ifdef USE_RS485_GATE // если сказано работать через RS-485 - работаем 
-    Serial.begin(57600);
+    Serial.begin(RS485_SPEED);
     InitRS485(); // настраиваем RS-485 на приём
  #endif
    

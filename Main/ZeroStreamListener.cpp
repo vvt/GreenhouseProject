@@ -42,7 +42,10 @@ void ZeroStreamListener::Update(uint16_t dt)
 
   #if UNI_WIRED_MODULES_COUNT > 0
     for(uint8_t i=0;i<UNI_WIRED_MODULES_COUNT;i++)
+    {
       uniWiredModules[i].Update(dt);
+      yield(); // вызываем критически важные операции
+    }
   #endif
   
 #endif // USE_UNIVERSAL_SENSORS
