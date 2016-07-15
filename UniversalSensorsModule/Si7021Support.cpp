@@ -73,7 +73,7 @@ const HumidityAnswer& Si7021::read()
     temp =  (buffer[0]<<8) | buffer[1];
   }
   
-  if(temp != 0 && humidity != 0)
+  if(temp != 0 && humidity != 0 && crcOk)
   {    
     int iTmp = ((125.0*humidity)/65536 - 6)*100;
     

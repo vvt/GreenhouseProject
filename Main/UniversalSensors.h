@@ -388,6 +388,9 @@ class UniRS485Gate // класс для работы универсальных 
     byte crc8(const byte *addr, byte len);
 
   #ifdef USE_UNIVERSAL_SENSORS // если комплимся с поддержкой модулей с датчиками - тогда обрабатываем очередь
+
+    bool isInOnlineQueue(const RS485QueueItem& item);
+    RS485Queue sensorsOnlineQueue; // очередь датчиков, с которых были показания
     RS485Queue queue;
     byte currentQueuePos;
     unsigned long sensorsTimer;

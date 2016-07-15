@@ -19,6 +19,18 @@ UniRS485Gate::UniRS485Gate()
   updateTimer = 0;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_UNIVERSAL_SENSORS
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+bool UniRS485Gate::isInOnlineQueue(const RS485QueueItem& item)
+{
+  for(size_t i=0;i<sensorsOnlineQueue.size();i++)
+    if(sensorsOnlineQueue[i].sensorType == item.sensorType && sensorsOnlineQueue[i].sensorIndex == item.sensorIndex)
+      return true;
+  return false;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_UNIVERSAL_SENSORS
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::enableSend()
 {
   digitalWrite(RS_485_DE_PIN,HIGH); // переводим контроллер RS-485 на передачу
@@ -156,11 +168,88 @@ void UniRS485Gate::Update(uint16_t dt)
         // делать вывод - висит ли модуль с датчиком на линии RS-485, или работает по радиоканалу,
         // или - работает по 1-Wire. Поэтому мы не вправе делать никаких предположений и менять
         // показания датчика на вид <нет данных>, поскольку очерёдность вызовов опроса
-        // универсальных модулей по разным шлюзам не определена. Лучшим вариантом в этой ситуации будет
-        // принудительный сброс показаний со всех датчиков через какой-то промежуток времени,
-        // и точно в начале очередного прохода loop. Или же - возложить обязанность скидывать
-        // показания с датчиков в дефолтные на модули, чтобы они это делали через некоторый промежуток времени.
-        // Думаю, последнее утверждение самое приемлемое.
+        // универсальных модулей по разным шлюзам не определена. 
+        // поэтому мы сбрасываем состояния только тех датчиков, которые хотя бы однажды
+        // откликнулись по шине RS-495.
+
+        if(isInOnlineQueue(*qi))
+        {
+          byte sType = qi->sensorType;
+          byte sIndex = qi->sensorIndex;
+          // датчик был онлайн, сбрасываем его показания в "нет данных" перед опросом
+          UniDispatcher.AddUniSensor((UniSensorType)sType,sIndex);
+
+                    // проверяем тип датчика, которому надо выставить "нет данных"
+                    switch(qi->sensorType)
+                    {
+                      case uniTemp:
+                      {
+                        // температура
+                        Temperature t;
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State1)
+                            states.State1->Update(&t);
+                        } // if
+                      }
+                      break;
+
+                      case uniHumidity:
+                      {
+                        // влажность
+                        Humidity h;
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State2)
+                            states.State2->Update(&h);
+                        } // if                        
+                      }
+                      break;
+
+                      case uniLuminosity:
+                      {
+                        // освещённость
+                        long lum = NO_LUMINOSITY_DATA;
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State1)
+                            states.State1->Update(&lum);
+                        } // if                        
+                        
+                        
+                      }
+                      break;
+
+                      case uniSoilMoisture:
+                      {
+                        // влажность почвы
+                        Humidity h;
+                        // получаем состояния
+                        UniSensorState states;
+                        if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                        {
+                          if(states.State1)
+                            states.State1->Update(&h);
+                        } // if                        
+                        
+                      }
+                      break;
+
+                      case uniPH:
+                      {
+                        // показания pH
+                      }
+                      break;
+                      
+                    } // switch
+          
+        } // if in online queue
         
         
         if(currentQueuePos >= queue.size()) // достигли конца очереди, начинаем сначала
@@ -294,6 +383,10 @@ void UniRS485Gate::Update(uint16_t dt)
 
                   // добавляем наш тип сенсора в систему, если этого ещё не сделано
                   UniDispatcher.AddUniSensor((UniSensorType)sType,sIndex);
+
+                  // добавляем датчик в список онлайн-датчиков
+                  if(!isInOnlineQueue(*qi))
+                    sensorsOnlineQueue.push_back(*qi);
 
                     // проверяем тип датчика, с которого читали показания
                     switch(sType)
@@ -1094,7 +1187,10 @@ void UniPermanentLine::Update(uint16_t dt)
   // теперь обновляем последнего клиента, если он был.
   // говорим ему, чтобы обновился, как будто модуля нет на линии.
   if(lastClient)
+  {
     lastClient->Update(&SHARED_SCRATCHPAD,false, ssOneWire);
+    lastClient = NULL; // сбрасываем клиента, поскольку его может больше не быть на линии
+  }
 
   // теперь пытаемся прочитать скратчпад
   UniScratchpad.begin(pin,&SHARED_SCRATCHPAD);
