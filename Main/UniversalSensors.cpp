@@ -1238,6 +1238,8 @@ UniRegDispatcher::UniRegDispatcher()
   hardCodedLuminosityCount = 0;
   hardCodedSoilMoistureCount = 0;
   hardCodedPHCount = 0;
+
+  rfChannel = UNI_DEFAULT_RF_CHANNEL;
     
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1416,6 +1418,20 @@ void UniRegDispatcher::Setup()
     RestoreState(); // восстанавливаем последнее запомненное состояние
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+uint8_t UniRegDispatcher::GetRFChannel() // возвращает текущий канал для nRF
+{
+  return rfChannel;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRegDispatcher::SetRFChannel(uint8_t channel) // устанавливает канал для nRF
+{
+  if(rfChannel != channel)
+  {
+    rfChannel = channel;
+    SaveState();
+  }
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRegDispatcher::ReadState()
 {
   //Тут читаем последнее запомненное состояние по индексам сенсоров
@@ -1435,6 +1451,10 @@ void UniRegDispatcher::ReadState()
   val = EEPROM.read(addr++);
   if(val != 0xFF)
     currentSoilMoistureCount = val;
+
+  val = EEPROM.read(addr++);
+  if(val != 0xFF)
+    rfChannel = val;
    
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1508,6 +1528,7 @@ void UniRegDispatcher::SaveState()
   EEPROM.write(addr++,currentHumidityCount);
   EEPROM.write(addr++,currentLuminosityCount);
   EEPROM.write(addr++,currentSoilMoistureCount);
+  EEPROM.write(addr++,rfChannel);
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool UniRegDispatcher::GetRegisteredStates(UniSensorType type, uint8_t sensorIndex, UniSensorState& resultStates)
@@ -1747,3 +1768,183 @@ bool UniRegistrationLine::SetScratchpadData(UniRawScratchpad* src)
   return true;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_NRF_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#include "RF24.h"
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+RF24 radio(NRF_CE_PIN,NRF_CSN_PIN);
+uint64_t controllerStatePipe = 0xF0F0F0F0E0LL; // труба, в которую  мы пишем состояние контроллера
+// трубы, которые мы слушаем на предмет показаний с датчиков
+const uint64_t readingPipes[5] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0E2LL, 0xF0F0F0F0E3LL, 0xF0F0F0F0E4LL, 0xF0F0F0F0E5LL };
+#define PAYLOAD_SIZE 30 // размер нашего пакета
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef NRF_DEBUG
+int serial_putc( char c, FILE * ) {
+  Serial.write( c );
+  return c;
+}
+
+void printf_begin(void) {
+  fdevopen( &serial_putc, 0 );
+  Serial.println(F("Init nRF..."));
+}
+#endif // NRF_DEBUG
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+UniNRFGate::UniNRFGate()
+{
+  bFirstCall = true;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniNRFGate::Setup()
+{
+  initNRF();
+  memset(&packet,0,sizeof(packet));
+  ControllerState st = WORK_STATUS.GetState();
+  // копируем состояние контроллера к нам
+  memcpy(&(packet.state),&st,sizeof(ControllerState));
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniNRFGate::readFromPipes()
+{
+  // открываем все пять труб на прослушку
+  for(byte i=0;i<5;i++)
+    radio.openReadingPipe(i+1,readingPipes[i]);  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniNRFGate::Update(uint16_t dt)
+{
+
+  static uint16_t controllerStateTimer = 0;
+  controllerStateTimer += dt;
+
+  // чтобы часто не проверять состояние контроллера
+  if(controllerStateTimer > 500)
+  {
+    controllerStateTimer = 0;
+    
+      // получаем текущее состояние контроллера
+      ControllerState st = WORK_STATUS.GetState();
+      if(bFirstCall || memcmp(&st,&(packet.state),sizeof(ControllerState)))
+      {
+        bFirstCall = false;
+        // состояние контроллера изменилось, посылаем его в эфир
+         memcpy(&(packet.state),&st,sizeof(ControllerState));
+         packet.controller_id = UniDispatcher.GetControllerID();
+         packet.crc8 = OneWire::crc8((const byte*) &packet,sizeof(packet)-1);
+    
+         #ifdef NRF_DEBUG
+         Serial.println(F("Controller state changed, send it..."));
+         #endif // NRF_DEBUG
+      
+        // останавливаем прослушку
+        radio.stopListening();
+    
+        // пишем наш скратч в эфир
+        radio.write(&packet,PAYLOAD_SIZE);
+    
+        // включаем прослушку
+        radio.startListening();
+    
+        #ifdef NRF_DEBUG
+        Serial.println(F("Controller state sent."));
+        #endif // NRF_DEBUG
+            
+      } // if
+      
+  } // if(controllerStateTimer > 500
+
+  // тут читаем данные из труб
+  uint8_t pipe_num = 0; // из какой трубы пришло
+  if(radio.available(&pipe_num))
+  {
+     static UniRawScratchpad nrfScratch;
+     // читаем скратч
+     radio.read(&nrfScratch,PAYLOAD_SIZE);
+
+     #ifdef NRF_DEBUG
+      Serial.println(F("Received the scratch via radio..."));
+     #endif
+
+     byte checksum = OneWire::crc8((const byte*)&nrfScratch,sizeof(UniRawScratchpad)-1);
+     if(checksum == nrfScratch.crc8)
+     {
+      #ifdef NRF_DEBUG
+      Serial.println(F("Checksum OK"));
+     #endif
+
+      // проверяем, наш ли пакет
+      if(nrfScratch.head.controller_id == UniDispatcher.GetControllerID())
+      {
+      #ifdef NRF_DEBUG
+      Serial.println(F("Packet for us :)"));
+      #endif  
+          // наш пакет, продолжаем
+          AbstractUniClient* client = UniFactory.GetClient(&nrfScratch);
+          client->Register(&nrfScratch);
+          client->Update(&nrfScratch,true,ssRadio);
+
+      #ifdef NRF_DEBUG
+      Serial.println(F("Controller data updated."));
+      #endif  
+
+      }
+      #ifdef NRF_DEBUG
+      else
+        Serial.println(F("Unknown controller"));
+      #endif       
+       
+      
+     } // checksum
+      #ifdef NRF_DEBUG
+      else
+      Serial.println(F("Checksum FAIL"));
+     #endif
+    
+    
+  } // available
+  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniNRFGate::SetChannel(byte channel)
+{
+  radio.stopListening();
+  radio.setChannel(channel);
+  radio.startListening();
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniNRFGate::initNRF()
+{
+  #ifdef NRF_DEBUG
+  printf_begin();
+  #endif
+  
+  // инициализируем nRF
+  radio.begin();
+
+  delay(200); // чуть-чуть подождём
+
+  radio.setDataRate(RF24_1MBPS);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(UniDispatcher.GetRFChannel());
+  radio.setRetries(15,15);
+  radio.setPayloadSize(PAYLOAD_SIZE); // у нас 30 байт на пакет
+  radio.setCRCLength(RF24_CRC_16);
+  radio.setAutoAck(true);
+
+  // открываем трубу, в которую будем писать состояние контроллера
+  radio.openWritingPipe(controllerStatePipe);
+
+  // открываем все пять труб на прослушку
+  readFromPipes();
+
+  radio.startListening(); // начинаем слушать
+  
+  #ifdef NRF_DEBUG
+    radio.printDetails();
+  #endif  
+
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_NRF_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+

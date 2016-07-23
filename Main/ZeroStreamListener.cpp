@@ -19,6 +19,10 @@
 
 #endif // USE_UNIVERSAL_SENSORS
 
+#ifdef USE_NRF_GATE
+  UniNRFGate nrfGate;
+#endif
+
 void(* resetFunc) (void) = 0;
 
 void ZeroStreamListener::Setup()
@@ -32,6 +36,10 @@ void ZeroStreamListener::Setup()
   #ifdef USE_RS485_GATE
     RS485.Setup();
   #endif
+
+#ifdef USE_NRF_GATE
+  nrfGate.Setup();
+#endif  
   
  }
 
@@ -73,6 +81,10 @@ void ZeroStreamListener::Update(uint16_t dt)
   #ifdef USE_RS485_GATE
     RS485.Update(dt);
   #endif  
+
+#ifdef USE_NRF_GATE
+  nrfGate.Update(dt);
+#endif    
 
 }
 
@@ -162,6 +174,15 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = PONG;
           PublishSingleton.AddModuleIDToAnswer = false;
         } // if
+        else
+        if(t == UNI_RF_CHANNEL_COMMAND)
+        {
+          PublishSingleton.Status = true;
+          PublishSingleton = UNI_RF_CHANNEL_COMMAND;
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << UniDispatcher.GetRFChannel();
+          PublishSingleton.AddModuleIDToAnswer = false;          
+        }
         #if defined(USE_UNIVERSAL_SENSORS) && defined(UNI_USE_REGISTRATION_LINE)
         else
         if(t == UNI_SEARCH) // поиск универсального модуля на линии регистрации
@@ -442,6 +463,21 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = SMS_NUMBER_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
           
+       }
+       else
+       if(t == UNI_RF_CHANNEL_COMMAND)
+       {
+          byte ch = atoi(command.GetArg(1));
+          UniDispatcher.SetRFChannel(ch);
+
+          #ifdef USE_NRF_GATE
+            nrfGate.SetChannel(ch);
+          #endif
+          
+          PublishSingleton.Status = true;
+          PublishSingleton = UNI_RF_CHANNEL_COMMAND; 
+          PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+        
        }
         #if defined(USE_UNIVERSAL_SENSORS) && defined(UNI_USE_REGISTRATION_LINE)
         else
