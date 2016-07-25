@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/power.h>
 #include <OneWire.h>
 #include "BH1750.h"
 #include "UniGlobals.h"
@@ -408,6 +409,8 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
   }
 }
 //----------------------------------------------------------------------------------------------------------------
+void* SensorDefinedData[3] = {NULL}; // данные, определённые датчиками при инициализации
+//----------------------------------------------------------------------------------------------------------------
 void* InitSensor(const SensorSettings& sett)
 {
   switch(sett.Type)
@@ -470,6 +473,58 @@ void ReadROM()
 
 }
 //----------------------------------------------------------------------------------------------------------------
+void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
+{
+  // просыпаем сенсоры
+  switch(sett.Type)
+  {
+    case mstNone:
+      break;
+    
+    case mstDS18B20:
+    {
+      //TODO: тут просыпание для линий DS18B20
+    }
+    break;
+      
+    case mstBH1750:
+    {
+      BH1750Support* bh = (BH1750Support*) sensorDefinedData;
+      bh->begin((BH1750Address)sett.Pin);
+    }
+    break;
+
+    case mstSi7021:
+    {
+      Si7021* si = (Si7021*) sensorDefinedData;
+      si->begin();
+    }
+    break;
+  }    
+}
+//----------------------------------------------------------------------------------------------------------------
+void WakeUpSensors() // будим все датчики
+{
+ if(HasI2CSensors())
+  PowerUpI2C(); // поднимаем I2C
+
+  //TODO: Включение линии DS18B20 после сна тут!
+ 
+   // будим датчики
+    WakeUpSensor(Sensors[0],SensorDefinedData[0]);
+    WakeUpSensor(Sensors[1],SensorDefinedData[1]);
+    WakeUpSensor(Sensors[2],SensorDefinedData[2]);
+   
+}
+//----------------------------------------------------------------------------------------------------------------
+void PowerDownSensors()
+{
+   PowerDownI2C(); // глушим шину I2C
+
+   //TODO: Тут глушим шину DS18B20!!!
+      
+}
+//----------------------------------------------------------------------------------------------------------------
 void* InitSi7021(const SensorSettings& sett) // инициализируем датчик влажности Si7021
 {
   UNUSED(sett);
@@ -515,8 +570,6 @@ void* InitDS18B20(const SensorSettings& sett) // инициализируем д
    return NULL;
     
 }
-//----------------------------------------------------------------------------------------------------------------
-void* SensorDefinedData[3] = {NULL}; // данные, определённые датчиками при инициализации
 //----------------------------------------------------------------------------------------------------------------
 void InitSensors()
 {
@@ -617,9 +670,11 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
 void ReadSensors()
 {
   // читаем информацию с датчиков
+    
   ReadSensor(Sensors[0],SensorDefinedData[0],&scratchpadS.sensor1);
   ReadSensor(Sensors[1],SensorDefinedData[1],&scratchpadS.sensor2);
   ReadSensor(Sensors[2],SensorDefinedData[2],&scratchpadS.sensor3);
+
 }
 //----------------------------------------------------------------------------------------------------------------
 void MeasureDS18B20(const SensorSettings& sett)
@@ -637,6 +692,34 @@ void MeasureDS18B20(const SensorSettings& sett)
     
     ow.reset();    
   
+}
+//----------------------------------------------------------------------------------------------------------------
+bool HasI2CSensors()
+{
+  // проверяем, есть ли у нас хоть один датчик на I2C
+  for(byte i=0;i<3;i++)
+  {
+    switch(Sensors[i].Type)
+    {
+      case mstBH1750:
+      case mstSi7021:
+        return true;
+    }
+    
+  } // for
+  return false;
+}
+//----------------------------------------------------------------------------------------------------------------
+void PowerUpI2C()
+{
+  power_twi_enable();
+  //TODO: включение питания для датчиков I2C тут!  
+}
+//----------------------------------------------------------------------------------------------------------------
+void PowerDownI2C()
+{
+  power_twi_disable();
+  //TODO: выключение питания с датчиков I2C тут!  
 }
 //----------------------------------------------------------------------------------------------------------------
 void MeasureSensor(const SensorSettings& sett) // запускаем конвертацию с датчика, если надо
@@ -660,6 +743,8 @@ void MeasureSensor(const SensorSettings& sett) // запускаем конве�
 //----------------------------------------------------------------------------------------------------------------
 void StartMeasure()
 {
+ WakeUpSensors(); // будим все датчики
+  
   // запускаем конвертацию
   MeasureSensor(Sensors[0]);
   MeasureSensor(Sensors[1]);
@@ -779,8 +864,11 @@ void setup()
   
     ReadROM();
 
-    InitSensors(); // инициализируе датчики
-    StartMeasure(); // запускаем конвертацию с датчиков при старте
+    InitSensors(); // инициализируем датчики
+    
+   PowerDownSensors(); // и выключаем их нафик при старте
+    
+    //TODO: Тут глушение линий DS18B20 !!!
 
     #ifdef USE_NRF
       initNRF();
@@ -928,6 +1016,9 @@ void loop()
      measureTimerEnabled = false;
      // можно читать информацию с датчиков
      ReadSensors();
+
+     // теперь усыпляем все датчики
+     PowerDownSensors();
 
      // прочитали, отправляем
      #ifdef USE_NRF
