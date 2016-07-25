@@ -86,7 +86,7 @@ void UniRS485Gate::Update(uint16_t dt)
   // посылаем в шину данные для исполнительных модулей
   
     updateTimer += dt;
-    if(updateTimer > 1000)
+    if(updateTimer > RS495_STATE_PUSH_FREQUENCY)
     {
       updateTimer = 0;
 
@@ -146,10 +146,8 @@ void UniRS485Gate::Update(uint16_t dt)
    } // if
   
 
-    const int _upd_interval = 500; // интервал обновления
-  
     sensorsTimer += dt;
-    if(sensorsTimer > _upd_interval)
+    if(sensorsTimer > RS485_ONE_SENSOR_UPDATE_INTERVAL)
     {
       sensorsTimer = 0;
 
@@ -303,7 +301,7 @@ void UniRS485Gate::Update(uint16_t dt)
         // запоминаем время начала чтения
         unsigned long startReadingTime = micros();
         // вычисляем таймаут как время для чтения трёх байт.
-        // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения пяти байт надо вычитать 30 бит.
+        // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения трёх байт надо вычитать 30 бит.
         const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*3; // кол-во микросекунд, необходимое для вычитки трёх байт
 
         // начинаем читать данные
@@ -1818,7 +1816,7 @@ void UniNRFGate::Update(uint16_t dt)
   controllerStateTimer += dt;
 
   // чтобы часто не проверять состояние контроллера
-  if(controllerStateTimer > 500)
+  if(controllerStateTimer > NRF_CONTROLLER_STATE_CHECK_FREQUENCY)
   {
     controllerStateTimer = 0;
     
@@ -1851,7 +1849,7 @@ void UniNRFGate::Update(uint16_t dt)
             
       } // if
       
-  } // if(controllerStateTimer > 500
+  } // if(controllerStateTimer > NRF_CONTROLLER_STATE_CHECK_FREQUENCY
 
   // тут читаем данные из труб
   uint8_t pipe_num = 0; // из какой трубы пришло
