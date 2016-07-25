@@ -707,6 +707,8 @@ void initNRF()
   radio.setCRCLength(RF24_CRC_16);
   radio.setAutoAck(true);
 
+  radio.powerDown(); // входим в режим энергосбережения
+
   // открываем трубу состояния контроллера на прослушку
   //radio.openReadingPipe(1,controllerStatePipe);
   //radio.startListening(); // начинаем слушать
@@ -723,6 +725,8 @@ void sendDataViaNRF()
   //  Serial.println(F("Transiever disabled."));
     return;
   }
+
+  radio.powerUp(); // просыпаемся
   
  // Serial.println(F("Send sensors data via nRF..."));
   // посылаем данные через nRF
@@ -736,6 +740,8 @@ void sendDataViaNRF()
   //  radio.startListening(); // начинаем прослушку эфира опять  
 
  // Serial.println(F("Sensors data sent."));
+
+ radio.powerDown(); // входим в режим энергосбережения
 
 }
 //----------------------------------------------------------------------------------------------------------------
