@@ -37,8 +37,8 @@
 Выкладываемая прошивка - это слепок того, что я делаю на текущий момент. Поэтому её настройки по умолчанию могут сильно разниться с теми,
 которые нужны вам. Примерная конфигурация, которая собрана у меня на макетке на текущий момент:
 
-<details style='cursor:pointer;margin-bottom:10px;'> 
-  <summary style='cursor:pointer;margin-bottom:10px;'>Кликните, чтобы посмотреть</summary>
+<details> 
+  <summary>Кликните, чтобы посмотреть...<br/><br/></summary>
 
   * `USE_UNIVERSAL_SENSORS` - модуль поддержки универсальных модулей (в разработке, подключен эмулятор на Uno);
   * `USE_UNI_NEXTION_MODULE` - модуль поддержки дисплея Nextion по шине 1-Wire;
@@ -74,7 +74,7 @@
 # Скриншоты конфигуратора
 
 <details> 
-  <summary style='cursor:pointer;margin-bottom:10px;'>Кликните, чтобы посмотреть</summary>
+  <summary>Кликните, чтобы посмотреть...<br/><br/></summary>
   
 <img src="screen1.png" hspace='10'/>
 <img src="screen2.png" hspace='10'/>
