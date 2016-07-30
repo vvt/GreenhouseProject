@@ -144,12 +144,12 @@ TempSensors tempSensors;
  SMSModule smsModule;
  String smsReceiveBuff;
  
-void NEOWAY_EVENT_FUNC()
+void GSM_EVENT_FUNC()
 {
   char ch;
-  while(NEOWAY_SERIAL.available())
+  while(GSM_SERIAL.available())
   {
-    ch = NEOWAY_SERIAL.read();
+    ch = GSM_SERIAL.read();
 
     if(ch == '\r')
       continue;
@@ -493,7 +493,7 @@ void ModuleUpdateProcessed(AbstractModule* module)
 
    #ifdef USE_SMS_MODULE
    // и модуль GSM тоже тут обновим
-   NEOWAY_EVENT_FUNC();
+   GSM_EVENT_FUNC();
    #endif     
 }
 void loop() 
@@ -562,7 +562,7 @@ void yield()
 
    #ifdef USE_SMS_MODULE
    // и модуль GSM тоже тут обновим
-   NEOWAY_EVENT_FUNC();
+   GSM_EVENT_FUNC();
    #endif 
 
    #ifdef USE_LCD_MODULE

@@ -2,11 +2,13 @@
 #include "ModuleController.h"
 #include "PDUClasses.h"
 #include "InteropStream.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------
 // функция хэширования строки
+//--------------------------------------------------------------------------------------------------------------------------------
 #define A_PRIME 54059 /* a prime */
 #define B_PRIME 76963 /* another prime */
 #define C_PRIME 86969 /* yet another prime */
+//--------------------------------------------------------------------------------------------------------------------------------
 unsigned int hash_str(const char* s)
 {
    unsigned int h = 31 /* also prime */;
@@ -16,6 +18,7 @@ unsigned int hash_str(const char* s)
    }
    return h; // or return h % C;
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 bool SMSModule::IsKnownAnswer(const String& line, bool& okFound)
 {
   okFound = false;
@@ -27,22 +30,20 @@ bool SMSModule::IsKnownAnswer(const String& line, bool& okFound)
   }
   return ( line.indexOf(F("ERROR")) != -1 );
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Setup()
 {
   Settings = MainController->GetSettings();
-
-  // будем смотреть этот пин на предмет наличия питания у модуля NEOWAY
-  pinMode(NEOWAY_VCCIO_CHECK_PIN,INPUT);
   
   // запускаем наш сериал
-  NEOWAY_SERIAL.begin(NEOWAY_BAUDRATE);
+  GSM_SERIAL.begin(GSM_BAUDRATE);
 
  
   InitQueue(); // инициализируем очередь
    
   // настройка модуля тут
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::InitQueue()
 {
   while(actionsQueue.size() > 0) // чистим очередь 
@@ -65,15 +66,30 @@ void SMSModule::InitQueue()
   actionsQueue.push_back(smaCheckReady); // проверка готовности
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessAnswerLine(const String& line)
 {
   // получаем ответ на команду, посланную модулю
   if(!line.length()) // пустая строка, нечего её разбирать
     return;
 
-  #ifdef NEOWAY_DEBUG_MODE
-    Serial.print(F("<== Receive \"")); Serial.print(line); Serial.println(F("\" answer from NEOWAY..."));
+  #ifdef GSM_DEBUG_MODE
+    Serial.print(F("<== Receive \"")); Serial.print(line); Serial.println(F("\" answer from modem..."));
   #endif
+
+  // проверяем, не перезагрузился ли модем
+  if(line.indexOf(F("PBREADY")) != -1 || line.indexOf(F("SMS ready")) != -1)
+  {
+    #ifdef GSM_DEBUG_MODE
+      Serial.println(F("Modem boot found, init queue.."));
+    #endif
+
+    InitQueue(); // инициализировали очередь по новой, т.к. модем либо только загрузился, либо - перезагрузился
+    needToWaitTimer = 2000; // дадим модему ещё 2 секунды на раздупливание
+
+    return;
+  }
+
 
   bool okFound = false;
 
@@ -84,16 +100,16 @@ void SMSModule::ProcessAnswerLine(const String& line)
       // ждём ответа "+CPAS: 0" от модуля
           if(line == F("+CPAS: 0")) // получили
           {
-            #ifdef NEOWAY_DEBUG_MODE
-              Serial.println(F("[OK] => Neoway ready."));
+            #ifdef GSM_DEBUG_MODE
+              Serial.println(F("[OK] => Modem ready."));
            #endif
            actionsQueue.pop(); // убираем последнюю обработанную команду
            currentAction = smaIdle;
           }
           else
           {
-           #ifdef NEOWAY_DEBUG_MODE
-              Serial.println(F("[ERR] => Neoway NOT ready, try again later..."));
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("[ERR] => Modem NOT ready, try again later..."));
            #endif
              needToWaitTimer = 2000; // повторим через 2 секунды
           }
@@ -104,7 +120,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
     {
       if(IsKnownAnswer(line,okFound))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("[OK] => ECHO OFF processed."));
         #endif
        actionsQueue.pop(); // убираем последнюю обработанную команду     
@@ -117,7 +133,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
     {
       if(IsKnownAnswer(line,okFound))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("[OK] => Broadcast SMS disabled."));
         #endif
        actionsQueue.pop(); // убираем последнюю обработанную команду     
@@ -133,7 +149,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         if(okFound)
         {
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.println(F("[OK] => AON is ON."));
           #endif
         }
@@ -159,7 +175,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         if(okFound)
         {
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.println(F("[OK] => PDU format is set."));
           #endif
          actionsQueue.pop(); // убираем последнюю обработанную команду     
@@ -183,7 +199,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         if(okFound)
         {
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.println(F("[OK] => UCS2 encoding is set."));
           #endif
          actionsQueue.pop(); // убираем последнюю обработанную команду     
@@ -208,7 +224,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         if(okFound)
         {
-            #ifdef NEOWAY_DEBUG_MODE
+            #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => SMS settings is set."));
             #endif
            actionsQueue.pop(); // убираем последнюю обработанную команду     
@@ -231,8 +247,8 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         // зарегистрированы в GSM-сети
            isModuleRegistered = true;
-            #ifdef NEOWAY_DEBUG_MODE
-              Serial.println(F("[OK] => NEOWAY registered in GSM!"));
+            #ifdef GSM_DEBUG_MODE
+              Serial.println(F("[OK] => Modem registered in GSM!"));
             #endif
            actionsQueue.pop(); // убираем последнюю обработанную команду     
            currentAction = smaIdle;
@@ -241,7 +257,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         // ещё не зарегистрированы
           isModuleRegistered = false;
-          needToWaitTimer = 4500; // через некоторое время
+          needToWaitTimer = 4567; // через некоторое время повторим команду
           currentAction = smaIdle;
       } // else
     }
@@ -251,7 +267,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
     {
       if(IsKnownAnswer(line,okFound))
       {
-             #ifdef NEOWAY_DEBUG_MODE
+             #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => Hang up DONE."));
             #endif
        
@@ -264,7 +280,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
 
     case smaStartSendSMS: // начинаем посылать SMS
     {
-            #ifdef NEOWAY_DEBUG_MODE
+            #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => Welcome received, continue sending..."));
             #endif
 
@@ -279,7 +295,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
     {
       if(IsKnownAnswer(line,okFound))
       {
-            #ifdef NEOWAY_DEBUG_MODE
+            #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => SMS sent."));
             #endif
       
@@ -294,7 +310,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
     {
       if(IsKnownAnswer(line,okFound))
       {
-            #ifdef NEOWAY_DEBUG_MODE
+            #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => saved SMS cleared."));
             #endif
       
@@ -327,9 +343,10 @@ void SMSModule::ProcessAnswerLine(const String& line)
   } // switch  
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessIncomingSMS(const String& line) // обрабатываем входящее SMS
 {
-  #ifdef NEOWAY_DEBUG_MODE
+  #ifdef GSM_DEBUG_MODE
   Serial.print(F("SMS RECEIVED: ")); Serial.println(line);
   #endif
 
@@ -339,21 +356,8 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
   PDUIncomingMessage message = PDU.Decode(line, Settings->GetSmsPhoneNumber());
   if(message.IsDecodingSucceed) // сообщение пришло с нужного номера
   {
-    /*
-    #ifdef NEOWAY_DEBUG_MODE
-      Serial.println(F("Message decoded, check phone number..."));
-    #endif
-
-    if(message.SenderNumber != Settings->GetSmsPhoneNumber()) // с неизвестного номера пришло СМС
-    {
-     #ifdef NEOWAY_DEBUG_MODE
-      Serial.print(F("Message received from unknown number: ")); Serial.print(message.SenderNumber); Serial.println(F(", skip it..."));
-    #endif
-     return;
-    }
-  */
   
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Phone number is OK, continue..."));
     #endif
 
@@ -361,7 +365,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     int16_t idx = message.Message.indexOf(SMS_OPEN_COMMAND); // открыть окна
     if(idx != -1)
     {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("WINDOWS->OPEN command found, execute it..."));
     #endif
 
@@ -374,7 +378,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     idx = message.Message.indexOf(SMS_CLOSE_COMMAND); // закрыть окна
     if(idx != -1)
     {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("WINDOWS->CLOSE command found, execute it..."));
     #endif
 
@@ -387,14 +391,14 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     idx = message.Message.indexOf(SMS_AUTOMODE_COMMAND); // перейти в автоматический режим работы
     if(idx != -1)
     {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Automatic mode command found, execute it..."));
     #endif
 
       // переводим управление окнами в автоматический режим работы
       if(ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false,false))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTSET=STATE|MODE|AUTO command parsed, process it..."));
         #endif
     
@@ -403,7 +407,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
       // переводим управление поливом в автоматический режим работы
       if(ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false,false))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTSET=WATER|MODE|AUTO command parsed, process it..."));
         #endif
     
@@ -412,7 +416,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
       // переводим управление досветкой в актоматический режим работы    
       if(ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false,false))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTSET=LIGHT|MODE|AUTO command parsed, process it..."));
         #endif
     
@@ -424,14 +428,14 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     idx = message.Message.indexOf(SMS_WATER_ON_COMMAND); // включить полив
     if(idx != -1)
     {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Water ON command found, execute it..."));
     #endif
 
     // включаем полив
       if(ModuleInterop.QueryCommand(ctSET, F("WATER|ON"),false,false))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTSET=WATER|ON command parsed, process it..."));
         #endif
     
@@ -442,14 +446,14 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     idx = message.Message.indexOf(SMS_WATER_OFF_COMMAND); // выключить полив
     if(idx != -1)
     {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Water OFF command found, execute it..."));
     #endif
 
     // выключаем полив
       if(ModuleInterop.QueryCommand(ctSET, F("WATER|OFF"),false,false))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTSET=WATER|OFF command parsed, process it..."));
         #endif
     
@@ -462,7 +466,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     idx = message.Message.indexOf(SMS_STAT_COMMAND); // послать статистику
     if(idx != -1)
     {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("STAT command found, execute it..."));
     #endif
 
@@ -481,7 +485,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
           unsigned int hash = hash_str(message.Message.c_str());
          
 
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.print(F("passed message = "));
             Serial.println(message.Message);
             Serial.print(F("computed hash = "));
@@ -497,7 +501,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
           if(smsFile)
           {
       
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.println(F("SMS file found, continue..."));
           #endif            
             // нашли такой файл, будем читать с него данные
@@ -534,7 +538,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
             // закрываем файл
             smsFile.close();
 
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.print(F("command to execute = "));
             Serial.println(commandToExecute);
           #endif  
@@ -543,7 +547,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
             Command cmd;
             if(cParser->ParseCommand(commandToExecute,cmd))
             {
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
             Serial.println(F("Command parsed, execute it..."));
           #endif                
               // команду разобрали, можно исполнять
@@ -561,7 +565,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     
             return; // возвращаемся, т.к. мы сами пошлём СМС с текстом, отличным от ОК
           } // if(smsFile)
-          #ifdef NEOWAY_DEBUG_MODE
+          #ifdef GSM_DEBUG_MODE
           else
           {
             Serial.println(F("SMS file NOT FOUND, skip the SMS."));
@@ -575,7 +579,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
   }
   else
   {
-  #ifdef NEOWAY_DEBUG_MODE
+  #ifdef GSM_DEBUG_MODE
     Serial.println(F("Message decoding error or message received from unknown number!"));
   #endif
   }
@@ -586,11 +590,13 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
 
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 size_t SMSModule::write(uint8_t toWr)
 {
  customSMSCommandAnswer += (char) toWr;
  return 1; 
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessIncomingCall(const String& line) // обрабатываем входящий звонок
 {
   // приходит строка вида
@@ -606,14 +612,14 @@ void SMSModule::ProcessIncomingCall(const String& line) // обрабатыва�
     if(ring.length() && ring[0] != '+')
       ring = String(F("+")) + ring;
       
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
           Serial.print(F("RING DETECTED: ")); Serial.println(ring);
       #endif
 
  
   if(ring != Settings->GetSmsPhoneNumber()) // не наш номер
   {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.print(F("UNKNOWN NUMBER: ")); Serial.print(ring); Serial.println(F("!"));
     #endif
 
@@ -631,20 +637,22 @@ void SMSModule::ProcessIncomingCall(const String& line) // обрабатыва�
  
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::SendCommand(const String& command, bool addNewLine)
 {
-  #ifdef NEOWAY_DEBUG_MODE
-    Serial.print(F("==> Send the \"")); Serial.print(command); Serial.println(F("\" command to NEOWAY..."));
+  #ifdef GSM_DEBUG_MODE
+    Serial.print(F("==> Send the \"")); Serial.print(command); Serial.println(F("\" command to modem..."));
   #endif
 
-  NEOWAY_SERIAL.write(command.c_str(),command.length());
+  GSM_SERIAL.write(command.c_str(),command.length());
   
   if(addNewLine)
   {
-    NEOWAY_SERIAL.write(String(NEWLINE).c_str());
+    GSM_SERIAL.write(String(NEWLINE).c_str());
   }
       
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessQueue()
 {
   if(currentAction != smaIdle) // чем-то заняты, не можем ничего делать
@@ -662,8 +670,8 @@ void SMSModule::ProcessQueue()
       case smaCheckReady:
       {
         // надо проверить модуль на готовность
-      #ifdef NEOWAY_DEBUG_MODE
-        Serial.println(F("Check for NEOWAY READY..."));
+      #ifdef GSM_DEBUG_MODE
+        Serial.println(F("Check for modem READY..."));
       #endif
       SendCommand(F("AT+CPAS"));
       //SendCommand(F("AT+IPR=57600"));
@@ -673,7 +681,7 @@ void SMSModule::ProcessQueue()
       case smaEchoOff:
       {
         // выключаем эхо
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Disable echo..."));
       #endif
       SendCommand(F("ATE0"));
@@ -683,7 +691,7 @@ void SMSModule::ProcessQueue()
       case smaDisableCellBroadcastMessages:
       {
         // выключаем эхо
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Disable cell broadcast SMS..."));
       #endif
       SendCommand(F("AT+CSCB=0"));
@@ -693,7 +701,7 @@ void SMSModule::ProcessQueue()
       case smaAON:
       {
         // включаем АОН
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Turn AON ON..."));
       #endif
       SendCommand(F("AT+CLIP=1"));
@@ -703,7 +711,7 @@ void SMSModule::ProcessQueue()
       case smaPDUEncoding: // устанавливаем формат сообщений
       {
 
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Set PDU format..."));
       #endif
       
@@ -716,7 +724,7 @@ void SMSModule::ProcessQueue()
       case smaUCS2Encoding: // устанавливаем кодировку сообщений
       {
 
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Set UCS2 format..."));
       #endif
       
@@ -727,7 +735,7 @@ void SMSModule::ProcessQueue()
 
       case smaSMSSettings: // устанавливаем режим отображения SMS
       {
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Set SMS output mode..."));
       #endif
       SendCommand(F("AT+CNMI=2,2"));
@@ -737,7 +745,7 @@ void SMSModule::ProcessQueue()
 
       case smaWaitReg: // ждём регистрации модуля в сети
       {
-     #ifdef NEOWAY_DEBUG_MODE
+     #ifdef GSM_DEBUG_MODE
         Serial.println(F("Check registration status..."));
       #endif
       SendCommand(F("AT+CREG?"));
@@ -747,7 +755,7 @@ void SMSModule::ProcessQueue()
 
       case smaHangUp: // кладём трубку
       {
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Hang up..."));
       #endif
       SendCommand(F("ATH"));
@@ -757,7 +765,7 @@ void SMSModule::ProcessQueue()
 
       case smaStartSendSMS: // начало отсылки SMS
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
         Serial.println(F("Start SMS sending..."));
         #endif
         
@@ -770,12 +778,12 @@ void SMSModule::ProcessQueue()
 
       case smaSmsActualSend: // отсылаем данные SMS
       {
-      #ifdef NEOWAY_DEBUG_MODE
+      #ifdef GSM_DEBUG_MODE
         Serial.println(F("Start sending SMS data..."));
       #endif
       
         SendCommand(smsToSend,false);
-        NEOWAY_SERIAL.write(0x1A); // посылаем символ окончания посыла
+        GSM_SERIAL.write(0x1A); // посылаем символ окончания посыла
         smsToSend = "";
         
         
@@ -784,7 +792,7 @@ void SMSModule::ProcessQueue()
 
       case smaClearAllSMS: // надо очистить все SMS
       {
-       #ifdef NEOWAY_DEBUG_MODE
+       #ifdef GSM_DEBUG_MODE
         Serial.println(F("SMS clearance..."));
       #endif
       SendCommand(F("AT+CMGD=0,4"));
@@ -801,6 +809,7 @@ void SMSModule::ProcessQueue()
       
     } // switch
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Update(uint16_t dt)
 { 
   if(needToWaitTimer > 0) // надо ждать следующей команды
@@ -810,24 +819,12 @@ void SMSModule::Update(uint16_t dt)
   }
 
   needToWaitTimer = 0; // сбрасываем таймер ожидания
-
-  // проверяем питание на модуле
-  if(digitalRead(NEOWAY_VCCIO_CHECK_PIN) != HIGH)
-  {
-    #ifdef NEOWAY_DEBUG_MODE
-      Serial.println(F("NEOWAY NOT FOUND!"));
-    #endif
-
-    InitQueue(); // инициализировали очередь по новой, т.к. у модуля отвалилось питание
-    needToWaitTimer = 10000; // проверим ещё раз через десять секунд
-
-    return;
-  }
   
   ProcessQueue();
   ProcessQueuedWindowCommand(dt);
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
 {
     if(!queuedWindowCommand.length()) // а нет команды на управление окнами
@@ -844,7 +841,7 @@ void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
 
        if(ModuleInterop.QueryCommand(ctGET,F("STATE|WINDOW|ALL"),false))
       {
-        #ifdef NEOWAY_DEBUG_MODE
+        #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTGET=STATE|WINDOW|ALL command parsed, process it..."));
         #endif
     
@@ -876,15 +873,16 @@ void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
       } // if(cParser->ParseCommand(F("CTGET=STATE|WINDOW|ALL")
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::SendStatToCaller(const String& phoneNum)
 {
-  #ifdef NEOWAY_DEBUG_MODE
+  #ifdef GSM_DEBUG_MODE
     Serial.println("Try to send stat SMS to " + phoneNum + "...");
   #endif
 
   if(phoneNum != Settings->GetSmsPhoneNumber()) // не наш номер
   {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println("NOT RIGHT NUMBER: " + phoneNum + "!");
     #endif
     
@@ -895,7 +893,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
 
   if(!stateModule)
   {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Unable to find STATE module registered!"));
     #endif
     
@@ -943,7 +941,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
 
     sms += W_STATE;
 
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Command CTGET=STATE|WINDOW|0 parsed, execute it..."));
     #endif
 
@@ -956,7 +954,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
 
      sms += NEWLINE;
  
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.print(F("Receive answer from STATE: ")); Serial.println(PublishSingleton.Text);
     #endif
   }
@@ -965,7 +963,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
   {
     sms += WTR_STATE;
 
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Command CTGET=WATER parsed, execute it..."));
     #endif
 
@@ -981,16 +979,16 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
   SendSMS(sms);
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::SendSMS(const String& sms)
 {
-  #ifdef NEOWAY_DEBUG_MODE
+  #ifdef GSM_DEBUG_MODE
     Serial.print(F("Send SMS:  ")); Serial.println(sms);
   #endif
 
   if(!isModuleRegistered)
   {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("Module not registered!"));
     #endif
 
@@ -1000,7 +998,7 @@ void SMSModule::SendSMS(const String& sms)
   String num = Settings->GetSmsPhoneNumber();
   if(num.length() < 1)
   {
-    #ifdef NEOWAY_DEBUG_MODE
+    #ifdef GSM_DEBUG_MODE
       Serial.println(F("No phone number saved in controller!"));
     #endif
     
@@ -1010,7 +1008,7 @@ void SMSModule::SendSMS(const String& sms)
   PDUOutgoingMessage pduMessage = PDU.Encode(num,sms,true);
   commandToSend = F("AT+CMGS="); commandToSend += String(pduMessage.MessageLength);
 
-  #ifdef NEOWAY_DEBUG_MODE
+  #ifdef GSM_DEBUG_MODE
     Serial.print(F("commandToSend = ")); Serial.println(commandToSend);
   #endif
 
@@ -1019,6 +1017,7 @@ void SMSModule::SendSMS(const String& sms)
   actionsQueue.push_back(smaStartSendSMS); // добавляем команду на обработку
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
@@ -1060,7 +1059,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
               // получаем его хэш
               unsigned int hash = hash_str(message.c_str());
 
-              #ifdef NEOWAY_DEBUG_MODE
+              #ifdef GSM_DEBUG_MODE
                 Serial.print(F("passed message = "));
                 Serial.println(message);
                 Serial.print(F("computed hash = "));
@@ -1157,4 +1156,5 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
     
   return PublishSingleton.Status;
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 
