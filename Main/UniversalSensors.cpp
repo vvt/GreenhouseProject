@@ -16,7 +16,9 @@ UniRawScratchpad SHARED_SCRATCHPAD; // общий скратчпад для кл
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 UniRS485Gate::UniRS485Gate()
 {
+#ifdef USE_UNI_EXECUTION_MODULE  
   updateTimer = 0;
+#endif  
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_UNIVERSAL_SENSORS
@@ -1791,6 +1793,7 @@ void printf_begin(void) {
 UniNRFGate::UniNRFGate()
 {
   bFirstCall = true;
+  nRFInited = false;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::Setup()
@@ -1804,6 +1807,9 @@ void UniNRFGate::Setup()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::readFromPipes()
 {
+  if(!nRFInited)
+    return;
+    
   // открываем все пять труб на прослушку
   for(byte i=0;i<5;i++)
     radio.openReadingPipe(i+1,readingPipes[i]);  
@@ -1811,6 +1817,8 @@ void UniNRFGate::readFromPipes()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::Update(uint16_t dt)
 {
+  if(!nRFInited)
+    return;
 
   static uint16_t controllerStateTimer = 0;
   controllerStateTimer += dt;
@@ -1905,6 +1913,9 @@ void UniNRFGate::Update(uint16_t dt)
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::SetChannel(byte channel)
 {
+  if(!nRFInited)
+    return;
+    
   radio.stopListening();
   radio.setChannel(channel);
   radio.startListening();
@@ -1917,29 +1928,34 @@ void UniNRFGate::initNRF()
   #endif
   
   // инициализируем nRF
-  radio.begin();
+  nRFInited = radio.begin();
 
-  delay(200); // чуть-чуть подождём
+  if(nRFInited)
+  {
 
-  radio.setDataRate(RF24_1MBPS);
-  radio.setPALevel(RF24_PA_MAX);
-  radio.setChannel(UniDispatcher.GetRFChannel());
-  radio.setRetries(15,15);
-  radio.setPayloadSize(PAYLOAD_SIZE); // у нас 30 байт на пакет
-  radio.setCRCLength(RF24_CRC_16);
-  radio.setAutoAck(true);
-
-  // открываем трубу, в которую будем писать состояние контроллера
-  radio.openWritingPipe(controllerStatePipe);
-
-  // открываем все пять труб на прослушку
-  readFromPipes();
-
-  radio.startListening(); // начинаем слушать
+    delay(200); // чуть-чуть подождём
   
-  #ifdef NRF_DEBUG
-    radio.printDetails();
-  #endif  
+    radio.setDataRate(RF24_1MBPS);
+    radio.setPALevel(RF24_PA_MAX);
+    radio.setChannel(UniDispatcher.GetRFChannel());
+    radio.setRetries(15,15);
+    radio.setPayloadSize(PAYLOAD_SIZE); // у нас 30 байт на пакет
+    radio.setCRCLength(RF24_CRC_16);
+    radio.setAutoAck(true);
+  
+    // открываем трубу, в которую будем писать состояние контроллера
+    radio.openWritingPipe(controllerStatePipe);
+  
+    // открываем все пять труб на прослушку
+    readFromPipes();
+  
+    radio.startListening(); // начинаем слушать
+    
+    #ifdef NRF_DEBUG
+      radio.printDetails();
+    #endif
+
+  } // nRFInited
 
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
