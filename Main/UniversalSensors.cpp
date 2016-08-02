@@ -1796,6 +1796,17 @@ UniNRFGate::UniNRFGate()
   nRFInited = false;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+bool UniNRFGate::isInOnlineQueue(byte sensorType,byte sensorIndex, byte& result_index)
+{
+  for(size_t i=0;i<sensorsOnlineQueue.size();i++)
+    if(sensorsOnlineQueue[i].sensorType == sensorType && sensorsOnlineQueue[i].sensorIndex == sensorIndex)
+    {
+      result_index = i;
+      return true;
+    }
+  return false;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::Setup()
 {
   initNRF();
@@ -1819,6 +1830,123 @@ void UniNRFGate::Update(uint16_t dt)
 {
   if(!nRFInited)
     return;
+
+  static uint16_t onlineCheckTimer = 0;
+  onlineCheckTimer += dt;
+  if(onlineCheckTimer > 5000)
+  {
+    onlineCheckTimer = 0;
+
+    //Тут, раз в пять секунд - мы должны проверять, не истёк ли интервал
+    // получения показаний с датчиков, показания с которых были получены ранее.
+    // если интервал истёк - мы должны выставить датчику показания "нет данных"
+    // и удалить его из очереди.
+
+    byte count_passes = sensorsOnlineQueue.size();
+    byte cur_idx = count_passes-1;
+
+    unsigned long nowTime = millis();
+
+    // проходим от хвоста до головы
+    while(count_passes)
+    {
+      NRFQueueItem* qi = &(sensorsOnlineQueue[cur_idx]);
+
+      // вычисляем интервал в миллисекундах
+      unsigned long query_interval = ((qi->queryInterval & 0xF0)*60 + (qi->queryInterval & 0x0F))*1000;
+      
+      // смотрим, не истёк ли интервал с момента последнего опроса
+      if((nowTime - qi->gotLastDataAt) > (query_interval+3000) )
+      {
+        
+        // датчик не откликался дольше, чем интервал между опросами плюс дельта в 3 секунды,
+        // надо ему выставить показания "нет данных"
+          byte sType = qi->sensorType;
+          byte sIndex = qi->sensorIndex;
+        
+          UniDispatcher.AddUniSensor((UniSensorType)sType,sIndex);
+
+            // проверяем тип датчика, которому надо выставить "нет данных"
+            switch(qi->sensorType)
+            {
+              case uniTemp:
+              {
+                // температура
+                Temperature t;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&t);
+                } // if
+              }
+              break;
+
+              case uniHumidity:
+              {
+                // влажность
+                Humidity h;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State2)
+                    states.State2->Update(&h);
+                } // if                        
+              }
+              break;
+
+              case uniLuminosity:
+              {
+                // освещённость
+                long lum = NO_LUMINOSITY_DATA;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&lum);
+                } // if                        
+                
+                
+              }
+              break;
+
+              case uniSoilMoisture:
+              {
+                // влажность почвы
+                Humidity h;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&h);
+                } // if                        
+                
+              }
+              break;
+
+              case uniPH:
+              {
+                // показания pH
+              }
+              break;
+              
+            } // switch
+
+        // теперь удаляем оффлайн-датчик из очереди
+        sensorsOnlineQueue.pop();
+        
+      } // if((nowTime
+      
+      count_passes--;
+      cur_idx--;
+    } // while
+    
+   
+  } // if onlineCheckTimer
 
   static uint16_t controllerStateTimer = 0;
   controllerStateTimer += dt;
@@ -1888,6 +2016,47 @@ void UniNRFGate::Update(uint16_t dt)
           AbstractUniClient* client = UniFactory.GetClient(&nrfScratch);
           client->Register(&nrfScratch);
           client->Update(&nrfScratch,true,ssRadio);
+
+          //Тут мы должны для всех датчиков модуля добавить в онлайн-очередь
+          // время последнего получения значений и интервал между опросами модуля,
+          // если таких данных ещё нету у нас.
+
+              UniSensorsScratchpad* ourScrath = (UniSensorsScratchpad*) &(nrfScratch.data);            
+              for(byte i=0;i<MAX_UNI_SENSORS;i++)
+              {
+                byte type = ourScrath->sensors[i].type;
+                if(type == NO_SENSOR_REGISTERED) // нет типа датчика 
+                  continue;
+            
+                UniSensorType ut = (UniSensorType) type;
+                
+                if(ut == uniNone || ourScrath->sensors[i].index == NO_SENSOR_REGISTERED) // нет типа датчика
+                  continue;
+            
+                // имеем тип датчика, можем проверять, есть ли он у нас в онлайновых
+                byte result_index = 0;
+                if(isInOnlineQueue(type,ourScrath->sensors[i].index,result_index))
+                {
+                  // он уже был онлайн, надо сбросить таймер опроса
+                  NRFQueueItem* qi = &(sensorsOnlineQueue[result_index]);
+                  qi->gotLastDataAt = millis();
+                }
+                else
+                {
+                  // датчик не был в онлайн очереди, надо его туда добавить
+                  NRFQueueItem qi;
+                  qi.sensorType = type;
+                  qi.sensorIndex = ourScrath->sensors[i].index;
+                  qi.queryInterval = ourScrath->query_interval;
+                  qi.gotLastDataAt = millis();
+
+                  sensorsOnlineQueue.push_back(qi);
+                } // else
+                
+              } // for
+
+
+          
 
       #ifdef NRF_DEBUG
       Serial.println(F("Controller data updated."));
