@@ -1043,6 +1043,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
         {
             if(MainController->HasSDCard())
             {
+              
               // добавить кастомное СМС
 
               // получаем закодированное в HEX сообщение
@@ -1111,9 +1112,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
               
             } // if(MainController->HasSDCard())
             else
-            {
               PublishSingleton = NOT_SUPPORTED;
-            }
         } // else
         
       } // ADD
