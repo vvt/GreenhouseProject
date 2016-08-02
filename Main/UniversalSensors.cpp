@@ -204,6 +204,9 @@ void UniRS485Gate::Update(uint16_t dt)
                         UniSensorState states;
                         if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
                         {
+                          if(states.State1)
+                            states.State1->Update(&h);
+                                              
                           if(states.State2)
                             states.State2->Update(&h);
                         } // if                        
@@ -425,7 +428,12 @@ void UniRS485Gate::Update(uint16_t dt)
                         // влажность
                         Humidity h;
                         h.Value = (int8_t) *readDataPtr++;
-                        h.Fract = *readDataPtr;
+                        h.Fract = *readDataPtr++;
+
+                        // температура
+                        Temperature t;
+                        t.Value = (int8_t) *readDataPtr++;
+                        t.Fract = *readDataPtr++;
 
                         #ifdef RS485_DEBUG
                           Serial.print(F("Humidity: "));
@@ -436,14 +444,16 @@ void UniRS485Gate::Update(uint16_t dt)
                         UniSensorState states;
                         if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
                         {
-                          if(states.State2)
-                          {
                             #ifdef RS485_DEBUG
                               Serial.println(F("Update data in controller..."));
                             #endif
-                            
+
+                          if(states.State1)
+                            states.State1->Update(&t);
+
+                          if(states.State2)
                             states.State2->Update(&h);
-                          }
+                            
                         } // if                        
                       }
                       break;
@@ -1891,6 +1901,9 @@ void UniNRFGate::Update(uint16_t dt)
                 UniSensorState states;
                 if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
                 {
+                  if(states.State1)
+                    states.State1->Update(&h);
+
                   if(states.State2)
                     states.State2->Update(&h);
                 } // if                        
