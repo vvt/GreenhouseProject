@@ -9,7 +9,7 @@ void Si7021::begin()
 {
   Wire.begin();
 }
-const HumidityAnswer& Si7021::read()
+void Si7021::read(HumidityAnswer& dt)
 {
   dt.Humidity = NO_TEMPERATURE_DATA;
   dt.HumidityDecimal = 0;
@@ -86,6 +86,4 @@ const HumidityAnswer& Si7021::read()
     dt.TemperatureDecimal = iTmp%100;
     
   }
-  
-  return dt;
 }

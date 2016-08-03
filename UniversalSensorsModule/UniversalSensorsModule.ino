@@ -5,6 +5,7 @@
 #include "BH1750.h"
 #include "UniGlobals.h"
 #include "Si7021Support.h"
+#include "DHTSupport.h"
 //----------------------------------------------------------------------------------------------------------------
 /*
 Прошивка для универсального модуля, предназначена для подключения
@@ -73,6 +74,9 @@ const SensorSettings Sensors[3] = {
   {mstBH1750,BH1750Address2} - датчик освещённости BH1750 на шине I2C, его второй адрес I2C
   {mstDS18B20,A0} - датчик DS18B20 на пине A0
   {mstChinaSoilMoistureMeter,A7} - китайский датчик влажности почвы на пине A7
+  {mstDHT22, 6} - датчик DHT2x на пине 6
+  {mstDHT11, 5} - датчик DHT11 на пине 5
+  
 
   если в слоте записано
     {mstNone,0}
@@ -400,6 +404,8 @@ byte GetSensorType(const SensorSettings& sett)
       return uniLuminosity;
 
     case mstSi7021:
+    case mstDHT11:
+    case mstDHT22:
       return uniHumidity;
 
     case mstChinaSoilMoistureMeter:
@@ -431,6 +437,8 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     break;
 
     case mstSi7021:
+    case mstDHT11:
+    case mstDHT22:
     {
     *data = NO_TEMPERATURE_DATA;
     data++; data++;
@@ -458,6 +466,12 @@ void* InitSensor(const SensorSettings& sett)
 
     case mstSi7021:
       return InitSi7021(sett);
+
+    case mstDHT11:
+      return InitDHT(sett,DHT_11);
+
+    case mstDHT22:
+      return InitDHT(sett,DHT_2x);
 
     case mstChinaSoilMoistureMeter:
       return NULL;
@@ -564,6 +578,8 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
     break;
 
     case mstChinaSoilMoistureMeter:
+    case mstDHT11:
+    case mstDHT22:
     break;
   }    
 }
@@ -577,9 +593,8 @@ void WakeUpSensors() // будим все датчики
   PowerUpI2C(); // поднимаем I2C
  
    // будим датчики
-    WakeUpSensor(Sensors[0],SensorDefinedData[0]);
-    WakeUpSensor(Sensors[1],SensorDefinedData[1]);
-    WakeUpSensor(Sensors[2],SensorDefinedData[2]);
+   for(byte i=0;i<3;i++)
+    WakeUpSensor(Sensors[i],SensorDefinedData[i]);
    
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -590,6 +605,15 @@ void PowerDownSensors()
   
   PowerDownI2C(); // глушим шину I2C
       
+}
+//----------------------------------------------------------------------------------------------------------------
+void* InitDHT(const SensorSettings& sett, DHTType dhtType) // инициализируем датчик влажности DHT*
+{
+  UNUSED(sett);
+  
+  DHTSupport* dht = new DHTSupport(dhtType);
+  
+  return dht;
 }
 //----------------------------------------------------------------------------------------------------------------
 void* InitSi7021(const SensorSettings& sett) // инициализируем датчик влажности Si7021
@@ -641,10 +665,9 @@ void* InitDS18B20(const SensorSettings& sett) // инициализируем д
 void InitSensors()
 {
   // инициализируем датчики
-  SensorDefinedData[0] = InitSensor(Sensors[0]);
-  SensorDefinedData[1] = InitSensor(Sensors[1]);
-  SensorDefinedData[2] = InitSensor(Sensors[2]);
-     
+  for(byte i=0;i<3;i++)
+    SensorDefinedData[i] = InitSensor(Sensors[i]);
+         
 }
 //----------------------------------------------------------------------------------------------------------------
  void ReadDS18B20(const SensorSettings& sett, struct sensor* s) // читаем данные с датчика температуры
@@ -699,16 +722,25 @@ void ReadBH1750(const SensorSettings& sett, void* sensorDefinedData, struct sens
   
 }
 //----------------------------------------------------------------------------------------------------------------
+void ReadDHT(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика влажности Si7021
+{
+  DHTSupport* dht = (DHTSupport*) sensorDefinedData;
+    
+  HumidityAnswer ha;
+  dht->read(sett.Pin,ha);
+
+  memcpy(s->data,&ha,sizeof(ha));
+
+}
+//----------------------------------------------------------------------------------------------------------------
 void ReadSi7021(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика влажности Si7021
 {
   UNUSED(sett);
   Si7021* si = (Si7021*) sensorDefinedData;
-  HumidityAnswer ha = si->read();
+  HumidityAnswer ha;
+  si->read(ha);
 
-  s->data[0] = ha.Humidity;
-  s->data[1] = ha.HumidityDecimal;
-  s->data[2] = ha.Temperature;
-  s->data[3] = ha.TemperatureDecimal;
+  memcpy(s->data,&ha,sizeof(ha));
 
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -772,6 +804,11 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
 
     case mstChinaSoilMoistureMeter:
       ReadChinaSoilMoistureMeter(sett,sensorDefinedData,s);
+    break;
+
+    case mstDHT11:
+    case mstDHT22:
+      ReadDHT(sett,sensorDefinedData,s);
     break;
   }
 }
@@ -841,12 +878,10 @@ void MeasureSensor(const SensorSettings& sett) // запускаем конве�
     break;
 
     case mstBH1750:
-    break;
-
     case mstSi7021:
-    break;
-
     case mstChinaSoilMoistureMeter:
+    case mstDHT11:
+    case mstDHT22:
     break;
   }  
 }
@@ -856,9 +891,8 @@ void StartMeasure()
  WakeUpSensors(); // будим все датчики
   
   // запускаем конвертацию
-  MeasureSensor(Sensors[0]);
-  MeasureSensor(Sensors[1]);
-  MeasureSensor(Sensors[2]);
+  for(byte i=0;i<3;i++)
+    MeasureSensor(Sensors[i]);
 
   last_measure_at = millis();
 }

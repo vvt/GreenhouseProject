@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "UniGlobals.h"
 
 #if (ARDUINO >= 100)
   #define SI7021_READ Wire.read
@@ -14,15 +15,7 @@
 
 enum { Si7021Address = 0x40 };
 
-typedef struct
-{
-  int8_t Humidity;
-  uint8_t HumidityDecimal;
-  
-  int8_t Temperature;
-  uint8_t TemperatureDecimal;
-  
-} HumidityAnswer;
+
 
 enum
 {
@@ -37,10 +30,9 @@ class Si7021
     Si7021();    
     void begin();
     
-    const HumidityAnswer& read();
+    void read(HumidityAnswer& dt);
     
   private:
-    HumidityAnswer dt;  
     
     
 };
