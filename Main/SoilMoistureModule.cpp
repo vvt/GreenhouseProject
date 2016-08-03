@@ -35,10 +35,14 @@ void SoilMoistureModule::Update(uint16_t dt)
         int val = analogRead(SOIL_MOISTURE_SENSORS_ARRAY[i]);
 
         // теперь нам надо отразить показания между SOIL_MOISTURE_100_PERCENT и SOIL_MOISTURE_0_PERCENT
-        int percentsInterval = map(val,SOIL_MOISTURE_0_PERCENT,SOIL_MOISTURE_100_PERCENT,0,10000);
-        
-        if(SOIL_MOISTURE_0_PERCENT < SOIL_MOISTURE_100_PERCENT)
+
+        int percentsInterval = map(val,min(SOIL_MOISTURE_0_PERCENT,SOIL_MOISTURE_100_PERCENT),max(SOIL_MOISTURE_0_PERCENT,SOIL_MOISTURE_100_PERCENT),0,10000);
+
+        // теперь, если у нас значение 0% влажности больше, чем значение 100% влажности - надо от 10000 отнять полученное значение
+        if(SOIL_MOISTURE_0_PERCENT > SOIL_MOISTURE_100_PERCENT)
           percentsInterval = 10000 - percentsInterval;
+
+        
        
         Humidity h;
         h.Value = percentsInterval/100;
@@ -48,6 +52,13 @@ void SoilMoistureModule::Update(uint16_t dt)
           h.Value = 100;
           h.Fract = 0;
         }
+
+        if(h.Value < 0)
+        {
+          h.Value = NO_TEMPERATURE_DATA;
+          h.Fract = 0;
+        }
+
         
         // обновляем состояние  
         State.UpdateState(StateSoilMoisture,i,(void*)&h);

@@ -58,13 +58,12 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 // настройки
 //----------------------------------------------------------------------------------------------------------------
 #define ROM_ADDRESS (void*) 34 // по какому адресу у нас настройки?
-//#define CALIBRATION_ENABLED // раскомментировать, если надо поддерживать фактор калибровки
 //----------------------------------------------------------------------------------------------------------------
 // настройки датчиков для модуля, МЕНЯТЬ ЗДЕСЬ!
 const SensorSettings Sensors[3] = {
 
 {mstBH1750,BH1750Address1}, // датчик освещённости BH1750 на шине I2C
-{mstDS18B20,A0}, // датчик DS18B20 на пине A0
+{mstChinaSoilMoistureMeter,A0}, // китайский датчик влажности почвы на пине A0
 {mstSi7021,0} // датчик температуры и влажности Si7021 на шине I2C
 /* 
  поддерживаемые типы датчиков: 
@@ -73,6 +72,7 @@ const SensorSettings Sensors[3] = {
   {mstBH1750,BH1750Address1} - датчик освещённости BH1750 на шине I2C, его первый адрес I2C
   {mstBH1750,BH1750Address2} - датчик освещённости BH1750 на шине I2C, его второй адрес I2C
   {mstDS18B20,A0} - датчик DS18B20 на пине A0
+  {mstChinaSoilMoistureMeter,A7} - китайский датчик влажности почвы на пине A7
 
   если в слоте записано
     {mstNone,0}
@@ -401,6 +401,10 @@ byte GetSensorType(const SensorSettings& sett)
 
     case mstSi7021:
       return uniHumidity;
+
+    case mstChinaSoilMoistureMeter:
+      return uniSoilMoisture;
+    
   }
 
   return uniNone;
@@ -415,6 +419,7 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     break;
     
     case mstDS18B20:
+    case mstChinaSoilMoistureMeter:
       *data = NO_TEMPERATURE_DATA;
     break;
       
@@ -432,6 +437,7 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     *data = NO_TEMPERATURE_DATA;
     }
     break;
+
   }
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -452,6 +458,9 @@ void* InitSensor(const SensorSettings& sett)
 
     case mstSi7021:
       return InitSi7021(sett);
+
+    case mstChinaSoilMoistureMeter:
+      return NULL;
   }
 
   return NULL;  
@@ -469,14 +478,6 @@ void ReadROM()
     scratchpadS.packet_type = ptSensorsData; // говорим, что это тип пакета - данные с датчиками
     scratchpadS.packet_subtype = 0;
 
-    
-    #ifdef CALIBRATION_ENABLED
-    // калибровка поддерживается
-    scratchpadS.config |= 2; // устанавливаем второй бит, говоря, что мы поддерживаем калибровку
-    #else
-    // говорим, что никакой калибровки не поддерживаем
-    scratchpadS.config &= ~2; // второй бит убираем по-любому
-    #endif
 
     // если интервала опроса не сохранено - выставляем по умолчанию
     if(scratchpadS.query_interval == 0xFF)
@@ -496,6 +497,44 @@ void ReadROM()
     SetDefaultValue(Sensors[0],scratchpadS.sensor1.data);
     SetDefaultValue(Sensors[1],scratchpadS.sensor2.data);
     SetDefaultValue(Sensors[2],scratchpadS.sensor3.data);
+
+    // смотрим, есть ли у нас калибровка?
+    byte calibration_enabled = false;
+    for(byte i=0;i<3;i++)
+    {
+        switch(Sensors[i].Type)
+        {
+            case mstChinaSoilMoistureMeter:
+            {
+              calibration_enabled = true;
+              // устанавливаем значения по умолчанию
+              if(scratchpadS.calibration_factor1 == 0xFF || scratchpadS.calibration_factor1 == 0)
+              {
+                scratchpadS.calibration_factor1 = map(450,0,1023,0,255);
+              }
+              if(scratchpadS.calibration_factor2 == 0xFF || scratchpadS.calibration_factor2 == 0)
+              {
+                scratchpadS.calibration_factor2 = map(1023,0,1023,0,255);
+              }
+            }
+            break;
+          
+        } // switch
+
+        if(calibration_enabled)
+          break;
+    
+    } // for
+
+    if(calibration_enabled)
+    {
+      // включён фактор калибровки
+      scratchpadS.config |= 2; // устанавливаем второй бит, говоря, что мы поддерживаем калибровку
+    } // if
+    else
+    {
+      scratchpadS.config &= ~2; // второй бит убираем по-любому
+    }
 
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -522,6 +561,9 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
       Si7021* si = (Si7021*) sensorDefinedData;
       si->begin();
     }
+    break;
+
+    case mstChinaSoilMoistureMeter:
     break;
   }    
 }
@@ -670,6 +712,44 @@ void ReadSi7021(const SensorSettings& sett, void* sensorDefinedData, struct sens
 
 }
 //----------------------------------------------------------------------------------------------------------------
+void ReadChinaSoilMoistureMeter(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s)
+{
+   UNUSED(sensorDefinedData);
+   
+   int val = analogRead(sett.Pin);
+   
+   int soilMoisture0Percent = map(scratchpadS.calibration_factor1,0,255,0,1023);
+   int soilMoisture100Percent = map(scratchpadS.calibration_factor2,0,255,0,1023);
+
+   int percentsInterval = map(val,min(soilMoisture0Percent,soilMoisture100Percent),max(soilMoisture0Percent,soilMoisture100Percent),0,10000);
+   
+  // теперь, если у нас значение 0% влажности больше, чем значение 100% влажности - надо от 10000 отнять полученное значение
+  if(soilMoisture0Percent > soilMoisture100Percent)
+    percentsInterval = 10000 - percentsInterval;
+
+   int8_t sensorValue;
+   byte sensorFract;
+
+   sensorValue = percentsInterval/100;
+   sensorFract = percentsInterval%100;
+
+   if(sensorValue > 99)
+   {
+      sensorValue = 100;
+      sensorFract = 0;
+   }
+
+   if(sensorValue < 0)
+   {
+      sensorValue = NO_TEMPERATURE_DATA;
+      sensorFract = 0;
+   }
+
+   s->data[0] = sensorValue;
+   s->data[1] = sensorFract;
+   
+}
+//----------------------------------------------------------------------------------------------------------------
 void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s)
 {
   switch(sett.Type)
@@ -688,6 +768,10 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
 
     case mstSi7021:
     ReadSi7021(sett,sensorDefinedData,s);
+    break;
+
+    case mstChinaSoilMoistureMeter:
+      ReadChinaSoilMoistureMeter(sett,sensorDefinedData,s);
     break;
   }
 }
@@ -760,6 +844,9 @@ void MeasureSensor(const SensorSettings& sett) // запускаем конве�
     break;
 
     case mstSi7021:
+    break;
+
+    case mstChinaSoilMoistureMeter:
     break;
   }  
 }
@@ -866,9 +953,7 @@ void WriteROM()
 
     #ifdef USE_NRF
       // переназначаем канал радио
-      //radio.stopListening();
       radio.setChannel(scratchpadS.rf_id);
-      //radio.startListening();
     #endif
     
 
