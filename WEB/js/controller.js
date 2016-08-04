@@ -255,6 +255,7 @@ var Controller = function(id, name, address, silent)
   this.HumidityList = new SensorsList(); // список влажностей
   this.LuminosityList = new SensorsList(); // список освещённостей
   this.SoilMoistureList = new SensorsList(); // список влажностей почвы 
+  this.PHList = new SensorsList(); // список датчиков pH
   
   this.Flow1Present = false; // доступен ли первый расходомер в прошивке
   this.FlowIncrementalLitres = 0; // кол-во литров расхода воды всего
@@ -787,7 +788,7 @@ Controller.prototype.parseControllerState = function(answer)
           s = "0x" + line.substring(0, 2);
           cnt = parseInt(s);
           line = line.substring(2);
-
+          
           // обрабатываем их
           for (var i = 0; i < cnt; i++)
           {
@@ -813,6 +814,7 @@ Controller.prototype.parseControllerState = function(answer)
               }
 
               // получили показания с датчика, надо их сохранить в список
+              this.PHList.Add(sensorIdx, moduleName, ph, haveSensorData);
               
 
            } // for

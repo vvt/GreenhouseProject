@@ -498,7 +498,58 @@ function editPhoneNumber()
   ] });  
 }
 //-----------------------------------------------------------------------------------------------------
-// редактируем калибровки расходомеров
+// редактируем настройки PH
+function editPHCalibration()
+{
+ $("#ph_calibration_dialog").dialog({modal:true, buttons: [{text: "Изменить", click: function(){
+
+      var cal1 = parseInt($('#ph_calibraton').val());
+      
+      
+      if(isNaN(cal1))
+        return;
+        
+
+        
+       if(cal1 > 100)
+       {
+        cal1 = 100;
+        $('#ph_calibraton').val(cal1);
+       }
+
+       if(cal1 < -100)
+       {
+        cal1 = -100;
+        $('#ph_calibraton').val(cal1);
+       }
+
+
+      $(this).dialog("close");
+
+      
+      $("#data_requested_dialog" ).dialog({
+                dialogClass: "no-close",
+                modal: true,
+                closeOnEscape: false,
+                draggable: false,
+                resizable: false,
+                buttons: []
+              });
+                    
+      controller.queryCommand(false,'PH|T_SETT|' + cal1,function(obj,answer){
+      
+      $("#data_requested_dialog" ).dialog('close');
+      
+      });
+      
+  
+  
+  } }
+  
+  , {text: "Отмена", click: function(){$(this).dialog("close");} }
+  ] });  
+}
+//-----------------------------------------------------------------------------------------------------// редактируем калибровки расходомеров
 function editFlowCalibration()
 {
  $("#flow_calibration_dialog").dialog({modal:true, buttons: [{text: "Изменить", click: function(){
@@ -1716,6 +1767,20 @@ controller.OnGetModulesList = function(obj)
         });
     }  
     
+    if(controller.Modules.includes('PH')) // если в прошивке есть модуль PH
+    {
+        controller.queryCommand(true,'PH|T_SETT',function(obj,answer){
+           
+          $('#ph_calibration_button').toggle(answer.IsOK);
+          
+          if(answer.IsOK)
+          {
+            $('#ph_calibraton').val(answer.Params[2]);
+          }
+        
+        });
+    }      
+    
     if(controller.Modules.includes('TMR')) // если в прошивке есть модуль таймеров
     {
         controller.queryCommand(true,'TMR',function(obj,answer){
@@ -2523,7 +2588,7 @@ $(document).ready(function(){
       }
     });
     
-    $('#flow_calibration_button').button({
+    $('#flow_calibration_button, #ph_calibration_button').button({
       icons: {
         primary: "ui-icon-note"
       }
@@ -2564,7 +2629,7 @@ $(document).ready(function(){
     
     $('#cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
-    $('#all_watering_start_hour, #all_watering_time').forceNumericOnly();
+    $('#all_watering_start_hour, #all_watering_time, #ph_calibraton').forceNumericOnly();
     $('#watering_start_hour, #watering_time').forceNumericOnly(); 
 
     $('#rule_work_time_input, #rule_start_time_input, #rule_sensor_value_input').forceNumericOnly();

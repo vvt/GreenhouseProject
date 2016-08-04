@@ -356,6 +356,17 @@ width:200px;
 width:200px;
 }
 
+/* ширина столбцов в списке pH */
+#PH_LIST .row .row_item {
+width:200px;
+}
+
+/* ширина столбцов в заголовке списка pH */
+#PH_HEADER .row_item {
+width:200px;
+}
+
+
 #CC_LIST .row .row_item {
 width:300px;
 }
@@ -365,6 +376,7 @@ width:300px;
 #HUMIDITY_LIST .row .actions,
 #LUMINOSITY_LIST .row .actions,
 #SOIL_LIST .row .actions,
+#PH_LIST .row .actions,
 #DELTA_LIST .row .actions,
 #CC_LIST .row .actions,
 #WATER_CHANNELS_LIST .row .actions,

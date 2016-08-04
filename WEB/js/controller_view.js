@@ -135,3 +135,8 @@ View.prototype.fillSoilMoistureList = function(parentElement)
   this.fillSensorsList(parentElement,this.Controller.SoilMoistureList, '%', {index : true, module: false, data: true});
 }
 //-----------------------------------------------------------------------------------------------------
+View.prototype.fillPHList = function(parentElement)
+{
+  this.fillSensorsList(parentElement,this.Controller.PHList, ' pH', {index : true, module: false, data: true});
+}
+//-----------------------------------------------------------------------------------------------------

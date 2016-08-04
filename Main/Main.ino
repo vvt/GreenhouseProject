@@ -86,6 +86,10 @@
 #include "TimerModule.h"
 #endif
 
+#ifdef USE_PH_MODULE
+#include "PHModule.h"
+#endif
+
 // КОМАНДЫ ИНИЦИАЛИЗАЦИИ ПРИ СТАРТЕ
 //const char init_0[] PROGMEM = "CTSET=PIN|13|0";// ВЫКЛЮЧИМ ПРИ СТАРТЕ СВЕТОДИОД
 #ifdef USE_READY_DIODE
@@ -225,6 +229,11 @@ CompositeCommandsModule compositeCommands;
 #ifdef USE_SOIL_MOISTURE_MODULE
 // модуль датчиков влажности почвы
 SoilMoistureModule soilMoistureModule;
+#endif
+
+#ifdef USE_PH_MODULE
+// модуль контроля pH
+PhModule phModule;
 #endif
 
 #ifdef USE_W5100_MODULE
@@ -393,6 +402,10 @@ void setup()
   controller.RegisterModule(&soilMoistureModule);
   #endif
 
+  #ifdef USE_PH_MODULE
+  controller.RegisterModule(&phModule);
+  #endif
+
   #ifdef USE_W5100_MODULE
   controller.RegisterModule(&ethernetModule);
   #endif
@@ -447,34 +460,6 @@ void setup()
   #endif 
 
     Serial.println(F(""));
-
-#ifdef _DEBUG
-  Serial.println("Command: \t " + String(sizeof(Command)));
-  Serial.println("AlertRule: \t " + String(sizeof(AlertRule)));
-  Serial.println("AlertModule: \t " + String(sizeof(AlertModule)));
-  Serial.println("HumidityModule: \t " + String(sizeof(HumidityModule)));
-  Serial.println("InteropStream: \t " + String(sizeof(InteropStream)));
-  Serial.println("LogModule: \t " + String(sizeof(LogModule)));
-  Serial.println("LoopModule: \t " + String(sizeof(LoopModule)));
-  Serial.println("LuminosityModule: \t " + String(sizeof(LuminosityModule)));
-  Serial.println("ModuleController: \t " + String(sizeof(ModuleController)));
-  Serial.println("PinModule: \t " + String(sizeof(PinModule)));
-  Serial.println("GlobalSettings: \t " + String(sizeof(GlobalSettings)));
-  Serial.println("SMSModule: \t " + String(sizeof(SMSModule)));
-  Serial.println("StatModule: \t " + String(sizeof(StatModule)));
-  Serial.println("TempSensors: \t " + String(sizeof(TempSensors)));
-  Serial.println("WindowState: \t " + String(sizeof(WindowState)));
-  Serial.println("WateringModule: \t " + String(sizeof(WateringModule)));
-  Serial.println("WiFiModule: \t " + String(sizeof(WiFiModule)));
-  Serial.println("ZeroStreamListener: \t " + String(sizeof(ZeroStreamListener)));
-  Serial.println("HTTPClient: \t " + String(sizeof(HTTPClient)));
-  Serial.println("DeltaModule: \t " + String(sizeof(DeltaModule)));
-  Serial.println("File: \t " + String(sizeof(File)));
-  Serial.println("LCDModule: \t " + String(sizeof(LCDModule)));
-  Serial.println(F(""));
-  Serial.print(F("FREERAM HERE: "));
-  Serial.println(freeRam());
-#endif
 
 }
 // эта функция вызывается после обновления состояния каждого модуля.

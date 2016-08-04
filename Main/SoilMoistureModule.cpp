@@ -41,9 +41,7 @@ void SoilMoistureModule::Update(uint16_t dt)
         // теперь, если у нас значение 0% влажности больше, чем значение 100% влажности - надо от 10000 отнять полученное значение
         if(SOIL_MOISTURE_0_PERCENT > SOIL_MOISTURE_100_PERCENT)
           percentsInterval = 10000 - percentsInterval;
-
-        
-       
+     
         Humidity h;
         h.Value = percentsInterval/100;
         h.Fract  = percentsInterval%100;

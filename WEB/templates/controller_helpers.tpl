@@ -287,6 +287,14 @@ controller.OnUpdate = function(obj, answer)
     }
     else
       $('#SOIL_MENU').hide();
+      
+    if(controller.PHList.List.length > 0)
+    {
+      view.fillPHList('#PH_LIST'); // заполняем список показаний датчиков pH
+      $('#PH_MENU').show();
+    }
+    else
+      $('#PH_MENU').hide();      
 
 
     if(controller.Modules.includes('FLOW'))
@@ -349,6 +357,7 @@ lastVisibleContent = $('#welcome');
 $('#edit_motor_time').forceNumericOnly();
 $('#edit_t_open').forceNumericOnly();
 $('#edit_t_close').forceNumericOnly();
+
 
 controller.querySensorNames(); // запрашиваем список имён датчиков из БД
 controller.queryModules(); // запрашиваем модули у контроллера

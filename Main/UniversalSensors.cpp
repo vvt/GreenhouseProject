@@ -229,9 +229,10 @@ void UniRS485Gate::Update(uint16_t dt)
                       }
                       break;
 
-                      case uniSoilMoisture:
+                      case uniSoilMoisture: // влажность почвы
+                      case uniPH: // показания pH
                       {
-                        // влажность почвы
+                        
                         Humidity h;
                         // получаем состояния
                         UniSensorState states;
@@ -241,12 +242,6 @@ void UniRS485Gate::Update(uint16_t dt)
                             states.State1->Update(&h);
                         } // if                        
                         
-                      }
-                      break;
-
-                      case uniPH:
-                      {
-                        // показания pH
                       }
                       break;
                       
@@ -487,15 +482,20 @@ void UniRS485Gate::Update(uint16_t dt)
                       }
                       break;
 
-                      case uniSoilMoisture:
+                      case uniSoilMoisture: // влажность почвы
+                      case uniPH:  // показания pH
                       {
-                        // влажность почвы
+                        
                         Humidity h;
                         h.Value = (int8_t) *readDataPtr++;
                         h.Fract = *readDataPtr;
 
                         #ifdef RS485_DEBUG
-                          Serial.print(F("Soil moisture: "));
+                          if(sType == uniSoilMoisture)
+                            Serial.print(F("Soil moisture: "));
+                          else
+                            Serial.print(F("pH: "));
+                            
                           Serial.println(h);
                         #endif
 
@@ -513,12 +513,6 @@ void UniRS485Gate::Update(uint16_t dt)
                           }
                         } // if                        
                         
-                      }
-                      break;
-
-                      case uniPH:
-                      {
-                        // показания pH
                       }
                       break;
                       
@@ -1131,6 +1125,7 @@ void SensorsUniClient::UpdateOneState(OneState* os, const UniSensorData* dataPac
 
       case StateHumidity:
       case StateSoilMoisture:
+      case StatePH:
       {
         int8_t dt = (int8_t)  dataPacket->data[dataIndex++];
         uint8_t dt2 =  dataPacket->data[dataIndex];
@@ -1157,7 +1152,6 @@ void SensorsUniClient::UpdateOneState(OneState* os, const UniSensorData* dataPac
 
       case StateWaterFlowInstant:
       case StateWaterFlowIncremental:
-      case StatePH:
       case StateUnknown:
       
       break;
@@ -1242,6 +1236,7 @@ UniRegDispatcher::UniRegDispatcher()
   currentHumidityCount = 0;
   currentLuminosityCount = 0;
   currentSoilMoistureCount = 0;
+  currentPHCount = 0;
 
   hardCodedTemperatureCount = 0;
   hardCodedHumidityCount = 0;
@@ -1365,7 +1360,27 @@ bool UniRegDispatcher::AddUniSensor(UniSensorType type, uint8_t sensorIndex)
 
 
     case uniPH:
-      return false;
+     if(phModule)
+      {
+     
+          if(sensorIndex < currentPHCount) // попадаем в диапазон уже выданных
+            return false;
+
+          // здесь sensorIndex больше либо равен currentPHCount, следовательно, мы не попадаем в диапазон
+          uint8_t to_add = (sensorIndex - currentPHCount) + 1;
+
+          for(uint8_t cntr = 0; cntr < to_add; cntr++)
+          {
+            phModule->State.AddState(StatePH,hardCodedPHCount + currentPHCount + cntr);
+          } // for
+
+          // сохраняем кол-во добавленных
+          currentPHCount += to_add;
+          
+        return true;
+      } 
+      else
+        return false;
   } 
 
   return false;
@@ -1380,7 +1395,7 @@ uint8_t UniRegDispatcher::GetUniSensorsCount(UniSensorType type)
     case uniHumidity: return currentHumidityCount;
     case uniLuminosity: return currentLuminosityCount;
     case uniSoilMoisture: return currentSoilMoistureCount;
-    case uniPH: return 0;
+    case uniPH: return currentPHCount;
   }
 
   return 0;  
@@ -1465,6 +1480,10 @@ void UniRegDispatcher::ReadState()
   val = EEPROM.read(addr++);
   if(val != 0xFF)
     rfChannel = val;
+
+  val = EEPROM.read(addr++);
+  if(val != 0xFF)
+    currentPHCount = val;
    
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1524,6 +1543,17 @@ if(soilMoistureModule)
     
   } // if(soilMoistureModule) 
 
+ if(phModule)
+  {
+    uint8_t cntr = 0;
+    while(cntr < currentPHCount)
+    {
+      phModule->State.AddState(StatePH, hardCodedPHCount + cntr);
+      cntr++;
+    }
+    
+  } // if(phModule)  
+
  // Что мы сделали? Мы добавили N виртуальных датчиков в каждый модуль, основываясь на ранее сохранённой информации.
  // в результате в контроллере появились датчики с показаниями <нет данных>, и показания с них обновятся, как только
  // поступит информация от них с универсальных модулей.
@@ -1539,6 +1569,7 @@ void UniRegDispatcher::SaveState()
   EEPROM.write(addr++,currentLuminosityCount);
   EEPROM.write(addr++,currentSoilMoistureCount);
   EEPROM.write(addr++,rfChannel);
+  EEPROM.write(addr++,currentPHCount);
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool UniRegDispatcher::GetRegisteredStates(UniSensorType type, uint8_t sensorIndex, UniSensorState& resultStates)
@@ -1597,6 +1628,14 @@ bool UniRegDispatcher::GetRegisteredStates(UniSensorType type, uint8_t sensorInd
     break;
 
     case uniPH:
+    {
+        if(!phModule)
+          return false; // нет модуля pH в прошивке
+
+       resultStates.State1 = phModule->State.GetState(StatePH,hardCodedPHCount + sensorIndex);
+       return (resultStates.State1 != NULL);
+      
+    }
     break;
    } // switch
 
@@ -1926,9 +1965,10 @@ void UniNRFGate::Update(uint16_t dt)
               }
               break;
 
-              case uniSoilMoisture:
+              case uniSoilMoisture: // влажность почвы
+              case uniPH: // показания pH
               {
-                // влажность почвы
+                
                 Humidity h;
                 // получаем состояния
                 UniSensorState states;
@@ -1938,12 +1978,6 @@ void UniNRFGate::Update(uint16_t dt)
                     states.State1->Update(&h);
                 } // if                        
                 
-              }
-              break;
-
-              case uniPH:
-              {
-                // показания pH
               }
               break;
               

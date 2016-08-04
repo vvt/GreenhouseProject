@@ -236,6 +236,7 @@ class UniRegDispatcher
     uint8_t currentHumidityCount;
     uint8_t currentLuminosityCount;
     uint8_t currentSoilMoistureCount;
+    uint8_t currentPHCount;
 
     uint8_t rfChannel; // номер канала для nRF
   

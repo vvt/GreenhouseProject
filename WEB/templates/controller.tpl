@@ -46,6 +46,7 @@
       <div class='menuitem ui-corner-all hdn' id='HUMIDITY_MENU' onclick="content(this);">Влажность</div>
       <div class='menuitem ui-corner-all hdn' id='LIGHT_MENU' onclick="content(this);">Освещенность</div>
       <div class='menuitem ui-corner-all hdn' id='SOIL_MENU' onclick="content(this);">Влажность почвы</div>
+      <div class='menuitem ui-corner-all hdn' id='PH_MENU' onclick="content(this);">Показания pH</div>
       <div class='menuitem ui-corner-all hdn' id='FLOW_MENU' onclick="content(this);">Расход воды</div>
       <div class='ui-corner-all hdn' id='temp_motors_settings' onclick="editTempSettings();">Температуры и моторы</div>
 
@@ -103,6 +104,19 @@
                     </div>
 
                     <div id='SOIL_LIST'></div>
+
+                  </div>
+
+
+                  <div class='content hdn' id='PH_MENU_CONTENT'>
+
+                    <h3 class='ui-widget-header ui-corner-all'>Показания датчиков pH</h3>
+                    <div class='row' id='PH_HEADER'>
+                      <div class='row_item ui-widget-header'>Индекс датчика</div>
+                      <div class='row_item ui-widget-header'>Показания pH</div>
+                    </div>
+
+                    <div id='PH_LIST'></div>
 
                   </div>
 
