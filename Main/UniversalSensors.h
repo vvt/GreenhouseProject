@@ -78,8 +78,9 @@ typedef struct
   byte battery_status;
   byte calibration_factor1;
   byte calibration_factor2;
-  byte query_interval;
-  byte reserved[2];
+  byte query_interval_min;
+  byte query_interval_sec;
+  byte reserved;
   UniSensorData sensors[MAX_UNI_SENSORS];
    
 } UniSensorsScratchpad; // скратчпад модуля с датчиками
@@ -426,7 +427,7 @@ typedef struct
   
   byte sensorType; // тип датчика
   byte sensorIndex; // зарегистрированный в системе индекс
-  byte queryInterval; // интервал между получениями информации с датчика
+  uint16_t queryInterval; // интервал между получениями информации с датчика
   unsigned long gotLastDataAt; // колда были получены последние данные
   
 } NRFQueueItem;

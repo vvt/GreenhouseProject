@@ -300,6 +300,7 @@ uint64_t controllerStatePipe = 0xF0F0F0F0E0LL; // труба, с которой 
 //----------------------------------------------------------------------------------------------------------------
 #include "RF24.h"
 RF24 radio(NRF_CE_PIN,NRF_CSN_PIN);
+bool nRFInited = false;
 //----------------------------------------------------------------------------------------------------------------
 /*
 int serial_putc( char c, FILE * ) {
@@ -319,8 +320,10 @@ void initNRF()
   //printf_begin();
   
   // инициализируем nRF
-  radio.begin();
+  nRFInited = radio.begin();
 
+  if(nRFInited)
+  {
   delay(200); // чуть-чуть подождём
 
   radio.setDataRate(RF24_1MBPS);
@@ -338,11 +341,15 @@ void initNRF()
   //radio.printDetails();
 
  // Serial.println(F("Ready."));
+  } // nRFInited
   
 }
 //----------------------------------------------------------------------------------------------------------------
 void ProcessNRF()
 {
+  if(!nRFInited)
+    return;
+    
   static NRFControllerStatePacket nrfPacket; // наш пакет, в который мы принимаем данные с контроллера
   uint8_t pipe_num = 0; // из какой трубы пришло
   if(radio.available(&pipe_num))
@@ -390,10 +397,13 @@ void WriteROM()
     eeprom_write_block( (void*)scratchpad,ROM_ADDRESS,29);
 
     #ifdef USE_NRF
+      if(nRFInited)
+      {
       // переназначаем канал радио
       radio.stopListening();
       radio.setChannel(scratchpadS.rf_id);
       radio.startListening();
+      }
     #endif
 
 

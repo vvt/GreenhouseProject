@@ -1135,6 +1135,7 @@ void SensorsUniClient::UpdateOneState(OneState* os, const UniSensorData* dataPac
         
         Humidity h(b1, b2);
         os->Update(&h);        
+
       }
       break;
 
@@ -1216,6 +1217,7 @@ void UniPermanentLine::Update(uint16_t dt)
   else
   {
     // на линии никого нет
+
   }
   
 }
@@ -1902,7 +1904,7 @@ void UniNRFGate::Update(uint16_t dt)
       NRFQueueItem* qi = &(sensorsOnlineQueue[cur_idx]);
 
       // вычисляем интервал в миллисекундах
-      unsigned long query_interval = ((qi->queryInterval & 0xF0)*60 + (qi->queryInterval & 0x0F))*1000;
+      unsigned long query_interval = qi->queryInterval*1000;
       
       // смотрим, не истёк ли интервал с момента последнего опроса
       if((nowTime - qi->gotLastDataAt) > (query_interval+3000) )
@@ -2068,7 +2070,8 @@ void UniNRFGate::Update(uint16_t dt)
           // время последнего получения значений и интервал между опросами модуля,
           // если таких данных ещё нету у нас.
 
-              UniSensorsScratchpad* ourScrath = (UniSensorsScratchpad*) &(nrfScratch.data);            
+              UniSensorsScratchpad* ourScrath = (UniSensorsScratchpad*) &(nrfScratch.data);       
+                   
               for(byte i=0;i<MAX_UNI_SENSORS;i++)
               {
                 byte type = ourScrath->sensors[i].type;
@@ -2094,7 +2097,7 @@ void UniNRFGate::Update(uint16_t dt)
                   NRFQueueItem qi;
                   qi.sensorType = type;
                   qi.sensorIndex = ourScrath->sensors[i].index;
-                  qi.queryInterval = ourScrath->query_interval;
+                  qi.queryInterval = ourScrath->query_interval_min*60 + ourScrath->query_interval_sec;
                   qi.gotLastDataAt = millis();
 
                   sensorsOnlineQueue.push_back(qi);

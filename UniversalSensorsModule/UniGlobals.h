@@ -21,7 +21,8 @@ typedef enum
   mstSi7021, // цифровой влажности Si7021
   mstChinaSoilMoistureMeter, // китайский датчик влажности почвы
   mstDHT11, // датчик семейства DHT11
-  mstDHT22 // датчик семейства DHT2x
+  mstDHT22, // датчик семейства DHT2x
+  mstPHMeter // датчик PH
   
 } ModuleSensorType; // тип датчика, подключенного к модулю
 //----------------------------------------------------------------------------------------------------------------
@@ -93,8 +94,9 @@ typedef struct
     byte battery_status;
     byte calibration_factor1;
     byte calibration_factor2;
-    byte query_interval;
-    byte reserved[2];
+    byte query_interval_min;
+    byte query_interval_sec;
+    byte reserved;
 
     sensor sensor1,sensor2,sensor3;
 
@@ -124,6 +126,18 @@ typedef enum
   stateMeasure
     
 } MachineStates;
+//----------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  byte samplesDone;
+  bool inMeasure;
+  unsigned long samplesTimer;
+  unsigned long data;
+  
+} PHMeasure;
+//----------------------------------------------------------------------------------------------------------------
+#define PH_NUM_SAMPLES 10 // кол-во замеров
+#define PH_SAMPLES_INTERVAL 20 // интервал между замерами
 //----------------------------------------------------------------------------------------------------------------
 #define MEASURE_MIN_TIME 1000 // через сколько минимум можно читать с датчиков после запуска конвертации
 //----------------------------------------------------------------------------------------------------------------

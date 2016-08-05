@@ -19,6 +19,8 @@ void PhModule::Setup()
   if(phSensorPin > 0)
   {
     State.AddState(StatePH,0); // добавляем датчик pH, прикреплённый к меге
+    pinMode(phSensorPin,INPUT);
+    digitalWrite(phSensorPin,HIGH);
   }
   
 }
@@ -98,7 +100,17 @@ void PhModule::Update(uint16_t dt)
   
          // теперь получаем значение pH
          unsigned long phValue = voltage*350 + calibration;
-         Humidity h(phValue/100,phValue%100);
+         Humidity h;         
+
+         if(avgSample > 1000)
+         {
+           // не прочитали ничего из порта
+         }
+         else
+         {
+           h.Value = phValue/100;
+           h.Fract = phValue%100;          
+         }
 
          // сохраняем состояние с датчика
          State.UpdateState(StatePH,0,(void*)&h);     

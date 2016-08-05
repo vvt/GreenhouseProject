@@ -58,13 +58,13 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //----------------------------------------------------------------------------------------------------------------
 // настройки
 //----------------------------------------------------------------------------------------------------------------
-#define ROM_ADDRESS (void*) 34 // по какому адресу у нас настройки?
+#define ROM_ADDRESS (void*) 0 // по какому адресу у нас настройки?
 //----------------------------------------------------------------------------------------------------------------
 // настройки датчиков для модуля, МЕНЯТЬ ЗДЕСЬ!
 const SensorSettings Sensors[3] = {
 
 {mstBH1750,BH1750Address1}, // датчик освещённости BH1750 на шине I2C
-{mstChinaSoilMoistureMeter,A0}, // китайский датчик влажности почвы на пине A0
+{mstPHMeter,A0}, // датчик pH на пине A0
 {mstSi7021,0} // датчик температуры и влажности Si7021 на шине I2C
 /* 
  поддерживаемые типы датчиков: 
@@ -76,6 +76,7 @@ const SensorSettings Sensors[3] = {
   {mstChinaSoilMoistureMeter,A7} - китайский датчик влажности почвы на пине A7
   {mstDHT22, 6} - датчик DHT2x на пине 6
   {mstDHT11, 5} - датчик DHT11 на пине 5
+  {mstPHMeter,A0} // датчик pH на пине A0
   
 
   если в слоте записано
@@ -389,7 +390,7 @@ void RS485waitTransmitComplete()
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_RS485_GATE
-//----------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 byte GetSensorType(const SensorSettings& sett)
 {
   switch(sett.Type)
@@ -410,6 +411,9 @@ byte GetSensorType(const SensorSettings& sett)
 
     case mstChinaSoilMoistureMeter:
       return uniSoilMoisture;
+
+    case mstPHMeter:
+      return uniPH;
     
   }
 
@@ -426,7 +430,10 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     
     case mstDS18B20:
     case mstChinaSoilMoistureMeter:
+    case mstPHMeter:
+    {
       *data = NO_TEMPERATURE_DATA;
+    }
     break;
       
     case mstBH1750:
@@ -475,6 +482,17 @@ void* InitSensor(const SensorSettings& sett)
 
     case mstChinaSoilMoistureMeter:
       return NULL;
+
+    case mstPHMeter: // инициализируем структуру для опроса pH
+    {      
+      PHMeasure* m = new PHMeasure;
+      m->samplesDone = 0;
+      m->samplesTimer = 0;
+      m->data = 0;
+      m->inMeasure = false; // ничего не измеряем
+      return m;
+    }
+    break;
   }
 
   return NULL;  
@@ -494,14 +512,17 @@ void ReadROM()
 
 
     // если интервала опроса не сохранено - выставляем по умолчанию
-    if(scratchpadS.query_interval == 0xFF)
-      scratchpadS.query_interval =  MEASURE_MIN_TIME/1000;
+    if(scratchpadS.query_interval_min == 0xFF)
+      scratchpadS.query_interval_min = 0;
+      
+    if(scratchpadS.query_interval_sec == 0xFF)
+      scratchpadS.query_interval_sec =  MEASURE_MIN_TIME/1000;
 
-   if(scratchpadS.query_interval < 5) // минимум 5 секунд между обновлениями датчиков
-    scratchpadS.query_interval = 5;
+   if(scratchpadS.query_interval_min == 0 && scratchpadS.query_interval_sec < 5) // минимум 5 секунд между обновлениями датчиков
+    scratchpadS.query_interval_sec = 5;
 
     // вычисляем интервал опроса
-    query_interval = ((scratchpadS.query_interval & 0xF0)*60 + (scratchpadS.query_interval & 0x0F))*1000;
+    query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
       
 
     scratchpadS.sensor1.type = GetSensorType(Sensors[0]);
@@ -530,8 +551,26 @@ void ReadROM()
               {
                 scratchpadS.calibration_factor2 = map(1023,0,1023,0,255);
               }
+
+              // мы поддерживаем два фактора калибровки
+              scratchpadS.config |= (4 | 8);
             }
-            break;
+            break; // mstChinaSoilMoistureMeter
+
+            case mstPHMeter:
+            {
+              calibration_enabled = true;
+              // устанавливаем значения по умолчанию
+              if(scratchpadS.calibration_factor1 == 0xFF)
+              {
+                // поскольку у нас беззнаковый байт - значение 127 соответствует калибровке 0,
+                // всё, что меньше - отрицательная калибровка, что больше - положительная калибровка
+                scratchpadS.calibration_factor1 = 127; 
+              }
+
+              scratchpadS.config |= 4; // поддерживаем всего один фактор калибровки
+            }
+            break; // mstPHMeter
           
         } // switch
 
@@ -580,6 +619,15 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
     case mstChinaSoilMoistureMeter:
     case mstDHT11:
     case mstDHT22:
+    break;
+
+    case mstPHMeter:
+    {
+      // надо подтянуть пин к питанию
+      pinMode(sett.Pin,INPUT);
+      digitalWrite(sett.Pin,HIGH); // включаем подтягивающие резисторы
+      analogRead(sett.Pin);
+    }
     break;
   }    
 }
@@ -719,7 +767,6 @@ void ReadBH1750(const SensorSettings& sett, void* sensorDefinedData, struct sens
   long lum = bh->GetCurrentLuminosity();
   memcpy(s->data,&lum,sizeof(lum));
 
-  
 }
 //----------------------------------------------------------------------------------------------------------------
 void ReadDHT(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика влажности Si7021
@@ -782,6 +829,51 @@ void ReadChinaSoilMoistureMeter(const SensorSettings& sett, void* sensorDefinedD
    
 }
 //----------------------------------------------------------------------------------------------------------------
+void ReadPHValue(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s)
+{
+  
+  UNUSED(sett);
+  
+  // подсчитываем актуальное значение pH
+ PHMeasure* pm = (PHMeasure*) sensorDefinedData;
+
+ pm->inMeasure = false; // говорим, что уже ничего не измеряем
+
+ s->data[0] = NO_TEMPERATURE_DATA;
+ 
+ if(pm->samplesDone > 0)
+ {
+  // сначала получаем значение калибровки, преобразовывая его в знаковое число
+  int8_t calibration = map(scratchpadS.calibration_factor1,0,255,-128,127);
+  
+  // преобразуем полученное значение в среднее
+  float avgSample = (pm->data*1.0)/pm->samplesDone;
+  
+  // теперь считаем вольтаж
+  float voltage = avgSample*5.0/1024;
+         
+  // теперь получаем значение pH
+  unsigned long phValue = voltage*350 + calibration;
+  
+    if(avgSample > 1000)
+    {
+      // не прочитали из порта ничего, потому что у нас включена подтяжка к питанию
+    }
+    else
+    {
+      s->data[0] = phValue/100;
+      s->data[1] = phValue%100;
+    } // else
+  
+ } // pm->samplesDone > 0
+
+ // сбрасываем данные в 0
+ pm->samplesDone = 0;
+ pm->samplesTimer = 0;
+ pm->data = 0;  
+  
+}
+//----------------------------------------------------------------------------------------------------------------
 void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s)
 {
   switch(sett.Type)
@@ -804,6 +896,10 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
 
     case mstChinaSoilMoistureMeter:
       ReadChinaSoilMoistureMeter(sett,sensorDefinedData,s);
+    break;
+
+    case mstPHMeter:
+      ReadPHValue(sett,sensorDefinedData,s);
     break;
 
     case mstDHT11:
@@ -866,7 +962,23 @@ inline void PowerDownI2C()
   power_twi_disable();
 }
 //----------------------------------------------------------------------------------------------------------------
-void MeasureSensor(const SensorSettings& sett) // запускаем конвертацию с датчика, если надо
+void MeasurePH(const SensorSettings& sett,void* sensorDefinedData)
+{
+ // начинаем измерения pH здесь 
+ PHMeasure* pm = (PHMeasure*) sensorDefinedData;
+ 
+ if(pm->inMeasure) // уже измеряем
+  return;
+  
+ pm->samplesDone = 0;
+ pm->samplesTimer = millis();
+ pm->data = 0;
+ // читаем из пина и игнорируем это значение
+ analogRead(sett.Pin);
+ pm->inMeasure = true; // говорим, что готовы измерять
+}
+//----------------------------------------------------------------------------------------------------------------
+void MeasureSensor(const SensorSettings& sett,void* sensorDefinedData) // запускаем конвертацию с датчика, если надо
 {
   switch(sett.Type)
   {
@@ -875,6 +987,10 @@ void MeasureSensor(const SensorSettings& sett) // запускаем конве�
 
     case mstDS18B20:
     MeasureDS18B20(sett);
+    break;
+
+    case mstPHMeter:
+      MeasurePH(sett,sensorDefinedData);
     break;
 
     case mstBH1750:
@@ -886,13 +1002,64 @@ void MeasureSensor(const SensorSettings& sett) // запускаем конве�
   }  
 }
 //----------------------------------------------------------------------------------------------------------------
-void StartMeasure()
+void UpdatePH(const SensorSettings& sett,void* sensorDefinedData, unsigned long curMillis)
 {
+  PHMeasure* pm = (PHMeasure*) sensorDefinedData;
+  
+  if(!pm->inMeasure) // ничего не меряем
+    return;
+    
+  if(pm->samplesDone >= PH_NUM_SAMPLES) // закончили измерения
+  {    
+    pm->inMeasure = false;
+    return;
+  }
+    
+  if((curMillis - pm->samplesTimer) > PH_SAMPLES_INTERVAL)
+  {
+    
+    pm->samplesTimer = curMillis; // запоминаем, когда замерили
+    // пора прочитать из порта
+    pm->samplesDone++;
+    pm->data += analogRead(sett.Pin);
+  }
+}
+//----------------------------------------------------------------------------------------------------------------
+void UpdateSensor(const SensorSettings& sett,void* sensorDefinedData, unsigned long curMillis)
+{
+  // обновляем датчики здесь
+  switch(sett.Type)
+  {
+
+    case mstPHMeter:
+      UpdatePH(sett,sensorDefinedData,curMillis);
+    break;
+
+    case mstNone:    
+    case mstDS18B20:
+    case mstBH1750:
+    case mstSi7021:
+    case mstChinaSoilMoistureMeter:
+    case mstDHT11:
+    case mstDHT22:
+    break;
+  }  
+}
+//----------------------------------------------------------------------------------------------------------------
+void UpdateSensors()
+{
+  unsigned long thisMillis = millis();
+  for(byte i=0;i<3;i++)
+    UpdateSensor(Sensors[i],SensorDefinedData[i],thisMillis);  
+}
+//----------------------------------------------------------------------------------------------------------------
+void StartMeasure()
+{  
  WakeUpSensors(); // будим все датчики
   
   // запускаем конвертацию
   for(byte i=0;i<3;i++)
-    MeasureSensor(Sensors[i]);
+    MeasureSensor(Sensors[i],SensorDefinedData[i]);
 
   last_measure_at = millis();
 }
@@ -905,6 +1072,7 @@ const uint64_t writingPipes[5] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0E2LL, 0xF0F0F0F0E3L
 //----------------------------------------------------------------------------------------------------------------
 #include "RF24.h"
 RF24 radio(NRF_CE_PIN,NRF_CSN_PIN);
+bool nRFInited = false;
 //----------------------------------------------------------------------------------------------------------------
 /*
 int serial_putc( char c, FILE * ) {
@@ -924,8 +1092,10 @@ void initNRF()
   //printf_begin();
   
   // инициализируем nRF
-  radio.begin();
+  nRFInited = radio.begin();
 
+  if(nRFInited)
+  {
   delay(200); // чуть-чуть подождём
 
   radio.setDataRate(RF24_1MBPS);
@@ -944,17 +1114,21 @@ void initNRF()
 
  // radio.printDetails();
  // Serial.println(F("Ready."));
+  } // nRFInited
   
 }
 //----------------------------------------------------------------------------------------------------------------
 void sendDataViaNRF()
 {
+  if(!nRFInited)
+    return;
+    
   if(!((scratchpadS.config & 1) == 1))
   {
   //  Serial.println(F("Transiever disabled."));
     return;
   }
-
+  
   radio.powerUp(); // просыпаемся
   
  // Serial.println(F("Send sensors data via nRF..."));
@@ -987,7 +1161,9 @@ void WriteROM()
 
     #ifdef USE_NRF
       // переназначаем канал радио
-      radio.setChannel(scratchpadS.rf_id);
+      if(nRFInited)
+        radio.setChannel(scratchpadS.rf_id);
+        
     #endif
     
 
@@ -995,7 +1171,7 @@ void WriteROM()
 //----------------------------------------------------------------------------------------------------------------
 void setup()
 {
-   #ifdef USE_RS485_GATE // если сказано работать через RS-485 - работаем 
+ #ifdef USE_RS485_GATE // если сказано работать через RS-485 - работаем 
     Serial.begin(RS485_SPEED);
     InitRS485(); // настраиваем RS-485 на приём
  #endif
@@ -1128,7 +1304,7 @@ void loop()
     // скратч был получен от мастера, тут можно что-то делать
 
     // вычисляем новый интервал опроса
-    query_interval = ((scratchpadS.query_interval & 0xF0)*60 + (scratchpadS.query_interval & 0x0F))*1000;
+    query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
     scratchpadReceivedFromMaster = false;
       
   } // scratchpadReceivedFromMaster
@@ -1136,7 +1312,7 @@ void loop()
   unsigned long curMillis = millis();
 
 
-  if(curMillis - last_measure_at > query_interval && !measureTimerEnabled)
+  if(((curMillis - last_measure_at) > query_interval) && !measureTimerEnabled && !needToMeasure)
   {
     // чего-то долго не запускали конвертацию, запустим, пожалуй
     
@@ -1152,7 +1328,10 @@ void loop()
     measureTimerEnabled = true; // включаем флаг, что мы должны прочитать данные с датчиков
   }
 
-  // если линия 1-Wire спит, таймер получения данных с датчиков взведён и отсчёт кончился - получаем данные с датчиков
+  if(measureTimerEnabled)
+  {
+    UpdateSensors(); // обновляем датчики, если кому-то из них нужно периодическое обновление
+  }
   
   if(measureTimerEnabled && ((curMillis - sensorsUpdateTimer) > query_interval))
   {
@@ -1161,7 +1340,18 @@ void loop()
      measureTimerEnabled = false;
      // можно читать информацию с датчиков
      ReadSensors();
-
+/*
+     static bool si = false;
+     if(!si)
+     {
+      si = true;
+      Serial.begin(57600);
+     }
+     Serial.print("PH: ");
+     Serial.print(scratchpadS.sensor2.data[0]);
+     Serial.print(",");
+     Serial.println(scratchpadS.sensor2.data[1]);
+*/
      // теперь усыпляем все датчики
      PowerDownSensors();
 
