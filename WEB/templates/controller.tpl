@@ -114,6 +114,7 @@
                     <div class='row' id='PH_HEADER'>
                       <div class='row_item ui-widget-header'>Индекс датчика</div>
                       <div class='row_item ui-widget-header'>Показания pH</div>
+                      <div class='row_item ui-widget-header'>Милливольт</div>
                     </div>
 
                     <div id='PH_LIST'></div>

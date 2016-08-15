@@ -8,7 +8,7 @@ var View = function(controller)
   return this;
 }
 //-----------------------------------------------------------------------------------------------------
-View.prototype.fillSensorsList = function(parentElement, list, add, pattern = {index : true, module: true, data: true})
+View.prototype.fillSensorsList = function(parentElement, list, add, pattern = {index : true, module: true, data: true, customColumn : null})
 {
   var arr = list.List;
   var view = this;
@@ -38,8 +38,7 @@ View.prototype.fillSensorsList = function(parentElement, list, add, pattern = {i
 
         if(pattern.data)
         {
-            var dt = $('<div/>',{'class': 'row_item sensor_data', id: 'data_col'}).appendTo(row);
-            
+            var dt = $('<div/>',{'class': 'row_item sensor_data', id: 'data_col'}).appendTo(row);            
             var dataDiv = $('<div/>',{'class': 'sensor_data_float', id : 'data'}).appendTo(dt);
             
             if(sensor.HasData)
@@ -61,6 +60,20 @@ View.prototype.fillSensorsList = function(parentElement, list, add, pattern = {i
                 updatingChart.text(values.join(",")).change();
               }
               
+        }
+        
+        if(pattern.customColumn)
+        {
+            var customData = NO_DATA;
+            
+            if(sensor.HasData)
+              customData = pattern.customColumn(sensor.Data);
+        
+            var dt = $('<div/>',{'class': 'row_item sensor_data', id: 'data_col2'}).appendTo(row);
+            var dataDiv = $('<div/>',{'class': 'sensor_data_float', id : 'data2'}).appendTo(dt);
+            
+            dataDiv.html(customData);
+        
         }
         
         var actions = $('<div/>',{'class': 'row_item actions', id: 'actions'}).appendTo(row);
@@ -137,6 +150,14 @@ View.prototype.fillSoilMoistureList = function(parentElement)
 //-----------------------------------------------------------------------------------------------------
 View.prototype.fillPHList = function(parentElement)
 {
-  this.fillSensorsList(parentElement,this.Controller.PHList, ' pH', {index : true, module: false, data: true});
+  this.fillSensorsList(parentElement,this.Controller.PHList, ' pH', {index : true, module: false, data: true, customColumn : function(data)
+  {
+      var normalizedData = parseFloat(data.replace(/[,]+/g,'.'));
+      normalizedData = parseInt((normalizedData * 10000)/35);
+      
+      return normalizedData + " mV";
+  }
+  
+  });
 }
 //-----------------------------------------------------------------------------------------------------
