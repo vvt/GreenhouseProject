@@ -501,7 +501,7 @@ function editPhoneNumber()
 // редактируем настройки PH
 function editPHCalibration()
 {
- $("#ph_calibration_dialog").dialog({modal:true, buttons: [{text: "Изменить", click: function(){
+ $("#ph_calibration_dialog").dialog({modal:true, width: 500, buttons: [{text: "Изменить", click: function(){
 
       var cal1 = parseInt($('#ph_calibraton').val());
       
@@ -522,6 +522,28 @@ function editPHCalibration()
         cal1 = -100;
         $('#ph_calibraton').val(cal1);
        }
+       
+       var ph4V = parseInt($('#ph4Voltage').val());
+       if(isNaN(ph4V) || ph4V < 0)
+        return;
+
+       var ph7V = parseInt($('#ph7Voltage').val());
+       if(isNaN(ph7V) || ph7V < 0)
+        return;
+
+       var ph10V = parseInt($('#ph10Voltage').val());
+       if(isNaN(ph10V) || ph10V < 0)
+        return;
+
+       var phTempSensor = parseInt($('#phTemperatureSensor').val());
+       if(isNaN(phTempSensor) || phTempSensor < 0)
+        return;
+
+       var phCalTemp = parseFloat($('#phCalibrationTemperature').val());
+       if(isNaN(phCalTemp) || phCalTemp < 0)
+        return;
+        
+       phCalTemp = parseInt(phCalTemp*100);
 
 
       $(this).dialog("close");
@@ -536,7 +558,7 @@ function editPHCalibration()
                 buttons: []
               });
                     
-      controller.queryCommand(false,'PH|T_SETT|' + cal1,function(obj,answer){
+      controller.queryCommand(false,'PH|T_SETT|' + cal1 + '|' + ph4V + '|' + ph7V + '|' + ph10V + '|' + phTempSensor  + '|' + phCalTemp,function(obj,answer){
       
       $("#data_requested_dialog" ).dialog('close');
       
@@ -1777,6 +1799,11 @@ controller.OnGetModulesList = function(obj)
           if(answer.IsOK)
           {
             $('#ph_calibraton').val(answer.Params[2]);
+            $('#ph4Voltage').val(answer.Params[3]);
+            $('#ph7Voltage').val(answer.Params[4]);
+            $('#ph10Voltage').val(answer.Params[5]);
+            $('#phTemperatureSensor').val(answer.Params[6]);
+            $('#phCalibrationTemperature').val(answer.Params[7].replace(/[,]+/g,'.'));
           }
         
         });
@@ -2630,7 +2657,7 @@ $(document).ready(function(){
     
     $('#cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
-    $('#all_watering_start_hour, #all_watering_time, #ph_calibraton').forceNumericOnly();
+    $('#all_watering_start_hour, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature').forceNumericOnly();
     $('#watering_start_hour, #watering_time').forceNumericOnly(); 
 
     $('#rule_work_time_input, #rule_start_time_input, #rule_sensor_value_input').forceNumericOnly();

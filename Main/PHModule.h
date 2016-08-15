@@ -14,6 +14,11 @@ class PhModule : public AbstractModule // модуль контроля pH
     byte samplesTimer;
 
     int calibration; // калибровка, в сотых долях
+    int16_t ph4Voltage; // показания в милливольтах для тестового раствора 4 pH
+    int16_t ph7Voltage; // показания в милливольтах для тестового раствора 7 pH
+    int16_t ph10Voltage; // показания в милливольтах для тестового раствора 10 pH
+    int8_t phTemperatureSensorIndex; // индекс датчика температуры, который завязан на измерения pH
+    Temperature phSamplesTemperature; // температура, при которой производилась калибровка
 
     unsigned long dataArray;
 
@@ -27,6 +32,18 @@ class PhModule : public AbstractModule // модуль контроля pH
     void Setup();
     void Update(uint16_t dt);
 
+    void ApplyCalculation(Temperature* temp);
+
 };
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+class PHCalculator
+{
+  public:
+
+    void ApplyCalculation(Temperature* temp);
+  
+    PHCalculator();
+};
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+extern PHCalculator PHCalculation;
 #endif

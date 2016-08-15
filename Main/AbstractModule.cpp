@@ -1,5 +1,8 @@
 #include "AbstractModule.h"
 #include "ModuleController.h"
+#ifdef USE_PH_MODULE
+#include "PHModule.h"
+#endif
 
 PublishStruct& PublishStruct::operator=(const String& src)
 {
@@ -300,6 +303,16 @@ void OneState::Update(void* newData) // обновляем внутреннее 
         *t2 = *t1; // сохраняем предыдущую температуру
 
         Temperature* tNew = (Temperature*) newData;
+
+        #ifdef USE_PH_MODULE
+          if(Type == StatePH)
+          {
+            // тут поправляем значение pH в зависимости от калибровочных коэффициентов
+            PHCalculation.ApplyCalculation(tNew);
+              
+          }
+        #endif // USE_PH_MODULE
+        
         *t1 = *tNew; // пишем новую
       } 
       break;

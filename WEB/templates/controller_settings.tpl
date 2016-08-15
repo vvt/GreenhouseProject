@@ -153,10 +153,47 @@
 
 <div id='ph_calibration_dialog' title='Настройки PH' class='hdn'>
   <form>
-    <p>
-    Фактор калибровки, сотые доли (-100 ~ 100):<br/>
-    <input type='text' id='ph_calibraton' maxlength='4' value='' style='width:100%;'/>
-    </p>
+  
+    <table border='0' width='100%' cellspacing='0' cellpadding='4'>
+    
+      <tr>
+        <td width='50%' valign='top'>
+          Поправочное число, сотые доли (-100 ~ 100):<br/>
+          <input type='text' id='ph_calibraton' maxlength='4' value='' style='width:100%;'/>
+        </td>
+        
+        <td width='50%' valign='top'>
+          Калибровочный раствор 4 pH, милливольт:<br/>
+          <input type='text' id='ph4Voltage' maxlength='4' value='' style='width:100%;'/>
+        </td>
+      </tr>
+      
+      <tr>
+        <td valign='top'>
+        Калибровочный раствор 7 pH, милливольт:<br/>
+        <input type='text' id='ph7Voltage' maxlength='4' value='' style='width:100%;'/>
+        </td>
+        
+        <td valign='top'>
+          Калибровочный раствор 10 pH, милливольт:<br/>
+          <input type='text' id='ph10Voltage' maxlength='4' value='' style='width:100%;'/>
+        </td>
+      </tr>
+      
+      <tr>
+        <td valign='top'>
+          Индекс датчика температуры:<br/>
+          <input type='text' id='phTemperatureSensor' maxlength='3' value='' style='width:100%;'/>
+        </td>
+        
+        <td valign='top'>
+          Температура калибровочных растворов:<br/>
+          <input type='text' id='phCalibrationTemperature' maxlength='6' value='' style='width:100%;'/>
+        </td>
+      </tr>
+      
+    </table>
+
     
   </form>
 </div>

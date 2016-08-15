@@ -2,8 +2,93 @@
 #include "ModuleController.h"
 #include <EEPROM.h>
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+PHCalculator PHCalculation;
+PhModule* _thisPHModule = NULL;
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+PHCalculator::PHCalculator()
+{
+  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PHCalculator::ApplyCalculation(Temperature* temp)
+{ 
+  if(!_thisPHModule)
+    return;
+
+  _thisPHModule->ApplyCalculation(temp);  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PhModule::ApplyCalculation(Temperature* temp)
+{
+  // Эта функция вызывается при любом обновлении значения с датчика pH, откуда бы это значение
+  // ни пришло. Здесь мы можем применить к значению поправочные факторы калибровки, в том числе
+  // по температуре, плюс применяем к показаниям поправочное число.
+  
+  if(!temp)
+    return;
+
+  if(!temp->HasData())
+    return;
+
+  // теперь проверяем, можем ли мы применить калибровочные поправки?
+  // для этого все вольтажи, наличие показаний с датчика температуры
+  // и выставленная настройки температуры калибровочных растворов
+  // должны быть актуальными.
+
+  if(ph4Voltage < 1 || ph7Voltage < 1 || ph10Voltage < 1 || phTemperatureSensorIndex < 0 
+  || !phSamplesTemperature.HasData() || phSamplesTemperature.Value > 100 || phSamplesTemperature.Value < 0)
+    return;
+
+  AbstractModule* tempModule = MainController->GetModuleByID("STATE");
+  if(!tempModule)
+    return;
+
+  OneState* os = tempModule->State.GetState(StateTemperature,phTemperatureSensorIndex);
+  if(!os)
+    return;
+
+  TemperaturePair tempPair = *os;
+  Temperature tempPH = tempPair.Current;
+
+  if(!tempPH.HasData() || tempPH.Value > 100 || tempPH.Value < 0)
+    return;
+
+  Temperature tDiff = tempPH - phSamplesTemperature;
+
+  unsigned long ulDiff = tDiff.Value;
+  ulDiff *= 100;
+  ulDiff += tDiff.Fract;
+  
+  float fTempDiff = ulDiff/100;
+
+  // теперь можем применять факторы калибровки.
+  // сначала переводим текущие показания в вольтаж, приходится так делать, поскольку
+  // они приходят уже нормализованными.
+  unsigned long curPHVoltage = temp->Value;
+  curPHVoltage *= 100;
+  curPHVoltage += temp->Fract + calibration; // прибавляем сотые доли показаний, плюс сотые доли поправочного числа
+  curPHVoltage *= 100;
+  curPHVoltage /= 35; // например, 7,00 pH  сконвертируется в 2000 милливольт
+
+  float sensitivity = (ph4Voltage - ph10Voltage)/6;
+  sensitivity = sensitivity + fTempDiff*0.0001984;
+
+  float calibratedPH = 7.0 + (ph7Voltage - curPHVoltage)/sensitivity;
+
+  // теперь переводим всё это обратно в понятный всем вид
+  uint16_t phVal = calibratedPH*100;
+
+  // и сохраняем это дело в показания датчика
+  temp->Value = phVal/100;
+  temp->Fract = phVal%100;
+
+  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void PhModule::Setup()
 {
+  _thisPHModule = this;
+  
   // настройка модуля тут
   phSensorPin = PH_SENSOR_PIN;
   measureTimer = 0;
@@ -11,6 +96,11 @@ void PhModule::Setup()
   samplesDone = 0;
   samplesTimer = 0;
   calibration = 0;
+  ph4Voltage = 0;
+  ph7Voltage = 0;
+  ph10Voltage = 0;
+  phTemperatureSensorIndex = -1;
+  phSamplesTemperature.Value = 25; // 25 градусов температура калибровочных растворов по умолчанию
 
   // читаем настройки
   ReadSettings();
@@ -39,6 +129,28 @@ void PhModule::SaveSettings()
   memcpy(cal,&calibration,2);
   EEPROM.write(addr++,cal[0]);
   EEPROM.write(addr++,cal[1]);
+
+  // пишем вольтаж раствора 4 pH
+  EEPROM.put(addr,ph4Voltage);
+  addr += sizeof(int16_t);   
+
+  // пишем вольтаж раствора 7 pH
+  EEPROM.put(addr,ph7Voltage);
+  addr += sizeof(int16_t);   
+
+  // пишем вольтаж раствора 10 pH
+  EEPROM.put(addr,ph10Voltage);
+  addr += sizeof(int16_t);
+
+  // пишем индекс датчика температуры
+  EEPROM.write(addr++,phTemperatureSensorIndex);
+
+  // пишем показания температуры при калибровке
+  cal[0] = phSamplesTemperature.Value;
+  cal[1] = phSamplesTemperature.Fract;
+
+  EEPROM.put(addr,cal);
+  addr += 2;
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -62,9 +174,49 @@ void PhModule::ReadSettings()
   if(cal[0] == 0xFF && cal[1] == 0xFF) // нет калибровки
     calibration = PH_DEFAULT_CALIBRATION;
   else
-  {
     memcpy(&calibration,cal,2); // иначе копируем сохранённую калибровку
-  }
+
+ // читаем вольтаж раствора 4 pH
+  EEPROM.get(addr,ph4Voltage);
+  addr += sizeof(int16_t);   
+
+ // читаем вольтаж раствора 7 pH
+  EEPROM.get(addr,ph7Voltage);
+  addr += sizeof(int16_t);   
+
+ // читаем вольтаж раствора 10 pH
+  EEPROM.get(addr,ph10Voltage);
+  addr += sizeof(int16_t);
+
+  // читаем индекс датчика температуры
+  phTemperatureSensorIndex = EEPROM.read(addr++);
+
+  // читаем значение температуры калибровки
+  cal[0] = EEPROM.read(addr++);
+  cal[1] = EEPROM.read(addr++);
+
+  // теперь проверяем корректность всех настроек
+  if(0xFFFF == (uint16_t) ph4Voltage)
+    ph4Voltage = 0;
+
+  if(0xFFFF == (uint16_t) ph7Voltage)
+    ph7Voltage = 0;
+
+  if(0xFFFF == (uint16_t) ph10Voltage)
+    ph10Voltage = 0;
+
+  if(0xFF == (byte) phTemperatureSensorIndex)
+    phTemperatureSensorIndex = -1;
+
+  if(cal[0] == 0xFF)
+    phSamplesTemperature.Value = 25; // 25 градусов дефолтная температура
+  else
+    phSamplesTemperature.Value = cal[0];
+
+  if(cal[1] == 0xFF)
+    phSamplesTemperature.Fract = 0;
+  else
+    phSamplesTemperature.Fract = cal[1];
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -99,7 +251,7 @@ void PhModule::Update(uint16_t dt)
          float voltage = avgSample*5.0/1024;
   
          // теперь получаем значение pH
-         unsigned long phValue = voltage*350 + calibration;
+         unsigned long phValue = voltage*350;
          Humidity h;         
 
          if(avgSample > 1000)
@@ -179,9 +331,9 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
      else
      {
        String param = command.GetArg(0);
-       if(param == PH_SETTINGS_COMMAND) // установить настройки: CTSET=PH|T_SETT|calibration_factor
+       if(param == PH_SETTINGS_COMMAND) // установить настройки: CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp
        {
-          if(argsCnt < 2)
+          if(argsCnt < 7)
           {
             if(wantAnswer)
               PublishSingleton = PARAMS_MISSED;
@@ -190,6 +342,16 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
           {
              // аргументов хватает
              calibration = atoi(command.GetArg(1));
+             ph4Voltage = atoi(command.GetArg(2));
+             ph7Voltage = atoi(command.GetArg(3));
+             ph10Voltage = atoi(command.GetArg(4));
+             phTemperatureSensorIndex = atoi(command.GetArg(5));
+             
+             int samplesTemp = atoi(command.GetArg(6));
+             phSamplesTemperature.Value = samplesTemp/100;
+             phSamplesTemperature.Fract = samplesTemp%100;
+             
+             
              SaveSettings();
 
              PublishSingleton.Status = true;
@@ -238,13 +400,18 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
           } // for        
         } // param == ALL
         else
-        if(param == PH_SETTINGS_COMMAND) // получить/установить настройки: CTGET=PH|T_SETT, CTSET=PH|T_SETT|calibration_factor
+        if(param == PH_SETTINGS_COMMAND) // получить/установить настройки: CTGET=PH|T_SETT, CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp
         {
           PublishSingleton.Status = true;
           if(wantAnswer)
           {
             PublishSingleton = PH_SETTINGS_COMMAND;
-            PublishSingleton << PARAM_DELIMITER << calibration; 
+            PublishSingleton << PARAM_DELIMITER << calibration;
+            PublishSingleton << PARAM_DELIMITER << ph4Voltage;
+            PublishSingleton << PARAM_DELIMITER << ph7Voltage;
+            PublishSingleton << PARAM_DELIMITER << ph10Voltage;
+            PublishSingleton << PARAM_DELIMITER << phTemperatureSensorIndex;
+            PublishSingleton << PARAM_DELIMITER << phSamplesTemperature;             
           }
           
         } // PH_SETTINGS_COMMAND
