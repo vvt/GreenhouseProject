@@ -111,6 +111,19 @@ View.prototype.fillSensorsList = function(parentElement, list, add, pattern = {i
         else
           dataCol.children('#data').html(NO_DATA);
           
+        if(pattern.customColumn)
+        {
+          var dataCol2 = childElem.children('#data_col2');
+
+            var customData = NO_DATA;
+            
+            if(sensor.HasData)
+              customData = pattern.customColumn(sensor.Data);
+        
+            dataCol2.children('#data2').html(customData);
+        
+        }          
+          
               var updatingChart = dataCol.children('#inline_chart');
               
               if(sensor.HasData)
