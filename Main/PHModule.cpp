@@ -2,6 +2,9 @@
 #include "ModuleController.h"
 #include <EEPROM.h>
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+//#define PH_DEBUG
+#define PH_DEBUG_OUT(which, value) {Serial.print((which)); Serial.println((value));}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 PHCalculator PHCalculation;
 PhModule* _thisPHModule = NULL;
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -55,25 +58,60 @@ void PhModule::ApplyCalculation(Temperature* temp)
 
   Temperature tDiff = tempPH - phSamplesTemperature;
 
-  unsigned long ulDiff = tDiff.Value;
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("T diff: "), tDiff);
+  #endif
+
+  long ulDiff = tDiff.Value;
   ulDiff *= 100;
   ulDiff += tDiff.Fract;
+
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("ulDiff: "), ulDiff);
+  #endif
   
-  float fTempDiff = ulDiff/100;
+  float fTempDiff = ulDiff/100.0;
+
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("fTempDiff: "), fTempDiff);
+    PH_DEBUG_OUT(F("source PH: "), *temp);
+  #endif 
 
   // теперь можем применять факторы калибровки.
   // сначала переводим текущие показания в вольтаж, приходится так делать, поскольку
   // они приходят уже нормализованными.
-  unsigned long curPHVoltage = temp->Value;
+  long curPHVoltage = temp->Value;
+
   curPHVoltage *= 100;
   curPHVoltage += temp->Fract + calibration; // прибавляем сотые доли показаний, плюс сотые доли поправочного числа
   curPHVoltage *= 100;
   curPHVoltage /= 35; // например, 7,00 pH  сконвертируется в 2000 милливольт
 
-  float sensitivity = (ph4Voltage - ph10Voltage)/6;
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("curPHVoltage: "), curPHVoltage);
+    PH_DEBUG_OUT(F("ph4Voltage: "), ph4Voltage);
+    PH_DEBUG_OUT(F("ph7Voltage: "), ph7Voltage);
+    PH_DEBUG_OUT(F("ph10Voltage: "), ph10Voltage);
+  #endif
+
+  long phDiff = ph4Voltage;
+  phDiff -= ph10Voltage;
+
+  float sensitivity = phDiff/6.0;
   sensitivity = sensitivity + fTempDiff*0.0001984;
 
-  float calibratedPH = 7.0 + (ph7Voltage - curPHVoltage)/sensitivity;
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("sensitivity: "), sensitivity);
+  #endif
+
+  phDiff = ph7Voltage;
+  phDiff -= curPHVoltage;
+  
+  float calibratedPH = 7.0 + phDiff/sensitivity;
+
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("calibratedPH: "), calibratedPH);
+  #endif
 
   // теперь переводим всё это обратно в понятный всем вид
   uint16_t phVal = calibratedPH*100;
@@ -82,6 +120,9 @@ void PhModule::ApplyCalculation(Temperature* temp)
   temp->Value = phVal/100;
   temp->Fract = phVal%100;
 
+  #ifdef PH_DEBUG
+    PH_DEBUG_OUT(F("pH result: "), *temp);
+  #endif
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
