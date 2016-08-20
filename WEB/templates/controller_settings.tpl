@@ -157,40 +157,65 @@
     <table border='0' width='100%' cellspacing='0' cellpadding='4'>
     
       <tr>
-        <td width='50%' valign='top'>
+        <td width='50%' valign='bottom'>
           Поправочное число, сотые доли (-100 ~ 100):<br/>
           <input type='text' id='ph_calibraton' maxlength='4' value='' style='width:100%;'/>
         </td>
         
-        <td width='50%' valign='top'>
+        <td width='50%' valign='bottom'>
           Калибровочный раствор 4 pH, милливольт:<br/>
           <input type='text' id='ph4Voltage' maxlength='4' value='' style='width:100%;'/>
         </td>
       </tr>
       
       <tr>
-        <td valign='top'>
+        <td valign='bottom'>
         Калибровочный раствор 7 pH, милливольт:<br/>
         <input type='text' id='ph7Voltage' maxlength='4' value='' style='width:100%;'/>
         </td>
         
-        <td valign='top'>
+        <td valign='bottom'>
           Калибровочный раствор 10 pH, милливольт:<br/>
           <input type='text' id='ph10Voltage' maxlength='4' value='' style='width:100%;'/>
         </td>
       </tr>
       
       <tr>
-        <td valign='top'>
+        <td valign='bottom'>
           Индекс датчика температуры:<br/>
           <input type='text' id='phTemperatureSensor' maxlength='3' value='' style='width:100%;'/>
         </td>
         
-        <td valign='top'>
+        <td valign='bottom'>
           Температура калибровочных растворов:<br/>
           <input type='text' id='phCalibrationTemperature' maxlength='6' value='' style='width:100%;'/>
         </td>
       </tr>
+      
+      <tr>
+        <td valign='bottom'>
+          Поддерживаемое значение pH:<br/>
+          <input type='text' id='phTarget' maxlength='3' value='' style='width:100%;'/>
+        </td>
+        
+        <td valign='bottom'>
+          Гистерезис:<br/>
+          <input type='text' id='phHisteresis' maxlength='6' value='' style='width:100%;'/>
+        </td>
+      </tr>
+      
+      
+      <tr>
+        <td valign='bottom'>
+          Время работы насоса перемешивания, с:<br/>
+          <input type='text' id='phMixPumpTime' maxlength='3' value='' style='width:100%;'/>
+        </td>
+        
+        <td valign='bottom'>
+          Время работы насоса подачи реагента, для изменения pH на 0.1, с:<br/>
+          <input type='text' id='phReagentPumpTime' maxlength='6' value='' style='width:100%;'/>
+        </td>
+      </tr>            
       
     </table>
 

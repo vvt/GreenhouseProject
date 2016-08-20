@@ -20,6 +20,11 @@ class PhModule : public AbstractModule // модуль контроля pH
     int8_t phTemperatureSensorIndex; // индекс датчика температуры, который завязан на измерения pH
     Temperature phSamplesTemperature; // температура, при которой производилась калибровка
 
+    uint16_t phTarget; // значение pH, за которым следим
+    uint16_t phHisteresis; // гистерезис
+    uint16_t phMixPumpTime; // время работы насоса перемешивания, с
+    uint16_t phReagentPumpTime; // время работы подачи реагента, с
+
     unsigned long dataArray;
 
     void ReadSettings();

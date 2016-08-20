@@ -2,7 +2,6 @@
 #include "ModuleController.h"
 #include <EEPROM.h>
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-//#define PH_DEBUG
 #define PH_DEBUG_OUT(which, value) {Serial.print((which)); Serial.println((value));}
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 PHCalculator PHCalculation;
@@ -192,6 +191,19 @@ void PhModule::SaveSettings()
 
   EEPROM.put(addr,cal);
   addr += 2;
+
+
+  EEPROM.put(addr,phTarget);
+  addr += sizeof(phTarget);
+
+  EEPROM.put(addr,phHisteresis);
+  addr += sizeof(phHisteresis);
+
+  EEPROM.put(addr,phMixPumpTime);
+  addr += sizeof(phMixPumpTime);
+
+  EEPROM.put(addr,phReagentPumpTime);
+  addr += sizeof(phReagentPumpTime);
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -258,6 +270,30 @@ void PhModule::ReadSettings()
     phSamplesTemperature.Fract = 0;
   else
     phSamplesTemperature.Fract = cal[1];
+
+  EEPROM.get(addr,phTarget);
+  addr += sizeof(phTarget);
+  
+  if(phTarget == 0xFFFF)
+    phTarget = PH_DEFAULT_TARGET;   
+
+  EEPROM.get(addr,phHisteresis);
+  addr += sizeof(phHisteresis);
+  
+  if(phHisteresis == 0xFFFF)
+    phHisteresis = PH_DEFAULT_HISTERESIS;   
+
+  EEPROM.get(addr,phMixPumpTime);
+  addr += sizeof(phMixPumpTime);
+  
+  if(phMixPumpTime == 0xFFFF)
+    phMixPumpTime = PH_DEFAULT_MIX_PUMP_TIME;   
+
+  EEPROM.get(addr,phReagentPumpTime);
+  addr += sizeof(phReagentPumpTime);
+  
+  if(phReagentPumpTime == 0xFFFF)
+    phReagentPumpTime = PH_DEFAULT_REAGENT_PUMP_TIME;   
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -352,6 +388,8 @@ void PhModule::Update(uint16_t dt)
     
   } // if(phSensorPin > 0)
 
+  //TODO: Тут контроль pH
+
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
@@ -372,9 +410,9 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
      else
      {
        String param = command.GetArg(0);
-       if(param == PH_SETTINGS_COMMAND) // установить настройки: CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp
+       if(param == PH_SETTINGS_COMMAND) // установить настройки: CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp|ph_target|ph_histeresis|mix_time|reagent_time
        {
-          if(argsCnt < 7)
+          if(argsCnt < 11)
           {
             if(wantAnswer)
               PublishSingleton = PARAMS_MISSED;
@@ -391,6 +429,11 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
              int samplesTemp = atoi(command.GetArg(6));
              phSamplesTemperature.Value = samplesTemp/100;
              phSamplesTemperature.Fract = samplesTemp%100;
+
+             phTarget = atoi(command.GetArg(7));
+             phHisteresis = atoi(command.GetArg(8));
+             phMixPumpTime = atoi(command.GetArg(9));
+             phReagentPumpTime = atoi(command.GetArg(10));
              
              
              SaveSettings();
@@ -441,7 +484,7 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
           } // for        
         } // param == ALL
         else
-        if(param == PH_SETTINGS_COMMAND) // получить/установить настройки: CTGET=PH|T_SETT, CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp
+        if(param == PH_SETTINGS_COMMAND) // получить/установить настройки: CTGET=PH|T_SETT, CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp|ph_target|ph_histeresis|mix_time|reagent_time
         {
           PublishSingleton.Status = true;
           if(wantAnswer)
@@ -453,6 +496,10 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
             PublishSingleton << PARAM_DELIMITER << ph10Voltage;
             PublishSingleton << PARAM_DELIMITER << phTemperatureSensorIndex;
             PublishSingleton << PARAM_DELIMITER << phSamplesTemperature;             
+            PublishSingleton << PARAM_DELIMITER << phTarget;             
+            PublishSingleton << PARAM_DELIMITER << phHisteresis;             
+            PublishSingleton << PARAM_DELIMITER << phMixPumpTime;             
+            PublishSingleton << PARAM_DELIMITER << phReagentPumpTime;             
           }
           
         } // PH_SETTINGS_COMMAND

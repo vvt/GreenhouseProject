@@ -544,7 +544,26 @@ function editPHCalibration()
         return;
         
        phCalTemp = parseInt(phCalTemp*100);
-
+       
+       var phTarget = parseFloat($('#phTarget').val());
+       if(isNaN(phTarget) || phTarget < 0)
+        return;
+        
+       phTarget = parseInt(phTarget*100);
+       
+       var phHisteresis = parseFloat($('#phHisteresis').val());
+       if(isNaN(phHisteresis) || phHisteresis < 0)
+        return;
+        
+       phHisteresis = parseInt(phHisteresis*100);
+              
+       var phMixPumpTime = parseInt($('#phMixPumpTime').val());
+       if(isNaN(phMixPumpTime) || phMixPumpTime < 0)
+        return;
+        
+       var phReagentPumpTime = parseInt($('#phReagentPumpTime').val());
+       if(isNaN(phReagentPumpTime) || phReagentPumpTime < 0)
+        return;
 
       $(this).dialog("close");
 
@@ -558,7 +577,13 @@ function editPHCalibration()
                 buttons: []
               });
                     
-      controller.queryCommand(false,'PH|T_SETT|' + cal1 + '|' + ph4V + '|' + ph7V + '|' + ph10V + '|' + phTempSensor  + '|' + phCalTemp,function(obj,answer){
+      controller.queryCommand(false,'PH|T_SETT|' + cal1 + '|' + ph4V + '|' + ph7V + '|' + ph10V + '|' + phTempSensor  + '|' + phCalTemp
+      + '|' + phTarget
+      + '|' + phHisteresis
+      + '|' + phMixPumpTime
+      + '|' + phReagentPumpTime
+      
+      ,function(obj,answer){
       
       $("#data_requested_dialog" ).dialog('close');
       
@@ -1804,6 +1829,16 @@ controller.OnGetModulesList = function(obj)
             $('#ph10Voltage').val(answer.Params[5]);
             $('#phTemperatureSensor').val(answer.Params[6]);
             $('#phCalibrationTemperature').val(answer.Params[7].replace(/[,]+/g,'.'));
+            
+            var phTarget = parseFloat(answer.Params[8])/100;
+            $('#phTarget').val(phTarget);
+            
+            var phHisteresis = parseFloat(answer.Params[9])/100;
+            $('#phHisteresis').val(phHisteresis);
+            
+            $('#phMixPumpTime').val(answer.Params[10]);
+            $('#phReagentPumpTime').val(answer.Params[11]);
+            
           }
         
         });
@@ -2657,7 +2692,7 @@ $(document).ready(function(){
     
     $('#cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
-    $('#all_watering_start_hour, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature').forceNumericOnly();
+    $('#all_watering_start_hour, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature, #phTarget, #phHisteresis, #phMixPumpTime, #phReagentPumpTime').forceNumericOnly();
     $('#watering_start_hour, #watering_time').forceNumericOnly(); 
 
     $('#rule_work_time_input, #rule_start_time_input, #rule_sensor_value_input').forceNumericOnly();
