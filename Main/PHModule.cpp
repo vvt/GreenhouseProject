@@ -269,14 +269,17 @@ void PhModule::Setup()
   pcfModule.lastError();
 
   updateDelta = 0; // дельта обновления данных, чтобы часто не дёргать микросхему
+
+  // сохраняем статусы работы
+  SAVE_STATUS(PH_FLOW_ADD_BIT,0);
+  SAVE_STATUS(PH_MIX_PUMP_BIT,0);
+  SAVE_STATUS(PH_PLUS_PUMP_BIT,0);
+  SAVE_STATUS(PH_MINUS_PUMP_BIT,0);
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool PhModule::isLevelSensorTriggered(byte data)
 {
-#ifdef PH_DEBUG
-  PH_DEBUG_OUT(F("Data from PCF: "), data);
-#endif  
   return (data & (PH_FLOW_LEVEL_TRIGGERED << PH_FLOW_LEVEL_SENSOR_CHANNEL)) == PH_FLOW_LEVEL_TRIGGERED;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -527,6 +530,8 @@ void PhModule::Update(uint16_t dt)
       #ifdef PH_DEBUG
         PH_DEBUG_OUT(F("Mix pump done, turn it OFF."), "");
       #endif
+
+      SAVE_STATUS(PH_MIX_PUMP_BIT,0); // сохраняем статус помпы перемешивания
             
       // надо выключить насос перемешивания
       isMixPumpOn = false; // выключаем помпу
@@ -557,6 +562,10 @@ void PhModule::Update(uint16_t dt)
         PH_DEBUG_OUT(F("Reagents pump done, turn it OFF. Pump channel: "), targetReagentsChannel);
         PH_DEBUG_OUT(F("Turn mix pump ON..."), "");
       #endif 
+
+      SAVE_STATUS(PH_MIX_PUMP_BIT,1); // сохраняем статус помпы перемешивания
+      SAVE_STATUS(PH_PLUS_PUMP_BIT,0);
+      SAVE_STATUS(PH_MINUS_PUMP_BIT,0);    
            
       // настала пора выключать реагенты и включать насос перемешивания
       reagentsTimer = 0; // сбрасываем таймер реагентов
@@ -598,7 +607,14 @@ void PhModule::Update(uint16_t dt)
         #ifdef PH_DEBUG
           PH_DEBUG_OUT(F("Level sensor triggered, OFF pumps, turn ON flow add pump, no pH control..."), "");
         #endif
-  
+
+        SAVE_STATUS(PH_FLOW_ADD_BIT,1); // говорим в статус, что включен насос подачи воды в бак pH
+
+        // остальные статусы сбрасываем, поскольку во время подачи воды мы ничего не делаем
+        SAVE_STATUS(PH_MIX_PUMP_BIT,0);
+        SAVE_STATUS(PH_PLUS_PUMP_BIT,0);
+        SAVE_STATUS(PH_MINUS_PUMP_BIT,0);
+
         // выключаем все насосы подачи, перемешивания, включаем помпу подачи воды и выходим
         // сначала сбрасываем нужные биты
         data &= ~(1 << PH_PLUS_CHANNEL);
@@ -627,6 +643,7 @@ void PhModule::Update(uint16_t dt)
       
 
       // датчик уровня не сработал, очищаем бит контроля насоса, потом - выключаем насос подачи воды
+      SAVE_STATUS(PH_FLOW_ADD_BIT,0); // сохраняем статус насоса подачи воды
       data &= ~(1 << PH_FLOW_ADD_CHANNEL);
       data |= (PH_FLOW_ADD_OFF << PH_FLOW_ADD_CHANNEL);
   
@@ -696,6 +713,14 @@ void PhModule::Update(uint16_t dt)
               targetReagentsChannel = accumulatedData < phTarget ? PH_PLUS_CHANNEL : PH_MINUS_CHANNEL;
               reagentsTimer = 0;
 
+              // сохраняем статус
+              if(targetReagentsChannel == PH_PLUS_CHANNEL)
+                SAVE_STATUS(PH_PLUS_PUMP_BIT,1);
+              else
+                SAVE_STATUS(PH_MINUS_PUMP_BIT,1);
+
+              SAVE_STATUS(PH_MIX_PUMP_BIT,0);
+
               #ifdef PH_DEBUG
                 PH_DEBUG_OUT(F("pH needs to change, target channel: "),targetReagentsChannel);
               #endif
@@ -728,15 +753,15 @@ void PhModule::Update(uint16_t dt)
 
               if(!pcfModule.lastError())
               {
-              data &= ~(1 << targetReagentsChannel); // сбрасываем бит канала подачи реагента
-              data |= (PH_CONTROL_VALVE_ON << targetReagentsChannel); // включаем канал подачи реагента
-
-              // на всякий случай выключаем помпу перемешивания
-              data &= ~(1 << PH_MIX_PUMP_CHANNEL);
-              data |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
-
-              // пишем в микросхему
-              pcfModule.write8(data);
+                data &= ~(1 << targetReagentsChannel); // сбрасываем бит канала подачи реагента
+                data |= (PH_CONTROL_VALVE_ON << targetReagentsChannel); // включаем канал подачи реагента
+  
+                // на всякий случай выключаем помпу перемешивания
+                data &= ~(1 << PH_MIX_PUMP_CHANNEL);
+                data |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
+  
+                // пишем в микросхему
+                pcfModule.write8(data);
               
               } // if(!pcfModule.lastError())
               

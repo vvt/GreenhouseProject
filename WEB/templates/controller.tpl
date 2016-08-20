@@ -214,11 +214,15 @@
                     <span id='water_state_on' class='hdn'>включён</span>
                     <span id='water_state_off' class='hdn'>выключен</span>
 
+                    <span id='ph_state_on' class='hdn'><span class='auto_mode'>включён</span></span>
+                    <span id='ph_state_off' class='hdn'><span class='manual_mode'>выключен</span></span>
+
                     <span id='light_state_on' class='hdn'>включёна</span>
                     <span id='light_state_off' class='hdn'>выключена</span>
                     
                     
-
+                    <div id='windows_controller_status' class='hdn'>
+                    
                       <div class='ui-widget-header ui-corner-all padding_around8px'>Окна</div>   
                       <div class='ui-widget-content ui-corner-all padding_around8px'>
                       
@@ -250,9 +254,12 @@
                          
 
                       </div>
-                      
+                       
                     <br/><br/>
-                    
+                     </div>
+                     
+                    <div id='water_controller_status' class='hdn'>
+                                       
                     <div class='ui-widget-header ui-corner-all padding_around8px'>Полив</div> 
                     <div class='ui-widget-content ui-corner-all padding_around8px'>
 
@@ -266,6 +273,9 @@
                     </div>
                     
                     <br/><br/>
+                    </div>
+                    
+                    <div id='light_controller_status' class='hdn'>
 
                     <div class='ui-widget-header ui-corner-all padding_around8px'>Досветка</div>
                     <div class='ui-widget-content ui-corner-all padding_around8px'>
@@ -281,8 +291,27 @@
                     
                     <br/><br/>
                     
+                    </div>
+  
+                  
+                  <div id='ph_controller_status' class='hdn'>
+                  
+                    <div class='ui-widget-header ui-corner-all padding_around8px'>PH</div>
+                    <div class='ui-widget-content ui-corner-all padding_around8px'>
+                    
+                         <div class='padding_around8px'>
+                            Насос подачи воды: <span class='bold' id='ph_flow_add'></span><br/>
+                            Насос перемешивания: <span class='bold' id='ph_mix_pump'></span><br/>
+                            Насос увеличения pH: <span class='bold' id='ph_plus_pump'></span><br/>
+                            Насос уменьшения pH: <span class='bold' id='ph_minus_pump'></span><br/>
+                        </div>                     
+                    
+                    </div>
+                  
+                  <br/><br/>
                   </div>
-
+                  
+              </div>
 
                   <div class='content' id='welcome'>
 

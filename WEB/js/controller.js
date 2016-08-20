@@ -277,6 +277,11 @@ var Controller = function(id, name, address, silent)
   this.CloseTemperature = 0; // температура закрытия
   this.MotorWorkInterval = 0; // время работы моторов
   
+  this.IsPHFlowAddOn = false; // включен ли насос подачи воды в бак pH
+  this.IsPHMixPumpOn = false; // включена ли помпа перемешивания раствора pH
+  this.IsPHPlusPumpOn = false; // включена ли помпа подачи раствора для увеличения pH
+  this.IsPHMinusPumpOn = false; // включена ли помпа подачи раствора для уменьшения pH
+  
 
   this._id = id;
   this._name = name;
@@ -535,6 +540,13 @@ Controller.prototype.parseControllerState = function(answer)
     this.IsWaterAutoMode = BitIsSet(num, 3); // четвертый бит выставлен - автоматический режим работы полива
     this.IsLightOn = BitIsSet(num, 4); // пятый бит выставлен - включена досветка
     this.IsLightAutoMode = BitIsSet(num, 5); // шестой бит выставлен - автоматический режим работы досветки
+    
+    this.IsPHFlowAddOn = BitIsSet(num,7);
+    num = parseInt(secondByte);
+    this.IsPHMixPumpOn = BitIsSet(num,0);
+    this.IsPHPlusPumpOn = BitIsSet(num,1);
+    this.IsPHMinusPumpOn = BitIsSet(num,2);
+    
     
     this.Flow1Present = false;
     this.Flow2Present = false;

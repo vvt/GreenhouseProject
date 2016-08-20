@@ -252,6 +252,7 @@ controller.OnUpdate = function(obj, answer)
     updateWindowsState();
     updateWaterState();
     updateLightState();
+    updatePHState();
       
   
     $('#STATUS_MENU').show();
@@ -317,8 +318,19 @@ controller.OnUpdate = function(obj, answer)
   } // is ok
 };
 //-----------------------------------------------------------------------------------------------------
+function updatePHState()
+{
+  $('#ph_controller_status').toggle(controller.Modules.includes('PH'));
+  $('#ph_flow_add').html( controller.IsPHFlowAddOn ? $('#ph_state_on').html() : $('#ph_state_off').html());
+  $('#ph_mix_pump').html( controller.IsPHMixPumpOn ? $('#ph_state_on').html() : $('#ph_state_off').html());
+  $('#ph_plus_pump').html( controller.IsPHPlusPumpOn ? $('#ph_state_on').html() : $('#ph_state_off').html());
+  $('#ph_minus_pump').html( controller.IsPHMinusPumpOn ? $('#ph_state_on').html() : $('#ph_state_off').html());
+  
+}
+//-----------------------------------------------------------------------------------------------------
 function updateWindowsState()
 {
+  $('#windows_controller_status').toggle(controller.Modules.includes('STATE'));
 
     $('#window_state').html( controller.IsWindowsOpen ? $('#window_state_on').html() : $('#window_state_off').html());
     $('#window_mode').html( controller.IsWindowsAutoMode ? $('#mode_auto').html() : $('#mode_manual').html());
@@ -328,6 +340,8 @@ function updateWindowsState()
 //-----------------------------------------------------------------------------------------------------
 function updateWaterState()
 {
+  $('#water_controller_status').toggle(controller.Modules.includes('WATER'));
+
     $('#water_state').html( controller.IsWaterOn ? $('#water_state_on').html() : $('#water_state_off').html());
     $('#water_mode').html( controller.IsWaterAutoMode ? $('#mode_auto').html() : $('#mode_manual').html());
     $('#toggler_water_mode').button({ label: !controller.IsWaterAutoMode ? $('#mode_auto_switch').html() : $('#mode_manual_switch').html() });
@@ -337,6 +351,8 @@ function updateWaterState()
 //-----------------------------------------------------------------------------------------------------
 function updateLightState()
 {
+ $('#light_controller_status').toggle(controller.Modules.includes('LIGHT'));
+
     $('#light_state').html( controller.IsLightOn ? $('#light_state_on').html() : $('#light_state_off').html());
     $('#light_mode').html( controller.IsLightAutoMode ? $('#mode_auto').html() : $('#mode_manual').html());
     $('#toggler_light_mode').button({ label: !controller.IsLightAutoMode ? $('#mode_auto_switch').html() : $('#mode_manual_switch').html() });
