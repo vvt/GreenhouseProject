@@ -3,6 +3,30 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #include "AbstractModule.h"
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+class PCF8574
+{
+  public:
+  PCF8574(int address); 
+
+  uint8_t read8(); 
+  uint8_t read(uint8_t pin); 
+  uint8_t value();  
+
+  void write8(uint8_t value); 
+  void write(uint8_t pin, uint8_t value); 
+
+  void toggle(uint8_t pin);
+  void shiftRight(uint8_t n=1);
+  void shiftLeft(uint8_t n=1);
+
+  int lastError();
+
+  private:
+  int _address;
+  uint8_t _data;
+  int8_t _error;
+};
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 class PhModule : public AbstractModule // модуль контроля pH
 {
   private:
@@ -29,6 +53,19 @@ class PhModule : public AbstractModule // модуль контроля pH
 
     void ReadSettings();
     void SaveSettings();
+
+    bool isLevelSensorTriggered(byte data);
+    uint16_t updateDelta;
+
+    bool isMixPumpOn;
+    unsigned long mixPumpTimer;
+
+    unsigned long phControlTimer;
+    
+    bool isInAddReagentsMode;
+    unsigned long reagentsTimer;
+    uint16_t targetReagentsTimer;
+    byte targetReagentsChannel;
   
   public:
     PhModule() : AbstractModule("PH") {}

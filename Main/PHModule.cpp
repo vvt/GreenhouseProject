@@ -1,11 +1,13 @@
 #include "PHModule.h"
 #include "ModuleController.h"
 #include <EEPROM.h>
+#include <Wire.h>
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #define PH_DEBUG_OUT(which, value) {Serial.print((which)); Serial.println((value));}
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 PHCalculator PHCalculation;
 PhModule* _thisPHModule = NULL;
+PCF8574 pcfModule(PCF8574_ADDRESS);
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 PHCalculator::PHCalculator()
 {
@@ -18,6 +20,97 @@ void PHCalculator::ApplyCalculation(Temperature* temp)
     return;
 
   _thisPHModule->ApplyCalculation(temp);  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+PCF8574::PCF8574(int address) 
+{
+  _address = address;
+  Wire.begin();
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+uint8_t PCF8574::read8()
+{
+  Wire.beginTransmission(_address);
+  Wire.requestFrom(_address, 1);
+    
+#if (ARDUINO <  100)
+   _data = Wire.receive();
+#else
+   _data = Wire.read();
+#endif
+  _error = Wire.endTransmission();
+  return _data;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+uint8_t PCF8574::value()
+{
+  return _data;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PCF8574::write8(uint8_t value)
+{
+  Wire.beginTransmission(_address);
+  _data = value;
+  Wire.write(_data);
+  _error = Wire.endTransmission();
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+uint8_t PCF8574::read(uint8_t pin)
+{
+  PCF8574::read8();
+  return (_data & (1<<pin)) > 0;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PCF8574::write(uint8_t pin, uint8_t value)
+{
+  PCF8574::read8();
+  if (value == LOW) 
+  {
+    _data &= ~(1<<pin);
+  }
+  else 
+  {
+    _data |= (1<<pin);
+  }
+  PCF8574::write8(_data); 
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PCF8574::toggle(uint8_t pin)
+{
+  PCF8574::read8();
+  _data ^=  (1 << pin);
+  PCF8574::write8(_data); 
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PCF8574::shiftRight(uint8_t n)
+{
+  if (n == 0 || n > 7 ) return;
+  PCF8574::read8();
+  _data >>= n;
+  PCF8574::write8(_data); 
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PCF8574::shiftLeft(uint8_t n)
+{
+  if (n == 0 || n > 7) return;
+  PCF8574::read8();
+  _data <<= n;
+  PCF8574::write8(_data); 
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+int PCF8574::lastError()
+{
+  int e = _error;
+  
+  #ifdef PH_DEBUG
+    if(_error)
+    {
+      PH_DEBUG_OUT(F("Error working with PCF8574, code: "), _error);
+    }
+  #endif    
+
+  _error = 0;
+  return e;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void PhModule::ApplyCalculation(Temperature* temp)
@@ -152,7 +245,39 @@ void PhModule::Setup()
     pinMode(phSensorPin,INPUT);
     digitalWrite(phSensorPin,HIGH);
   }
+
+  // настраиваем пины PCF8574
+  // выставляем все значения по умолчанию - насос заполнения бака выключен, все помпы и насосы - выключены
+  uint8_t defaultData = 0;
+  defaultData |= (PH_FLOW_ADD_OFF << PH_FLOW_ADD_CHANNEL);
+  defaultData |= (PH_CONTROL_VALVE_OFF << PH_PLUS_CHANNEL);
+  defaultData |= (PH_CONTROL_VALVE_OFF << PH_MINUS_CHANNEL);
+  defaultData |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
+
+  isMixPumpOn = false; // насос перемешивания выключен
+  mixPumpTimer = 0;
+
+  phControlTimer = 0;
+
+  isInAddReagentsMode = false;
+  reagentsTimer = 0;
+  targetReagentsTimer = 0;
+  targetReagentsChannel = 0;
   
+  // пишем в микросхему
+  pcfModule.write8(defaultData);
+  pcfModule.lastError();
+
+  updateDelta = 0; // дельта обновления данных, чтобы часто не дёргать микросхему
+  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+bool PhModule::isLevelSensorTriggered(byte data)
+{
+#ifdef PH_DEBUG
+  PH_DEBUG_OUT(F("Data from PCF: "), data);
+#endif  
+  return (data & (PH_FLOW_LEVEL_TRIGGERED << PH_FLOW_LEVEL_SENSOR_CHANNEL)) == PH_FLOW_LEVEL_TRIGGERED;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void PhModule::SaveSettings()
@@ -388,7 +513,255 @@ void PhModule::Update(uint16_t dt)
     
   } // if(phSensorPin > 0)
 
-  //TODO: Тут контроль pH
+  //Тут контроль pH
+  updateDelta += dt;
+
+  if(isMixPumpOn) // если насос перемешивания включен - прибавляем время его работы
+  {
+    mixPumpTimer += dt; // прибавляем время работы насоса
+
+    if(mixPumpTimer/1000 > phMixPumpTime)
+    {
+      // насос отработал положенное время, надо выключать
+
+      #ifdef PH_DEBUG
+        PH_DEBUG_OUT(F("Mix pump done, turn it OFF."), "");
+      #endif
+            
+      // надо выключить насос перемешивания
+      isMixPumpOn = false; // выключаем помпу
+      mixPumpTimer = 0; // сбрасываем таймер помпы перемешивания
+      phControlTimer = 0; // сбрасываем таймер обновления pH
+      
+      // пишем в микросхему
+      byte data = pcfModule.read8();
+      if(!pcfModule.lastError())
+      {
+        data &= ~(1 << PH_MIX_PUMP_CHANNEL);
+        data |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
+        pcfModule.write8(data);
+      }
+      
+    } // if
+    
+  } // if(isMixPumpOn)
+
+  if(isInAddReagentsMode)
+  {
+    // запущен таймер добавления реагентов
+    reagentsTimer += dt; // прибавляем дельту работы
+    
+    if(reagentsTimer/1000 > targetReagentsTimer)
+    {
+      #ifdef PH_DEBUG
+        PH_DEBUG_OUT(F("Reagents pump done, turn it OFF. Pump channel: "), targetReagentsChannel);
+        PH_DEBUG_OUT(F("Turn mix pump ON..."), "");
+      #endif 
+           
+      // настала пора выключать реагенты и включать насос перемешивания
+      reagentsTimer = 0; // сбрасываем таймер реагентов
+      isInAddReagentsMode = false; // выключаем подачу реагентов
+      isMixPumpOn = true; // включаем помпу перемешивания
+      mixPumpTimer = 0; // сбрасываем таймер работы помпы перемешивания
+
+      byte data = pcfModule.read8();
+
+      if(!pcfModule.lastError())
+      {
+        // выключаем канал подачи реагента
+        data &= ~(1 << targetReagentsChannel);
+        data |= (PH_CONTROL_VALVE_OFF << targetReagentsChannel);
+  
+        // включаем канал перемешивания
+        data &= ~(1 << PH_MIX_PUMP_CHANNEL);
+        data |= (PH_MIX_PUMP_ON << PH_MIX_PUMP_CHANNEL);
+  
+        // пишем в микросхему актуальное состояние
+        pcfModule.write8(data);
+      }
+
+    } // if(reagentsTimer/1000 > targetReagentsTimer)
+    
+  } // if(isInAddReagentsMode)
+  
+  if(updateDelta > 1234)
+  {
+    updateDelta = 0;
+    // настала пора проверить, чего у нас там творится?
+    byte data = pcfModule.read8();
+
+    if(!pcfModule.lastError())
+    {  
+      if(isLevelSensorTriggered(data))
+      {
+        // сработал датчик уровня воды
+        #ifdef PH_DEBUG
+          PH_DEBUG_OUT(F("Level sensor triggered, OFF pumps, turn ON flow add pump, no pH control..."), "");
+        #endif
+  
+        // выключаем все насосы подачи, перемешивания, включаем помпу подачи воды и выходим
+        // сначала сбрасываем нужные биты
+        data &= ~(1 << PH_PLUS_CHANNEL);
+        data &= ~(1 << PH_MINUS_CHANNEL);
+        data &= ~(1 << PH_MIX_PUMP_CHANNEL);
+  
+        // теперь устанавливаем нужные биты
+        data |= (PH_FLOW_ADD_ON << PH_FLOW_ADD_CHANNEL);
+        data |= (PH_CONTROL_VALVE_OFF << PH_PLUS_CHANNEL);
+        data |= (PH_CONTROL_VALVE_OFF << PH_MINUS_CHANNEL);
+        data |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
+  
+        // теперь пишем всё это дело в микросхему
+        pcfModule.write8(data);
+  
+        isMixPumpOn = false; // выключаем помпу
+        mixPumpTimer = 0;
+  
+        isInAddReagentsMode = false; // выключаем насосы добавления реагентов
+        reagentsTimer = 0; // сбрасываем таймер добавления реагентов
+  
+        
+        return; // ничего не контролируем, т.к. наполняем бак водой
+        
+      } // if(isLevelSensorTriggered(data))
+      
+
+      // датчик уровня не сработал, очищаем бит контроля насоса, потом - выключаем насос подачи воды
+      data &= ~(1 << PH_FLOW_ADD_CHANNEL);
+      data |= (PH_FLOW_ADD_OFF << PH_FLOW_ADD_CHANNEL);
+  
+      // сразу пишем в микросхему, чтобы поддержать актуальное состояние
+      pcfModule.write8(data);
+      
+    } // if(!pcfModule.lastError())
+    
+  } // if(updateDelta > 1234)
+
+  if(isInAddReagentsMode)
+  {
+   // добавляем реагенты, не надо ничего делать
+    
+  } // if (isInAddReagentsMode)
+  else
+  {
+    // реагенты не добавляем, можем проверять pH, если помпа перемешивания не работает и настал интервал проверки
+    
+    if(!isMixPumpOn)
+    {
+      // только если не включен насос перемешивания и насосы подачи реагента - попадаем сюда, на проверку контроля pH
+      phControlTimer += dt;
+      if(phControlTimer > PH_CONTROL_CHECK_INTERVAL)
+      {
+        phControlTimer = 0;
+        // пора проверить pH
+        #ifdef PH_DEBUG
+          PH_DEBUG_OUT(F("Start pH checking..."), "");
+        #endif    
+
+        // тут собираем данные со всех датчиков pH, берём среднее арифметическое и проверяем
+        byte validDataCount = 0;
+        unsigned long accumulatedData = 0;
+        uint8_t _cnt = State.GetStateCount(StatePH);
+          for(uint8_t i=0;i<_cnt;i++)
+          {
+             OneState* st = State.GetStateByOrder(StatePH,i);
+             HumidityPair hp = *st;
+             Humidity h = hp.Current;
+             if(h.HasData())
+             {
+              validDataCount++;
+              accumulatedData += h.Value*100 + h.Fract;
+             } // if
+          } // for
+
+          if(validDataCount > 0)
+          {
+            accumulatedData = accumulatedData/validDataCount;
+            #ifdef PH_DEBUG
+              PH_DEBUG_OUT(F("AVG current pH: "), accumulatedData);
+              PH_DEBUG_OUT(F("Target pH: "), phTarget);
+            #endif
+
+            if(accumulatedData >= (phTarget - phHisteresis) && accumulatedData <= (phTarget + phHisteresis))
+            {
+              // находимся в пределах гистерезиса
+            #ifdef PH_DEBUG
+              PH_DEBUG_OUT(F("pH valid, nothing to control."),"");
+            #endif
+              
+            }
+            else
+            {
+              // находимся за пределами гистерезиса, надо выяснить, какой насос включать и на сколько
+              targetReagentsChannel = accumulatedData < phTarget ? PH_PLUS_CHANNEL : PH_MINUS_CHANNEL;
+              reagentsTimer = 0;
+
+              #ifdef PH_DEBUG
+                PH_DEBUG_OUT(F("pH needs to change, target channel: "),targetReagentsChannel);
+              #endif
+
+              // теперь вычисляем, сколько времени в секундах надо работать каналу
+              uint16_t distance = accumulatedData < phTarget ? (phTarget - accumulatedData) : (accumulatedData - phTarget);
+              
+              // дистанция у нас в сотых долях, т.е. 50 - это 0.5 десятых. в phReagentPumpTime у нас значение в секундах для дистанции в 0.1 pH.
+              // переводим дистанцию в десятые доли
+              distance /= 10;
+              
+              #ifdef PH_DEBUG
+                PH_DEBUG_OUT(F("pH distance: "),distance);
+              #endif
+
+              // подсчитываем время работы канала подачи
+              targetReagentsTimer = phReagentPumpTime*distance;
+              
+              #ifdef PH_DEBUG
+                PH_DEBUG_OUT(F("Reagents pump work time, s: "),targetReagentsTimer);
+              #endif
+
+              // переходим в режим подачи реагента
+              isInAddReagentsMode = true;
+              isMixPumpOn = false;
+              mixPumpTimer = 0;
+
+              // читаем из микросхемы и изменяем наши настройки
+              byte data = pcfModule.read8();
+
+              if(!pcfModule.lastError())
+              {
+              data &= ~(1 << targetReagentsChannel); // сбрасываем бит канала подачи реагента
+              data |= (PH_CONTROL_VALVE_ON << targetReagentsChannel); // включаем канал подачи реагента
+
+              // на всякий случай выключаем помпу перемешивания
+              data &= ~(1 << PH_MIX_PUMP_CHANNEL);
+              data |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
+
+              // пишем в микросхему
+              pcfModule.write8(data);
+              
+              } // if(!pcfModule.lastError())
+              
+                 #ifdef PH_DEBUG
+                PH_DEBUG_OUT(F("Reagents pump ON."),"");
+              #endif           
+
+            
+            } // else
+
+
+          } // if(validDataCount > 0)
+          else
+          {
+            // нет данных с датчиков, нечего контролировать
+            #ifdef PH_DEBUG
+              PH_DEBUG_OUT(F("No pH sensors data found, nothing to control!"), "");
+            #endif                
+          } // else
+        
+      } // if(phControlTimer > PH_CONTROL_CHECK_INTERVAL)
+      
+    } // if(!isMixPumpOn)
+    
+  } // else не добавляем реагенты
 
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
