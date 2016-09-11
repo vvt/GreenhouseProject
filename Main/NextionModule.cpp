@@ -219,6 +219,7 @@ void NextionModule::Setup()
   
   // подписываемся на события
   NextionSubscribeStruct ss;
+  memset(&ss,0,sizeof(ss));
   ss.OnStringReceived = nString;
   ss.OnSleep = nSleep;
   ss.OnWakeUp = nWake;
