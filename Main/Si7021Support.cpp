@@ -7,6 +7,32 @@ Si7021::Si7021()
 void Si7021::begin()
 {
   Wire.begin();
+  setResolution();
+}
+uint8_t Si7021::read8(uint8_t reg)
+{
+  Wire.beginTransmission(Si7021Address);
+  SI7021_WRITE(reg);
+  Wire.endTransmission();
+
+  Wire.requestFrom(Si7021Address, 1);
+  return SI7021_READ();
+ 
+}
+void Si7021::setResolution()
+{
+  uint8_t userRegisterData;
+
+  userRegisterData = read8(0xE7);
+
+  userRegisterData &= 0x7E;
+  userRegisterData |= 0x00;
+
+  Wire.beginTransmission(Si7021Address);
+    SI7021_WRITE(0xE6);
+    SI7021_WRITE(userRegisterData);
+  Wire.endTransmission();
+
 }
 const HumidityAnswer& Si7021::read()
 {
@@ -21,9 +47,22 @@ const HumidityAnswer& Si7021::read()
   Wire.beginTransmission(Si7021Address);
   SI7021_WRITE(Si7021_E5);
   Wire.endTransmission();
+
+  delay(16);
   
   Wire.requestFrom(Si7021Address, 3);
-  
+
+  uint8_t   pollCounter = 0;
+  while (Wire.available() < 3)
+  {
+    pollCounter++;
+    if (pollCounter > 8)
+    {
+      return dt;
+    }
+    delay(8);
+    yield();
+  }  
   
   if(Wire.available() >= 3)
   {

@@ -30,7 +30,10 @@ class Si7021
     const HumidityAnswer& read();
     
   private:
-    HumidityAnswer dt;  
+    HumidityAnswer dt;
+
+    void setResolution();
+    uint8_t read8(uint8_t reg);
     
     
 };

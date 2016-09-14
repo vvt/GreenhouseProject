@@ -77,12 +77,16 @@ void PeriodicTimer::Update(uint16_t dt)
 
   // прибавляем дельту
   tTimer += dt;
+  unsigned long tCompare = 0;
 
   // теперь смотрим, какой интервал мы обрабатываем
   if(isHoldOnTimer)
   {
     // ждём истекания интервала включения
-    if(tTimer > Settings.HoldOnTime*1000)
+    tCompare = Settings.HoldOnTime;
+    tCompare *= 1000;
+    
+    if(tTimer > tCompare)
     {
       Off();
       tTimer = 0;
@@ -91,7 +95,10 @@ void PeriodicTimer::Update(uint16_t dt)
   }
   else
   {
-      if(tTimer > Settings.HoldOffTime*1000)
+    tCompare = Settings.HoldOffTime;
+    tCompare *= 1000;
+    
+      if(tTimer > tCompare)
       {
         On();
         tTimer = 0;
