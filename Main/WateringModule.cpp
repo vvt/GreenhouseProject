@@ -9,9 +9,16 @@
 static uint8_t WATER_RELAYS[] = { WATER_RELAYS_PINS }; // объявляем массив пинов реле
 #endif
 
+#ifdef WATER_DEBUG
+  #define WTR_LOG(s) Serial.println((s))
+#else
+  #define WTR_LOG(s) (void) 0
+#endif
+
 void WateringModule::Setup()
 {
   // настройка модуля тут
+  WTR_LOG(F("[WTR] - setup..."));
 
   settings = MainController->GetSettings();
   
@@ -42,27 +49,36 @@ void WateringModule::Setup()
     // смотрим, не поливали ли мы на всех каналах сегодня
     uint8_t today = t.dayOfWeek;
     unsigned long savedWorkTime = 0xFFFFFFFF;
-    byte* writeAddr = (byte*) &savedWorkTime;
+    volatile byte* writeAddr = (byte*) &savedWorkTime;
     uint8_t savedDOW = 0xFF;
-    uint16_t curReadAddr = WATERING_STATUS_EEPROM_ADDR;
+    volatile uint16_t curReadAddr = WATERING_STATUS_EEPROM_ADDR;
 
-    bool needToReadFromEEPROM = true; // считаем, что мы должны читать из EEPROM
+    volatile bool needToReadFromEEPROM = true; // считаем, что мы должны читать из EEPROM
 
-
+    /*
     if(MainController->HasSDCard())
     {
+      WTR_LOG(F("[WTR] - read from SD..."));
 
       char file_name[13] = {0};
       sprintf_P(file_name,(const char*)F("%u.WTR"),0);
+
+      WTR_LOG(file_name);
 
       SDFile sdFile = SD.open(file_name,FILE_READ);
       if(sdFile)
       {
         if(sdFile.size() == sizeof(unsigned long) + sizeof(uint8_t))
         {
+            WTR_LOG(F("[WTR] - file struct OK..."));
+
             // нормальный размер файла, можем читать
             sdFile.read(&savedDOW,sizeof(uint8_t));
             sdFile.read(&savedWorkTime,sizeof(unsigned long));
+
+              WTR_LOG(F("[WTR] - saved data:"));
+              WTR_LOG(savedDOW);
+              WTR_LOG(savedWorkTime);
 
             needToReadFromEEPROM = false; // прочитали настройки из файла
         
@@ -71,12 +87,19 @@ void WateringModule::Setup()
         sdFile.close();
         
       } // if(sdFile)
+      else
+      {
+        WTR_LOG(F("[WTR] - unable to open file!"));
+      }
 
     } // if(MainController->HasSDCard())
+    */
 
 
     if(needToReadFromEEPROM)
     {
+      WTR_LOG(F("[WTR] - read from EEPROM..."));
+      
       savedDOW = EEPROM.read(curReadAddr++);
   
       *writeAddr++ = EEPROM.read(curReadAddr++);
@@ -90,6 +113,8 @@ void WateringModule::Setup()
     
     if(savedDOW != 0xFF && savedWorkTime != 0xFFFFFFFF) // есть сохранённое время работы всех каналов на сегодня
     {
+      WTR_LOG(F("[WTR] - data is OK..."));
+      
       if(savedDOW == today) // поливали на всех каналах сегодня, выставляем таймер канала так, как будто он уже поливался сколько-то времени
       {
         #if WATER_RELAYS_COUNT > 0
@@ -116,6 +141,9 @@ void WateringModule::Setup()
     
   // выключаем все реле
   #if WATER_RELAYS_COUNT > 0
+
+  WTR_LOG(F("[WTR] - all relays OFF..."));
+  
   for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
   {
     pinMode(WATER_RELAYS[i],OUTPUT);
@@ -133,10 +161,14 @@ void WateringModule::Setup()
       savedDOW = 0xFF;
       needToReadFromEEPROM = true;
 
+    /*
     if(MainController->HasSDCard())
     {
+      WTR_LOG(F("[WTR] - read channel state from SD..."));
       char file_name[13] = {0};
       sprintf_P(file_name,(const char*)F("%u.WTR"),(i+1));
+
+      WTR_LOG(file_name);
 
       SDFile sdFile = SD.open(file_name,FILE_READ);
       if(sdFile)
@@ -147,16 +179,27 @@ void WateringModule::Setup()
             sdFile.read(&savedDOW,sizeof(uint8_t));
             sdFile.read(&savedWorkTime,sizeof(unsigned long));
             needToReadFromEEPROM = false; // прочитали настройки из файла
+
+            WTR_LOG(F("[WTR] - saved data:"));
+            WTR_LOG(savedDOW);
+            WTR_LOG(savedWorkTime);
         
         } // if
         
         sdFile.close();
         
       } // if(sdFile)
+      else
+      {
+        WTR_LOG(F("[WTR] - unable to open file!"));
+      }
     } // if(MainController->HasSDCard())
+    */
       
       if(needToReadFromEEPROM)
       {
+        WTR_LOG(F("[WTR] - read channel state from EEPROM..."));
+        
           curReadAddr = WATERING_STATUS_EEPROM_ADDR + (i+1)*5;
           savedDOW = EEPROM.read(curReadAddr++);
     
@@ -171,6 +214,7 @@ void WateringModule::Setup()
      
       if(savedDOW != 0xFF && savedWorkTime != 0xFFFFFFFF )
       {
+        WTR_LOG(F("[WTR] - channel data is OK."));
         if(savedDOW == today) // поливали на канале в этот день недели, выставляем таймер канала так, как будто он уже поливался какое-то время
           wateringChannels[i].WateringTimer = savedWorkTime + 1;
       }
@@ -206,8 +250,9 @@ void WateringModule::Setup()
 
 }
 #if WATER_RELAYS_COUNT > 0
-void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, uint16_t dt)
+void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, uint16_t _dt)
 {
+  unsigned long dt = _dt;
   
    if(!bIsRTClockPresent)
    {
@@ -219,7 +264,7 @@ void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, 
    
      uint8_t weekDays = channelIdx == -1 ? settings->GetWateringWeekDays() : settings->GetChannelWateringWeekDays(channelIdx);
      uint8_t startWateringTime = channelIdx == -1 ? settings->GetStartWateringTime() : settings->GetChannelStartWateringTime(channelIdx);
-     uint16_t timeToWatering = channelIdx == -1 ? settings->GetWateringTime() : settings->GetChannelWateringTime(channelIdx); // время полива (в минутах!)
+     unsigned long timeToWatering = channelIdx == -1 ? settings->GetWateringTime() : settings->GetChannelWateringTime(channelIdx); // время полива (в минутах!)
 
 
       // переход через день недели мы фиксируем однократно, поэтому нам важно его не пропустить.
@@ -252,8 +297,6 @@ void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, 
   
     if(!canWork)
      { 
-      //TODO: Закомментировал для теста, потому что меня смущает это обнуление!!!          
-      // channel->WateringTimer = 0; // в этот день недели и в этот час работать не можем, однозначно обнуляем таймер полива    
        channel->SetRelayOn(false); // выключаем реле
      }
      else
@@ -288,23 +331,29 @@ void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, 
             EEPROM.write(wrAddr++,*readAddr++);
 
 
+          /*
          // теперь пишем в файл для дублирования, чтобы не потерять настройки при слетании EEPROM
           if(MainController->HasSDCard())
           {
             char file_name[13] = {0};
             sprintf_P(file_name,(const char*)F("%u.WTR"),(channelIdx+1));
+
+            WTR_LOG(F("[WTR] - write to SD..."));
+            WTR_LOG(file_name);
       
             SDFile sdFile = SD.open(file_name,FILE_WRITE | O_TRUNC);
             if(sdFile)
             {              
               sdFile.write(&currentDOW,sizeof(uint8_t));
               sdFile.write((const uint8_t*) &ttw,sizeof(unsigned long));
-      
+
+              sdFile.flush();
               sdFile.close();
                
             } // if(sdFile)
 
           } // if(MainController->HasSDCard())
+          */
       
             
         } // if(channel->IsChannelRelayOn())
@@ -546,7 +595,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
       else
       {
         String which = command.GetArg(0);
-        which.toUpperCase();
+        //which.toUpperCase();
 
         if(which == WATER_SETTINGS_COMMAND)
         {
