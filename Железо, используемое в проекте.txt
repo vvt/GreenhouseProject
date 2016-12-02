@@ -32,4 +32,8 @@ http://www.aliexpress.com/item/ESP8266-Serial-Esp-01-WIFI-Wireless-Transceiver-M
 
 http://ru.aliexpress.com/item/TOP-Mini-W5100-LAN-Ethernet-Shield-Network-Module-board-Best/32457200047.html?spm=2114.13010708.0.92.k9WVJv
 
+https://www.dfrobot.com/index.php?route=product/product&product_id=1025
+
+https://ru.aliexpress.com/wholesale?catId=0&initiative_id=SB_20161116115154&SearchText=PCF8574
+
 
