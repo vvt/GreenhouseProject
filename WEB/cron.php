@@ -200,7 +200,13 @@ function requestControllerData($controller_id,$address)
                   if ($haveSensorData)
                   {
                       // имеем показания, надо сконвертировать
-                      $temp = '' . hexdec($val) . ".";
+                      $hexTemp = hexdec($val);
+                      
+                      // конвертируем в знаковое представление
+                      if(($hexTemp & 0x80) > 0)
+                        $hexTemp = $hexTemp - 0x100;
+                      
+                      $temp = '' . $hexTemp . ".";
                       $fractVal = hexdec($fract);
                       
                       if ($fractVal < 10)

@@ -606,7 +606,13 @@ Controller.prototype.parseControllerState = function(answer)
               if (haveSensorData)
               {
                   // имеем показания, надо сконвертировать
-                  temp = "" + parseInt("0x" + val) + ",";
+                  var hexTemp = parseInt("0x" + val);
+                  
+                  // конвертируем в знаковое представление
+                  if((hexTemp & 0x80) > 0)
+                      hexTemp = hexTemp - 0x100;
+                  
+                  temp = "" + hexTemp + ",";
                   var fractVal = parseInt("0x" + fract);
                   if (fractVal < 10)
                       temp += "0";
