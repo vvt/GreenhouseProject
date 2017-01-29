@@ -160,11 +160,19 @@ void TempSensors::WriteToShiftRegister() // ПИШЕМ В СДВИГОВЫЙ Р�
 
   if(!hasChanges)
     return;
+
 /*
   Serial.print("Writing to shift register: ");
   
-  for(uint8_t i=0;i<shiftRegisterDataSize;i++)
-    Serial.print(shiftRegisterData[i],BIN);
+  for(uint8_t i=0;i<shiftRegisterDataSize;i++) {
+    byte b = shiftRegisterData[i];
+      for(byte k=0;k<8;k++) {
+        if(b & (1 << k))
+          Serial.print('1');
+        else
+          Serial.print('0');
+      }
+  }
     
   Serial.println("");
 */

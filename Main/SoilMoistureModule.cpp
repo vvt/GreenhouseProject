@@ -33,6 +33,7 @@ void SoilMoistureModule::Update(uint16_t dt)
       for(uint8_t i=0;i<SUPPORTED_SOIL_MOISTURE_SENSORS;i++)
       {
         int val = analogRead(SOIL_MOISTURE_SENSORS_ARRAY[i]);
+       // Serial.println(val);
 
         // теперь нам надо отразить показания между SOIL_MOISTURE_100_PERCENT и SOIL_MOISTURE_0_PERCENT
 
