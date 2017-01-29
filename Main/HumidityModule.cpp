@@ -62,10 +62,10 @@ void HumidityModule::Update(uint16_t dt)
 
   // получаем данные с датчиков влажности
   #if SUPPORTED_HUMIDITY_SENSORS > 0
-  Humidity h;
-  Temperature t;
   for(uint8_t i=0;i<SUPPORTED_HUMIDITY_SENSORS;i++)
    {
+      Humidity h;
+      Temperature t;
       HumidityAnswer answer = QuerySensor(HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].type);
 
       if(answer.IsOK)
