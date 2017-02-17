@@ -795,7 +795,7 @@ void SMSModule::ProcessQueue()
        #ifdef GSM_DEBUG_MODE
         Serial.println(F("SMS clearance..."));
       #endif
-      SendCommand(F("AT+CMGD=0,4"));
+      SendCommand(F("AT+CMGD=1,4"));
        
       }
       break;
