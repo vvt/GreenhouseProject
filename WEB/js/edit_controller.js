@@ -143,9 +143,7 @@ function addControllerListHint() {
 function editController(controller_id)
 {
   var controller = null;
-  
-  console.log(controllers);
-  
+    
   for(var i=0;i<controllers.length;i++)
   {
     if(controllers[i].getId() == controller_id)
