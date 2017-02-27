@@ -1,4 +1,89 @@
 //-----------------------------------------------------------------------------------------------------
+function confirmMessageBox(title,text, okCallback) {
+
+  var dlg = $('#message_box_dialog');
+
+  $('#message_box_text').html(text);
+
+   dlg.dialog({
+    modal: true,
+    resizable: false,
+    title: title,
+    buttons: [
+      {
+        text: "OK",
+        click: function() {
+          $(this).dialog("close");
+          if(okCallback)
+            okCallback();
+        }
+      },
+      {
+        text: "Отмена",
+        click: function() {
+          $(this).dialog("close");
+        }
+      }
+      
+    ]
+   
+   });
+
+}
+//-----------------------------------------------------------------------------------------------------
+function simpleMessageBox(title,text, okCallback) {
+
+  var dlg = $('#message_box_dialog');
+
+  $('#message_box_text').html(text);
+
+   dlg.dialog({
+    modal: true,
+    resizable: false,
+    title: title,
+    buttons: [
+      {
+        text: "OK",
+        click: function() {
+          $(this).dialog("close");
+          if(okCallback)
+            okCallback();
+        }
+      }
+    ]
+   
+   });
+
+}
+//-----------------------------------------------------------------------------------------------------
+function setupControllerButtons() {
+
+  $( ".controller-settings-btn" ).button({
+      icons: {
+        primary: "ui-icon-gear"
+      }
+    }).css("width","100%");
+    
+  $( ".controller-edit-btn" ).button({
+      icons: {
+        primary: "ui-icon-pencil"
+      }
+    }).css("width","100%");
+    
+  $( ".controller-data-btn" ).button({
+      icons: {
+        primary: "ui-icon-info"
+      }
+    }).css("width","100%");  
+    
+  $( ".controller-charts-btn" ).button({
+      icons: {
+        primary: "ui-icon-image"
+      }
+    }).css("width","100%");  
+
+}
+//-----------------------------------------------------------------------------------------------------
 function resetController()
 {
 

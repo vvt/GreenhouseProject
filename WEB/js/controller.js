@@ -1096,6 +1096,33 @@ Controller.prototype.queryServerScript = function(script_name,params,doneFunc)
   
 }
 //-----------------------------------------------------------------------------------------------------
+Controller.prototype.delete = function(doneCallback,failCallback) {
+ var that = this; 
+ $.ajax( 
+ { 
+    method: "GET"
+  , url: "/x_delete_controller.php"
+  , dataType: "json" 
+  , data: 
+    {
+      posted : 1
+      , controller_id : that._id
+    }
+ }  ).done(function(data) 
+        {
+   
+          if(doneCallback)
+            doneCallback(data);
+     
+        }).fail(function(){
+        
+          if(failCallback)
+            failCallback();
+        
+        });  
+
+}
+//-----------------------------------------------------------------------------------------------------
 // редактирует данные контроллера и отправляет их на сервер в обход очереди
 Controller.prototype.edit = function(new_id, onAjaxDone)
 {
@@ -1112,7 +1139,7 @@ Controller.prototype.edit = function(new_id, onAjaxDone)
     {
       posted : 1
       , controller_id : this_id
-      , new_id: new_id
+      //, new_id: new_id
       , controller_name: _this._name
       , c_addr: _this._address  
     }
