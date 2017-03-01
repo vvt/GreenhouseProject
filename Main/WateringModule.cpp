@@ -146,7 +146,7 @@ void WateringModule::Setup()
   
   for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
   {
-    pinMode(WATER_RELAYS[i],OUTPUT);
+    WORK_STATUS.PinMode(WATER_RELAYS[i],OUTPUT);
     WORK_STATUS.PinWrite(WATER_RELAYS[i],RELAY_OFF);
 
     // настраиваем все каналы
@@ -224,7 +224,7 @@ void WateringModule::Setup()
 
 #ifdef USE_PUMP_RELAY
   // выключаем реле насоса  
-  pinMode(PUMP_RELAY_PIN,OUTPUT);
+  WORK_STATUS.PinMode(PUMP_RELAY_PIN,OUTPUT);
   WORK_STATUS.PinWrite(PUMP_RELAY_PIN,RELAY_OFF);
   bPumpIsOn = false;
 #endif

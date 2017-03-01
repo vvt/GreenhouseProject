@@ -35,7 +35,7 @@ class DS18B20Support
   public:
     DS18B20Support() : pin(0) {};
 
-    void begin(uint8_t _pin) {pin = _pin;}
+    void begin(uint8_t _pin);
     bool readTemperature(DS18B20Temperature* result, DSSensorType type);
     void setResolution(DS18B20Resolution res); 
     

@@ -183,6 +183,25 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << UniDispatcher.GetRFChannel();
           PublishSingleton.AddModuleIDToAnswer = false;          
         }
+        else if(t == PINS_COMMAND) {
+          // получить информацию по пинам
+          PublishSingleton.Status = true;
+          PublishSingleton = PINS_COMMAND;
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << PINS_MAP_SIZE;
+          PublishSingleton << PARAM_DELIMITER;
+
+          for(byte i=0;i<PINS_MAP_SIZE;i++) {
+            PublishSingleton << WorkStatus::ToHex(WORK_STATUS.UsedPins.PinsUsed[i]);
+          }
+
+          PublishSingleton << PARAM_DELIMITER;
+
+          for(byte i=0;i<PINS_MAP_SIZE;i++) {
+            PublishSingleton << WorkStatus::ToHex(WORK_STATUS.UsedPins.PinsMode[i]);
+          }          
+          
+        }
         #if defined(USE_UNIVERSAL_SENSORS) && defined(UNI_USE_REGISTRATION_LINE)
         else
         if(t == UNI_SEARCH) // поиск универсального модуля на линии регистрации

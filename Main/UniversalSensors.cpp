@@ -45,11 +45,25 @@ void UniRS485Gate::enableReceive()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::Setup()
 {
-  pinMode(RS_485_DE_PIN,OUTPUT);
+  WORK_STATUS.PinMode(RS_485_DE_PIN,OUTPUT);
   
   enableSend();
   
   RS_485_SERIAL.begin(RS485_SPEED);
+
+  if(&(RS_485_SERIAL) == &Serial) {
+       WORK_STATUS.PinMode(0,INPUT,false);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if(&(RS_485_SERIAL) == &Serial1) {
+       WORK_STATUS.PinMode(19,INPUT,false);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if(&(RS_485_SERIAL) == &Serial2) {
+       WORK_STATUS.PinMode(17,INPUT,false);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if(&(RS_485_SERIAL) == &Serial3) {
+       WORK_STATUS.PinMode(15,INPUT,false);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  }
 
   
 }
@@ -542,7 +556,7 @@ void UniRS485Gate::Update(uint16_t dt)
           #ifdef RS485_DEBUG
           else
           {
-            Serial.println(F("Header or tail of packet is invalid :("));
+            Serial.println(F("Head or tail of packet is invalid :("));
           } // else
           #endif
         }
@@ -1675,6 +1689,7 @@ bool UniScratchpadClass::read()
     return false;
     
     OneWire ow(pin);
+    WORK_STATUS.PinMode(pin,INPUT,false);
     
     if(!ow.reset()) // нет датчика на линии
       return false; 
@@ -1698,6 +1713,7 @@ bool UniScratchpadClass::startMeasure()
     return false;
     
     OneWire ow(pin);
+    WORK_STATUS.PinMode(pin,INPUT,false);
     
     if(!ow.reset()) // нет датчика на линии
       return false; 
@@ -1715,6 +1731,7 @@ bool UniScratchpadClass::write()
     return false;
     
     OneWire ow(pin);
+    WORK_STATUS.PinMode(pin,INPUT,false);
     
   // выставляем ID нашего контроллера
   scratchpad->head.controller_id = UniDispatcher.GetControllerID();
@@ -1742,6 +1759,7 @@ bool UniScratchpadClass::save()
     return false;
     
   OneWire ow(pin);
+  WORK_STATUS.PinMode(pin,INPUT,false);
 
   if(!ow.reset())
     return false;
@@ -2151,6 +2169,13 @@ void UniNRFGate::initNRF()
 
   if(nRFInited)
   {
+
+  WORK_STATUS.PinMode(NRF_CSN_PIN,OUTPUT,false);
+  WORK_STATUS.PinMode(NRF_CE_PIN,OUTPUT,false);
+  WORK_STATUS.PinMode(MOSI,OUTPUT,false);
+  WORK_STATUS.PinMode(MISO,INPUT,false);
+  WORK_STATUS.PinMode(SCK,OUTPUT,false);
+
 
     delay(200); // чуть-чуть подождём
   

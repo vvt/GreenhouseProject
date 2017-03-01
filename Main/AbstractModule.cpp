@@ -88,6 +88,29 @@ WorkStatus::WorkStatus()
   memset(statuses,0,sizeof(uint8_t)*STATUSES_BYTES);
   memset(lastStatuses,0,sizeof(uint8_t)*STATUSES_BYTES);
   memset(&State,0,sizeof(State));
+  memset(&UsedPins,0,sizeof(UsedPins));
+}
+void WorkStatus::PinMode(byte pinNumber,byte mode, bool setMode)
+{
+
+  uint8_t byte_num = pinNumber/8;
+  uint8_t bit_num = pinNumber%8;
+  
+  if(byte_num < PINS_MAP_SIZE) { // помещаемся
+  
+      UsedPins.PinsUsed[byte_num] |= (1 << bit_num);  
+
+      byte thisMode = mode;
+      if(mode == INPUT_PULLUP)
+        thisMode = INPUT;
+
+      UsedPins.PinsMode[byte_num] &= ~(1 << bit_num);
+      UsedPins.PinsMode[byte_num] |= (thisMode << bit_num);   
+  }
+    
+
+   if(setMode)
+    pinMode(pinNumber,mode);
 }
 void WorkStatus::SaveWindowState(byte channel, byte state)
 {

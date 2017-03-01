@@ -12,6 +12,7 @@ void SoilMoistureModule::Setup()
   #if SUPPORTED_SOIL_MOISTURE_SENSORS > 0
     for(uint8_t i=0;i<SUPPORTED_SOIL_MOISTURE_SENSORS;i++)
     {
+      WORK_STATUS.PinMode(SOIL_MOISTURE_SENSORS_ARRAY[i], INPUT, false);
       State.AddState(StateSoilMoisture,i); // добавляем датчики влажности почвы
     } // for
   #endif

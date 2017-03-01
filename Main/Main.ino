@@ -93,7 +93,7 @@
 // КОМАНДЫ ИНИЦИАЛИЗАЦИИ ПРИ СТАРТЕ
 //const char init_0[] PROGMEM = "CTSET=PIN|13|0";// ВЫКЛЮЧИМ ПРИ СТАРТЕ СВЕТОДИОД
 #ifdef USE_READY_DIODE
-const char init_1[] PROGMEM = "CTSET=LOOP|SD|SET|80|7|PIN|6|T";// помигаем 5 раз диодом для проверки
+const char init_1[] PROGMEM = "CTSET=LOOP|SD|SET|100|7|PIN|6|T";// помигаем 5 раз диодом для проверки
 #endif
 const char init_STUB[] PROGMEM = ""; // ЗАГЛУШКА, НЕ ТРОГАТЬ!
 
@@ -249,6 +249,12 @@ ReservationModule reservationModule;
 TimerModule timerModule;
 #endif
 
+#ifdef USE_READY_DIODE
+  #ifdef BLINK_READY_DIODE
+   BlinkModeInterop readyDiodeBlinker;
+  #endif
+#endif
+
 #ifdef USE_WIFI_MODULE
 // модуль работы по Wi-Fi
 WiFiModule wifiModule;
@@ -337,6 +343,9 @@ void setup()
 { 
   Serial.begin(SERIAL_BAUD_RATE); // запускаем Serial на нужной скорости
 
+  WORK_STATUS.PinMode(0,INPUT,false);
+  WORK_STATUS.PinMode(1,OUTPUT,false);
+ 
   // настраиваем все железки
   controller.Setup();
    
@@ -494,6 +503,23 @@ void loop()
     
     lastMillis = curMillis; // сохраняем последнее значение вызова millis()
     
+#ifdef USE_READY_DIODE
+  #ifdef BLINK_READY_DIODE
+    static uint16_t ready_diode_timer = 0;
+    static bool blink_ready_diode_inited = false;
+    ready_diode_timer += dt;
+    if(ready_diode_timer > 2000 && !blink_ready_diode_inited) {
+      blink_ready_diode_inited = true;
+      readyDiodeBlinker.begin(6,F("SD"));
+      readyDiodeBlinker.blink(READY_DIODE_BLINK_INTERVAL);
+    }
+
+    readyDiodeBlinker.update();
+  #endif
+  //const char init_1[] PROGMEM = "CTSET=LOOP|SD|SET|100|7|PIN|6|T";// помигаем 5 раз диодом для проверки
+#endif
+
+
 
   // смотрим, есть ли входящие команды
    if(commandsFromSerial.HasCommand())

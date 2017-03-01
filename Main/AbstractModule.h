@@ -277,6 +277,15 @@ typedef struct
   
 } ControllerState; // состояние контроллера
 
+#define PINS_MAP_SIZE 10 // размер поля информации о пинах
+
+typedef struct  
+{
+  byte PinsUsed[PINS_MAP_SIZE]; // N бит информации по занятости пина. Если бит с номером пина выставлен в 1 - этот пин используется
+  byte PinsMode[PINS_MAP_SIZE]; // если в бите с номером пина 1 - то пин настроен на выход, иначе - на вход. Имеет значение только, если соответствующий пин используется
+   
+} UsedPinsInfo; // состояние занятости пинов
+
 class WorkStatus
 {
   uint8_t statuses[STATUSES_BYTES];
@@ -302,6 +311,11 @@ class WorkStatus
   static const char* ToHex(int i);
   static byte FromHex(const char* buff);
 
+  UsedPinsInfo UsedPins; // массив информации о занятых пинах
+
+  // устанавливает режим работы пина, попутно записывая в карту занятых пинов.
+  // если последний парааметр равен false - то с пином ничего не делается, просто его режим копируется в карту занятости.
+  void PinMode(byte pinNumber,byte mode, bool setMode=true); 
   void PinWrite(byte pin, byte level); // пишет в пин состояние, заодно копируя его в слепок состояния контроллера
 
   void SaveWindowState(byte channel, byte state);

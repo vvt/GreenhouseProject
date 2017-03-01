@@ -1,9 +1,11 @@
 #include "PushButton.h"
+#include "AbstractModule.h"
+
 //--------------------------------------------------------------------------------------------------
 PushButton::PushButton(uint8_t _pin)
 {
   buttonPin = _pin;
-  pinMode(buttonPin, INPUT_PULLUP); // подтягиваем к питанию
+  WORK_STATUS.PinMode(buttonPin, INPUT_PULLUP); // подтягиваем к питанию
   
   userData = NULL;
   OnClick = NULL;

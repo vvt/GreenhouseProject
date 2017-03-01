@@ -1,6 +1,13 @@
 #include "DS18B20Query.h"
 #include <OneWire.h>
 #include "Globals.h"
+#include "AbstractModule.h"
+
+void DS18B20Support::begin(uint8_t _pin) 
+{
+  pin = _pin;
+  WORK_STATUS.PinMode(pin,INPUT,false);
+}
 
 void DS18B20Support::setResolution(DS18B20Resolution res)
 {
@@ -8,6 +15,7 @@ void DS18B20Support::setResolution(DS18B20Resolution res)
     return;
 
   OneWire ow(pin);
+ 
 
   if(!ow.reset()) // нет датчика
     return;  

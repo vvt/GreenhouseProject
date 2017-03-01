@@ -13,6 +13,9 @@ void BH1750Support::begin(BH1750Address addr, BH1750Mode mode)
 {
   deviceAddress = addr;
   Wire.begin();
+  WORK_STATUS.PinMode(SDA,INPUT,false);
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);
+    
   writeByte(BH1750PowerOn); // включаем датчик
   ChangeMode(mode); 
 }
@@ -97,7 +100,7 @@ void LuminosityModule::Setup()
    // выключаем все реле
     for(uint8_t i=0;i<LAMP_RELAYS_COUNT;i++)
     {
-      pinMode(LAMP_RELAYS[i],OUTPUT);
+      WORK_STATUS.PinMode(LAMP_RELAYS[i],OUTPUT);
       WORK_STATUS.PinWrite(LAMP_RELAYS[i],RELAY_OFF);
       WORK_STATUS.SaveLightChannelState(i,RELAY_OFF);
     } // for

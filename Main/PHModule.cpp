@@ -26,6 +26,8 @@ PCF8574::PCF8574(int address)
 {
   _address = address;
   Wire.begin();
+  WORK_STATUS.PinMode(SDA,INPUT,false);
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);  
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t PCF8574::read8()
@@ -242,7 +244,7 @@ void PhModule::Setup()
   if(phSensorPin > 0)
   {
     State.AddState(StatePH,0); // добавляем датчик pH, прикреплённый к меге
-    pinMode(phSensorPin,INPUT);
+    WORK_STATUS.PinMode(phSensorPin,INPUT);
     digitalWrite(phSensorPin,HIGH);
   }
 

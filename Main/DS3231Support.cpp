@@ -1,5 +1,6 @@
  #include "DS3231Support.h"
  #include <Arduino.h>
+ #include "AbstractModule.h"
 
 char DS3231Clock::workBuff[12] = {0};
 
@@ -168,5 +169,8 @@ const char* DS3231Clock::getDateStr(const DS3231Time& t)
 void DS3231Clock::begin()
 {
   Wire.begin();
+  WORK_STATUS.PinMode(SDA,INPUT,false);
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);
+  
 }
 

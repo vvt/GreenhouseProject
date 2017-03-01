@@ -243,8 +243,8 @@ void TempSensors::SetupWindows()
           uint8_t pin1 = WINDOWS_RELAYS[j];
           uint8_t pin2 = WINDOWS_RELAYS[j+1];
         
-          pinMode(pin1,OUTPUT);
-          pinMode(pin2, OUTPUT);
+          WORK_STATUS.PinMode(pin1,OUTPUT);
+          WORK_STATUS.PinMode(pin2, OUTPUT);
         
           // выключаем реле
           WORK_STATUS.PinWrite(pin1,RELAY_OFF);
@@ -291,19 +291,19 @@ void TempSensors::Setup()
    #ifdef USE_WINDOWS_SHIFT_REGISTER
 
     // настраиваем пины для сдвигового регистра на выход
-    pinMode(WINDOWS_SHIFT_LATCH_PIN,OUTPUT);
+    WORK_STATUS.PinMode(WINDOWS_SHIFT_LATCH_PIN,OUTPUT);
     digitalWrite(WINDOWS_SHIFT_LATCH_PIN, LOW);
     
-    pinMode(WINDOWS_SHIFT_DATA_PIN,OUTPUT);
+    WORK_STATUS.PinMode(WINDOWS_SHIFT_DATA_PIN,OUTPUT);
     digitalWrite(WINDOWS_SHIFT_DATA_PIN, LOW);
     
-    pinMode(WINDOWS_SHIFT_CLOCK_PIN,OUTPUT);
+    WORK_STATUS.PinMode(WINDOWS_SHIFT_CLOCK_PIN,OUTPUT);
     digitalWrite(WINDOWS_SHIFT_CLOCK_PIN, LOW);
 
     // переводим все выводы в High-Z состояние (они и так уже в нём, 
     // поскольку пин, управляющий OE, подтянут к питанию,
     // но мы не будем мелочиться :) ).
-    pinMode(WINDOWS_SHIFT_OE_PIN,OUTPUT);
+    WORK_STATUS.PinMode(WINDOWS_SHIFT_OE_PIN,OUTPUT);
     digitalWrite(WINDOWS_SHIFT_OE_PIN,HIGH);
     
    

@@ -46,6 +46,10 @@ _rtc.begin();
 
 #if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE)
   sdCardInitFlag = SD.begin(SDCARD_CS_PIN); // пробуем инициализировать SD-модуль
+  WORK_STATUS.PinMode(SDCARD_CS_PIN,OUTPUT,false);
+  WORK_STATUS.PinMode(MOSI,OUTPUT,false);
+  WORK_STATUS.PinMode(MISO,INPUT,false);
+  WORK_STATUS.PinMode(SCK,OUTPUT,false);
 #endif
   
 }

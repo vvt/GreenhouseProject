@@ -26,9 +26,17 @@ void EthernetModule::Update(uint16_t dt)
   if(!bInited) // не было инициализации, инициализируемся
   {
 
+   #ifdef ETHERNET_DEBUG
+    Serial.println(F("[LAN] Start server using DHCP... "));
+   #endif 
+
     // пытаемся по DHCP получить конфигурацию
     if(!Ethernet.begin(local_mac))
     {
+
+     #ifdef ETHERNET_DEBUG
+      Serial.println(F("[LAN] DHCP failed, start with defailt IP 192.168.0.177 "));
+     #endif      
       // стартуем пока с настройками по умолчанию
       Ethernet.begin(local_mac, default_ip);
     }
@@ -39,6 +47,11 @@ void EthernetModule::Update(uint16_t dt)
     Serial.print(F("[LAN] server started at "));
     Serial.println(Ethernet.localIP());
   #endif
+
+  WORK_STATUS.PinMode(10,OUTPUT,false);
+  WORK_STATUS.PinMode(MOSI,OUTPUT,false);
+  WORK_STATUS.PinMode(MISO,INPUT,false);
+  WORK_STATUS.PinMode(SCK,OUTPUT,false);  
 
     bInited = true;
     return;

@@ -1,5 +1,6 @@
 #include "LCDMenu.h"
 #include "InteropStream.h"
+#include "AbstractModule.h"
 
 #ifdef USE_LCD_MODULE
 
@@ -825,7 +826,12 @@ DrawContext(cs)
 #ifndef SCREEN_USE_SOFT_SPI
   UNUSED(sck);
   UNUSED(mosi);
+#else
+  WORK_STATUS.PinMode(sck,OUTPUT,false);
+  WORK_STATUS.PinMode(mosi,OUTPUT,false);
 #endif
+
+  WORK_STATUS.PinMode(cs,OUTPUT,false);
   
   wantRedraw(); // говорим, что мы хотим перерисоваться
 
@@ -930,7 +936,7 @@ void LCDMenu::init()
   setFont(SELECTED_FONT);
 
   // инициализируем пин подсветки
-  pinMode(SCREEN_BACKLIGHT_PIN,OUTPUT);
+  WORK_STATUS.PinMode(SCREEN_BACKLIGHT_PIN,OUTPUT);
   backlight(); // включаем подсветку экрана
   
   // инициализируем кнопку

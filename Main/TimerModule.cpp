@@ -42,7 +42,7 @@ void PeriodicTimer::Init()
 {
   if(Settings.Pin)
   {
-    pinMode(Settings.Pin, OUTPUT);
+    WORK_STATUS.PinMode(Settings.Pin, OUTPUT);
     
     if(IsActive())
       On();

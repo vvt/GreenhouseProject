@@ -1,5 +1,5 @@
 #include "DHTSupport.h"
-
+#include "AbstractModule.h"
 
 DHTSupport::DHTSupport()
 {
@@ -26,7 +26,7 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   delay(wakeup_delay); // и ждём, пока датчик прочухается
   digitalWrite(pin,HIGH); // поднимаем линию
   delayMicroseconds(40); // ждём 40us, как написано в даташите
-  pinMode(pin, INPUT_PULLUP); // переводим пин на чтение
+  WORK_STATUS.PinMode(pin, INPUT_PULLUP); // переводим пин на чтение
 
   // тут должны проверить последовательность, которую выдал датчик:
   // если линия прижата на 80us, затем поднята на 80us - значит,

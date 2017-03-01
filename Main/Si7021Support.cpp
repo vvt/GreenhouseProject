@@ -1,4 +1,5 @@
 #include "Si7021Support.h"
+#include "AbstractModule.h"
 
 Si7021::Si7021()
 {
@@ -7,6 +8,8 @@ Si7021::Si7021()
 void Si7021::begin()
 {
   Wire.begin();
+  WORK_STATUS.PinMode(SDA,INPUT,false);
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);  
   setResolution();
 }
 uint8_t Si7021::read8(uint8_t reg)

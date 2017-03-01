@@ -16,7 +16,7 @@ void PinModule::UpdatePinStates()
     if(s->isActive && s->hasChanges) // если мы управляем пином
     {
       s->hasChanges = false;
-      pinMode(s->pinNumber,OUTPUT); // делаем пин запоминающим значения
+      WORK_STATUS.PinMode(s->pinNumber,OUTPUT); // делаем пин запоминающим значения
       WORK_STATUS.PinWrite(s->pinNumber,s->pinState); // запоминаем текущее состояние пина
    
     }
@@ -58,7 +58,7 @@ PIN_STATE* PinModule::AddPin(uint8_t pinNumber,uint8_t currentState)
     p.pinState = currentState;
     p.isActive = true;
     p.hasChanges = true;
-    pinMode(pinNumber,OUTPUT);
+    WORK_STATUS.PinMode(pinNumber,OUTPUT);
     pinStates.push_back(p);
 
   return &(pinStates[pinStates.size()-1]);

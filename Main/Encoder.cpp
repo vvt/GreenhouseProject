@@ -1,4 +1,5 @@
 #include "Encoder.h"
+#include "AbstractModule.h"
 
 RotaryEncoder::RotaryEncoder(int p0, int p1, int pulsesPerClick)
 {
@@ -10,8 +11,8 @@ RotaryEncoder::RotaryEncoder(int p0, int p1, int pulsesPerClick)
 }
 void RotaryEncoder::begin()
 {
-  pinMode(pin0, INPUT);
-  pinMode(pin1, INPUT);
+  WORK_STATUS.PinMode(pin0, INPUT);
+  WORK_STATUS.PinMode(pin1, INPUT);
   digitalWrite(pin0, HIGH);   // включаем подтягивающие резисторы
   digitalWrite(pin1, HIGH);
   change = 0;
