@@ -1,6 +1,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "Common.h"
+#include "LowLevel.h"
+#include "OneWireSlave.h"
 //----------------------------------------------------------------------------------------------------------------
 /*
 Прошивка для универсального модуля, предназначена для подключения
@@ -42,7 +44,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //----------------------------------------------------------------------------------------------------------------
 // настройки
 //----------------------------------------------------------------------------------------------------------------
-#define ROM_ADDRESS (void*) 5 // по какому адресу у нас настройки?
+#define ROM_ADDRESS (void*) 0 // по какому адресу у нас настройки?
 //----------------------------------------------------------------------------------------------------------------
 // настройки инициализации, привязка слотов к пинам и первоначальному состоянию
 //----------------------------------------------------------------------------------------------------------------
@@ -65,94 +67,75 @@ SlotSettings SLOTS[8] =
   
 };
 //----------------------------------------------------------------------------------------------------------------
-//Синонимы регистров управления прерываниями. Разные для ATTINY и ATMEGA
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// ||
+// \/
 //----------------------------------------------------------------------------------------------------------------
-inline void OneWireSetLow()
-{
-  //set 1-Wire line to low
-  OW_DDR|=OW_PINN;
-  OW_PORT&=~OW_PORTN;
-}
+// ДАЛЕЕ ИДУТ СЛУЖЕБНЫЕ НАСТРОЙКИ И КОД - МЕНЯТЬ С ПОЛНЫМ ПОНИМАНИЕМ ТОГО, ЧТО ХОДИМ СДЕЛАТЬ !!!
 //----------------------------------------------------------------------------------------------------------------
-inline void OneWireSendAck()
-{
-  OW_DDR&=~OW_PINN;
-}
+//#define _DEBUG // раскомментировать для отладочного режима
 //----------------------------------------------------------------------------------------------------------------
-inline void OneWireEnableInterrupt()
-{
-  GIMSK|=(1<<INT0);GIFR|=(1<<INTF0);
-}
-//----------------------------------------------------------------------------------------------------------------
-inline void OneWireDisableInterrupt()
-{
-  GIMSK&=~(1<<INT0);
-}
-//----------------------------------------------------------------------------------------------------------------
-inline void OneWireInterruptAtRisingEdge()
-{
-  MCUCR=(1<<ISC01)|(1<<ISC00);
-}
-//----------------------------------------------------------------------------------------------------------------
-inline void OneWireInterruptAtFallingEdge()
-{
-  MCUCR=(1<<ISC01);
-}
-//----------------------------------------------------------------------------------------------------------------
-inline bool OneWireIsInterruptEnabled()
-{
-  return (GIMSK&(1<<INT0))==(1<<INT0); 
-}
-//----------------------------------------------------------------------------------------------------------------
-//Timer Interrupt
-//----------------------------------------------------------------------------------------------------------------
-// Используем 16 разрядный таймер. Остальные не отдала Ардуино.
-//Делитель - 64. То есть каждый тик таймера - 1/4 микросекунды
-//----------------------------------------------------------------------------------------------------------------
-inline void TimerEnable()
-{
-  TIMSK1  |= (1<<TOIE1); 
-  TIFR1|=(1<<TOV1);
-}
-//----------------------------------------------------------------------------------------------------------------
-inline void TimerDisable()
-{
-  TIMSK1  &= ~(1<<TOIE1);
-}
-//----------------------------------------------------------------------------------------------------------------
-inline void TimerSetTimeout(uint8_t tmio)
-{
-  TCNT1 = ~tmio;
-}
-//----------------------------------------------------------------------------------------------------------------
-inline void PreInit()
-{
-//Initializations of AVR
-  CLKPR=(1<<CLKPCE);
-  CLKPR=0;/*9.6Mhz*/
-  TIMSK1=0;
-  GIMSK=(1<<INT0);/*set direct GIMSK register*/
-  TCCR1A = 0;
-  TCCR1B = 0;
-  TCCR1B = (1 << CS10) | (1 << CS11);
-}
-//----------------------------------------------------------------------------------------------------------------
-const int sensePin = 2; // пин, на котором висит 1-Wire
-t_scratchpad scratchpadS;
+t_scratchpad scratchpadS, scratchpadToSend;
 volatile char* scratchpad = (char *)&scratchpadS; //что бы обратиться к scratchpad как к линейному массиву
-
-volatile uint8_t crcHolder; //CRC calculation
-
-volatile uint8_t commandBuffer; //Входной буфер команды
-
-volatile uint8_t bitPointer;  //pointer to current Bit
-volatile uint8_t bytePointer; //pointer to current Byte
-
-volatile MachineStates machineState; //state
-volatile uint8_t workMode; //if 0 next bit that send the device is  0
-volatile uint8_t actualBit; //current
-
 volatile bool scratchpadReceivedFromMaster = false; // флаг, что мы получили данные с мастера
+//----------------------------------------------------------------------------------------------------------------
+// Настройки 1-Wire
+Pin oneWireData(2); // на втором пине у нас висит 1-Wire
+const byte owROM[7] = { 0x28, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 }; // адрес датчика, менять не обязательно, т.к. у нас не честный 1-Wire
+// команды 1-Wire
+const byte COMMAND_START_CONVERSION = 0x44; // запустить конвертацию
+const byte COMMAND_READ_SCRATCHPAD = 0xBE; // попросили отдать скратчпад мастеру
+const byte COMMAND_WRITE_SCRATCHPAD = 0x4E; // попросили записать скратчпад, следом пойдёт скратчпад
+const byte COMMAND_SAVE_SCRATCHPAD = 0x25; // попросили сохранить скратчпад в EEPROM
+enum DeviceState {
+  DS_WaitingReset,
+  DS_WaitingCommand,
+  DS_ReadingScratchpad,
+  DS_SendingScratchpad
+};
+volatile DeviceState state = DS_WaitingReset;
+volatile byte scratchpadWritePtr = 0; // указатель на байт в скратчпаде, куда надо записать пришедший от мастера байт
+volatile byte scratchpadNumOfBytesReceived = 0; // сколько байт прочитали от мастера
 //----------------------------------------------------------------------------------------------------------------
 void UpdateFromControllerState(ControllerState* state)
 {
@@ -276,24 +259,6 @@ void UpdateFromControllerState(ControllerState* state)
      } // for  
 }
 //----------------------------------------------------------------------------------------------------------------
-byte calcCrc8 (const byte *addr, byte len)
-{
-  byte crc = 0;
-  while (len--) 
-    {
-    byte inbyte = *addr++;
-    for (byte i = 8; i; i--)
-      {
-      byte mix = (crc ^ inbyte) & 0x01;
-      crc >>= 1;
-      if (mix) 
-        crc ^= 0x8C;
-      inbyte >>= 1;
-      }  // end of for
-    }  // end of while
-  return crc;
-}
-//----------------------------------------------------------------------------------------------------------------
 #ifdef USE_NRF
 //----------------------------------------------------------------------------------------------------------------
 uint64_t controllerStatePipe = 0xF0F0F0F0E0LL; // труба, с которой мы слушаем состояние контроллера
@@ -362,7 +327,7 @@ void ProcessNRF()
     if(nrfPacket.controller_id == scratchpadS.controller_id)
     {
        // это пакет с нашего контроллера пришёл, обновляем данные
-       byte checksum = calcCrc8((const byte*) &nrfPacket,sizeof(NRFControllerStatePacket)-1);
+       byte checksum = OneWireSlave::crc8((const byte*) &nrfPacket,sizeof(NRFControllerStatePacket)-1);
        
        if(checksum == nrfPacket.crc8) // чексумма сошлась
        {
@@ -395,6 +360,7 @@ void ReadROM()
 void WriteROM()
 {
     eeprom_write_block( (void*)scratchpad,ROM_ADDRESS,29);
+    memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
 
     #ifdef USE_NRF
       if(nRFInited)
@@ -495,7 +461,7 @@ void ProcessRS485Packet()
     rs485WritePtr = 0;
 
     // проверяем контрольную сумму
-    byte crc = calcCrc8((const byte*) rsPacketPtr,sizeof(RS485Packet) - 1);
+    byte crc = OneWireSlave::crc8((const byte*) rsPacketPtr,sizeof(RS485Packet) - 1);
     if(crc != rs485Packet.crc8)
     {
       // не сошлось, игнорируем
@@ -542,6 +508,10 @@ void InitRS485()
 //----------------------------------------------------------------------------------------------------------------
 void UpdateSlots1Wire()
 {  
+ #ifdef _DEBUG
+  Serial.println(F("Update slots from 1-Wire..."));
+ #endif
+  
   for(byte i=0;i<8;i++)
   {
     byte slotType = scratchpadS.slots[i].slotType;
@@ -560,8 +530,13 @@ void UpdateSlots1Wire()
         // состояние изменилось
         SLOTS[i].State = slotStatus;
         
-        if(SLOTS[i].Pin)
-        {
+        if(SLOTS[i].Pin) {
+           #ifdef _DEBUG
+            Serial.print(F("Writing "));
+            Serial.print(slotStatus);
+            Serial.print(F(" to pin "));
+            Serial.println(SLOTS[i].Pin);
+           #endif          
             digitalWrite(SLOTS[i].Pin, slotStatus);
         }
       }
@@ -571,11 +546,17 @@ void UpdateSlots1Wire()
   } // for
 }
 //----------------------------------------------------------------------------------------------------------------
+void owReceive(OneWireSlave::ReceiveEvent evt, byte data);
+//----------------------------------------------------------------------------------------------------------------
 void setup()
 {
   #ifdef USE_RS485_GATE // если сказано работать через RS-485 - работаем 
     Serial.begin(RS485_SPEED);
     InitRS485(); // настраиваем RS-485 на приём
+ #endif
+
+ #ifdef _DEBUG
+  Serial.begin(57600);
  #endif
    
     ReadROM(); // читаем наши настройки
@@ -586,8 +567,9 @@ void setup()
       byte pin = SLOTS[i].Pin;
       if(pin)
       {
-        pinMode(pin,OUTPUT);
-        digitalWrite(pin,SLOTS[i].State);
+        Pin pPin(pin);
+        pPin.outputMode();
+        pPin.write(SLOTS[i].State);
       }
     } // for
 
@@ -596,104 +578,95 @@ void setup()
     initNRF();
     #endif
 
-    pinMode(sensePin, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(sensePin), OW_Process, CHANGE);
 
-
-    machineState = stateSleep;
-    workMode = OWW_NO_WRITE;
-    OW_DDR &= ~OW_PINN;
-
-    OneWireInterruptAtFallingEdge();
-
-    // Select clock source: internal I/O clock 
-    ASSR &= ~(1<<AS2);
-
-    PreInit();
-    TimerEnable();
+  scratchpadS.crc8 = OneWireSlave::crc8((const byte*) scratchpad,sizeof(scratchpadS)-1);
+  memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
+  
+  OWSlave.setReceiveCallback(&owReceive);
+  OWSlave.begin(owROM, oneWireData.getPinNumber());    
 
   
 }
 //----------------------------------------------------------------------------------------------------------------
-// обработчик прерывания на пине
+void owSendDone(bool error) {
+  UNUSED(error);
+ // закончили посылать скратчпад мастеру
+ state = DS_WaitingReset;
+}
 //----------------------------------------------------------------------------------------------------------------
-void OW_Process()
-{
-    // копируем переменные в регистры
-    uint8_t thisWorkMode = workMode;  
-    MachineStates thisMachineState = machineState;
-
-    // попросили отправить нолик
-    if ((thisWorkMode == OWW_WRITE_0))
-    {
-        OneWireSetLow();    // если попросили отправить нолик - жмём линию к земле
-        thisWorkMode = OWW_NO_WRITE;
-    }
-    // если надо отправить единицу - ничего специально не делаем.
-
-    // выключаем прерывание на пине, оно должно быть активно только
-    // тогда, когда состояние автомата - stateSleep.
-    OneWireDisableInterrupt();
-
-    // чего делаем?
-    switch (thisMachineState)
+// обработчик прерывания на пине
+void owReceive(OneWireSlave::ReceiveEvent evt, byte data)
+{  
+ switch (evt)
+  {
+  case OneWireSlave::RE_Byte:
+    switch (state)
     {
 
-     case stateMeasure:
-     case statePresence:
-     case stateReset:
-     break;
+     case DS_ReadingScratchpad: // читаем скратчпад от мастера
 
-    // ничего не делаем
-    case stateSleep:
+        // увеличиваем кол-во прочитанных байт
+        scratchpadNumOfBytesReceived++;
 
-        // просим таймер проснуться через некоторое время,
-        // чтобы проверить, есть ли импульс RESET
-        TimerSetTimeout(OWT_MIN_RESET);
+        // пишем в скратчпад принятый байт
+        scratchpad[scratchpadWritePtr] = data;
+        // увеличиваем указатель записи
+        scratchpadWritePtr++;
+
+        // проверяем, всё ли прочитали
+        if(scratchpadNumOfBytesReceived >= sizeof(scratchpadS)) {
+          // всё прочитали, сбрасываем состояние на ожидание резета
+          state = DS_WaitingReset;
+          scratchpadNumOfBytesReceived = 0;
+          scratchpadWritePtr = 0;
+          scratchpadReceivedFromMaster = true; // говорим, что мы получили скратчпад от мастера
+        }
         
-        // включаем прерывание на пине, ждём других фронтов
-        OneWireEnableInterrupt();
-        
+     break; // DS_ReadingScratchpad
+      
+    case DS_WaitingCommand:
+      switch (data)
+      {
+      case COMMAND_START_CONVERSION: // запустить конвертацию
+        state = DS_WaitingReset;
         break;
-        
-    // начинаем читать на спадающем фронте от мастера,
-    // чтение закрывается в обработчике таймера.
-    case stateWriteScratchpad: // ждём приёма
-    case stateReadCommand:
 
-        // взводим таймер на чтение из линии
-        TimerSetTimeout(OWT_READLINE);
-        
+      case COMMAND_READ_SCRATCHPAD: // попросили отдать скратчпад мастеру
+        state = DS_SendingScratchpad;
+        OWSlave.beginWrite((const byte*)&scratchpadToSend, sizeof(scratchpadToSend), owSendDone);
         break;
-        
-    case stateReadScratchpad:  // нам послали бит
 
-        // взводим таймер, удерживая линию в LOW
-        TimerSetTimeout(OWT_LOWTIME);
-        
+      case COMMAND_WRITE_SCRATCHPAD:  // попросили записать скратчпад, следом пойдёт скратчпад
+          state = DS_ReadingScratchpad; // ждём скратчпада
+          scratchpadWritePtr = 0;
+          scratchpadNumOfBytesReceived = 0;
         break;
-        
-    case stateCheckReset:  // нарастающий фронт или импульс RESET
 
-        // включаем прерывание по спадающему фронту
-        OneWireInterruptAtFallingEdge();
-        
-        // проверяем по таймеру - это импульс RESET?
-        TimerSetTimeout(OWT_RESET_PRESENCE);
-
-        // говорим конечному автомату, что мы ждём импульса RESET
-        thisMachineState = stateReset;
-        
+        case COMMAND_SAVE_SCRATCHPAD: // сохраняем скратчпад в память
+          state = DS_WaitingReset;
+          WriteROM();
         break;
-    } // switch
 
-    // включаем таймер
-    TimerEnable();
+      } // switch (data)
+      break; // case DS_WaitingCommand
 
-    // сохраняем состояние работы
-    machineState = thisMachineState;
-    workMode = thisWorkMode;
+      case DS_WaitingReset:
+      break;
 
+      case DS_SendingScratchpad:
+      break;
+    } // switch(state)
+    break; 
+
+  case OneWireSlave::RE_Reset:
+    state = DS_WaitingCommand;
+    break;
+
+  case OneWireSlave::RE_Error:
+    state = DS_WaitingReset;
+    break;
+    
+  } // switch (evt)
 }
 //----------------------------------------------------------------------------------------------------------------
 void loop()
@@ -701,7 +674,6 @@ void loop()
   if(scratchpadReceivedFromMaster)
   {
     // скратч был получен от мастера, тут можно что-то делать
-
     scratchpadReceivedFromMaster = false;
 
     UpdateSlots1Wire(); // обновляем состояние слотов
@@ -719,246 +691,3 @@ void loop()
 
 }
 //----------------------------------------------------------------------------------------------------------------
-// проверяет - в высоком ли уровне линия 1-Wire
-//----------------------------------------------------------------------------------------------------------------
-inline bool OneWireIsLineHigh() 
-{
-  return ((OW_PIN&OW_PINN) == OW_PINN);
-}
-//----------------------------------------------------------------------------------------------------------------
-OnTimer
-{
-    // копируем все переменные в регистры
-    uint8_t thisWorkMode = workMode;
-    MachineStates thisMachineState = machineState;
-    uint8_t thisBytePointer = bytePointer;
-    uint8_t thisBitPointer = bitPointer;
-    uint8_t thisActualBit = actualBit;
-    uint8_t thisCrcHolder = crcHolder;
-
-
-    // смотрим, в высоком ли уровне линия 1-Wire?
-    bool isLineHigh = OneWireIsLineHigh();
-
-    // прерывание активно?
-    if (OneWireIsInterruptEnabled())
-    {
-        // это может быть импульс RESET
-        if (!isLineHigh)   // линия всё ещё прижата к земле
-        {
-            // будем ждать нарастающий фронт импульса
-            thisMachineState = stateCheckReset;
-            OneWireInterruptAtRisingEdge();
-        }
-        
-        // выключаем таймер
-        TimerDisable();
-        
-    } // if
-    else // прерывание неактивно
-    {
-
-        // чего делаем?
-        switch (thisMachineState)
-        {
-         case stateCheckReset:
-         case stateSleep:
-         break;
-
-         case stateMeasure: // измеряем
-        
-          break;
-
-        case stateReset:  //импульс RESET закончился, надо послать Presence
-
-            // будем ждать окончания отработки Presence
-            thisMachineState = statePresence;
-
-            // кидаем линию на землю
-            OneWireSetLow();
-
-            // и взводим таймер, чтобы удержать её нужное время
-            TimerSetTimeout(OWT_PRESENCE);
-
-            // никаких прерываний на линии, пока не отработаем Presence
-            OneWireDisableInterrupt();
-            
-            break;
-
-        case statePresence: // посылали импульс Presence
-
-            OneWireSendAck();  // импульс Presence послан, теперь надо ждать команды
-
-            // всё сделали, переходим в ожидание команды
-             thisMachineState = stateReadCommand;
-            commandBuffer = 0;
-            thisBitPointer = 1;
-            break;
-
-        case stateReadCommand: // ждём команду
-        
-            if (isLineHigh)    // если линия в высоком уровне - нам передают единичку
-            {
-                // запоминаем её в текущей позиции
-                commandBuffer |= thisBitPointer;
-            }
-
-            // сдвигаем позицию записи
-            thisBitPointer = (thisBitPointer<<1);
-            
-            if (!thisBitPointer)   // прочитали 8 бит
-            {
-                thisBitPointer = 1; // переходим опять на первый бит
-
-                // чего нам послали за команду?
-                switch (commandBuffer)
-                {
-                
-                case 0x4E: // попросили записать скратчпад, следом пойдёт скратчпад
-                
-                    thisMachineState = stateWriteScratchpad;
-                    thisBytePointer = 0; //сбрасываем указатель записи на начало данных
-                    scratchpad[0] = 0; // обнуляем данные
-                    break;
-                    
-                case 0x25: // попросили сохранить скратчпад в EEPROM
-                
-                    WriteROM(); // сохранили
-
-                    // и засыпаем
-                    thisMachineState = stateSleep;
-
-                    // сбросили данные в исходные значения
-                    commandBuffer = 0;
-                    thisBitPointer = 1; 
-                    
-                    break;
-                    
-                case 0x44:  // попросили запустить конвертацию
-                case 0x64:  // и такая команда приходит для конвертации
-                      thisMachineState = stateSleep; // спим
-                    break;
-                    
-                case 0xBE: // попросили отдать скратчпад мастеру
-                
-                    // запоминаем, чего мы будем делать дальше
-
-                    thisMachineState = stateReadScratchpad;
-                    thisBytePointer = 0;
-                    thisCrcHolder = 0;
-
-                    // запоминаем первый бит, который надо послать
-                    thisActualBit = (thisBitPointer & scratchpad[0]) == thisBitPointer;
-                    thisWorkMode = thisActualBit; // запоминаем, какой бит послать
-                    
-                    break;
-
-               case 0xCC:
-                    // ждём команды, она пойдёт следом
-                    thisMachineState = stateReadCommand;
-                    commandBuffer = 0;
-                    thisBitPointer = 1;  //Command buffer have to set zero, only set bits will write in
-
-               break;
-                    
-                default:
-
-                    // по умолчанию - спим
-                    thisMachineState = stateSleep;
-                } // switch
-            }
-            break;
-
-        case stateWriteScratchpad: // пишем в скратчпад данные, принятые от мастера
-
-            if (isLineHigh) // если линия поднята - послали единичку
-            {
-                // запоминаем в текущей позиции
-                scratchpad[thisBytePointer] |= thisBitPointer;
-
-            }
-
-            // передвигаем позицию записи
-            thisBitPointer = (thisBitPointer << 1);
-            
-            if (!thisBitPointer) // прочитали байт
-            {
-                // сдвигаем указатель записи байтов
-                thisBytePointer++;
-                thisBitPointer = 1;
-
-                
-                if (thisBytePointer>=30) // если прочитали 30 байт - переходим на сон
-                {
-                   thisMachineState = stateSleep;
-                   commandBuffer = 0;
-                   thisBitPointer = 1;  //Command buffer have to set zero, only set bits will write in 
-
-                   // говорим, что мы прочитали скратчпад c мастера
-                   scratchpadReceivedFromMaster = true;       
-                  break;
-                }
-                else // сбрасываем следующий байт в 0, в последующем мы будем туда писать.
-                  scratchpad[thisBytePointer]=0;
-            }
-            break;
-            
-        case stateReadScratchpad: // посылаем данные скратчпада мастеру
-        
-            OneWireSendAck(); // подтверждаем, что готовы передавать
-
-            // по ходу считаем CRC
-            if ((thisCrcHolder & 1)!= thisActualBit) 
-              thisCrcHolder = (thisCrcHolder>>1)^0x8c;
-            else 
-              thisCrcHolder >>=1;
-
-            // передвигаем позицию чтения
-            thisBitPointer = (thisBitPointer<<1);
-            
-            if (!thisBitPointer) // прочитали байт
-            {
-                // переходим на следующий байт
-                thisBytePointer++;
-                thisBitPointer = 1;
-                
-                if (thisBytePointer>=30) // если послали весь скратчпад, то вываливаемся в сон
-                {
-                    thisMachineState = stateSleep;
-                    break;
-                }
-                else 
-                  if (thisBytePointer==29) // если следующий байт - последний, то пишем туба подсчитанную контрольную сумму
-                    scratchpad[29] = thisCrcHolder;
-            }
-
-            // вычисляем, какой бит послать
-            thisActualBit = (thisBitPointer & scratchpad[thisBytePointer])== thisBitPointer;
-            thisWorkMode = thisActualBit; // запоминаем, чего надо послать
-            
-            break;
-        } // switch
-    } // else прерывание выключено
-    
-    if (thisMachineState == stateSleep) // если спим, то выключаем таймер
-    {
-        TimerDisable();
-    }
-
-    if ( (thisMachineState != statePresence) && (thisMachineState != stateMeasure) )
-    {
-        TimerSetTimeout((OWT_MIN_RESET-OWT_READLINE));
-        OneWireEnableInterrupt();
-    }
-
-
-    machineState = thisMachineState;
-    workMode = thisWorkMode;
-    bytePointer = thisBytePointer;
-    bitPointer = thisBitPointer;
-    actualBit = thisActualBit;
-    crcHolder = thisCrcHolder;
-}
-//----------------------------------------------------------------------------------------------------------------
-
-

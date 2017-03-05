@@ -1217,7 +1217,11 @@ void UniPermanentLine::Update(uint16_t dt)
   if(UniScratchpad.read())
   {
     // прочитали, значит, датчик есть на линии.
-    
+   #ifdef UNI_DEBUG
+    Serial.print(F("Module found on 1-Wire pin "));
+    Serial.println(pin);
+   #endif    
+   
     // проверяем, зарегистрирован ли модуль у нас?
     if(!IsRegistered()) // модуль не зарегистрирован у нас
       return;
@@ -1231,6 +1235,10 @@ void UniPermanentLine::Update(uint16_t dt)
   else
   {
     // на линии никого нет
+   #ifdef UNI_DEBUG
+    Serial.print(F("NO MODULES FOUND ON 1-Wire pin "));
+    Serial.println(pin);
+   #endif
 
   }
   
@@ -1691,8 +1699,14 @@ bool UniScratchpadClass::read()
     OneWire ow(pin);
     WORK_STATUS.PinMode(pin,INPUT,false);
     
-    if(!ow.reset()) // нет датчика на линии
+    if(!ow.reset()) { // нет датчика на линии 
+      
+     #ifdef UNI_DEBUG
+      Serial.print(F("NO PRESENCE FOUND ON 1-Wire pin "));
+      Serial.println(pin);
+     #endif
       return false; 
+}
 
     // теперь читаем скратчпад
     ow.write(0xCC, 1);
@@ -1704,7 +1718,20 @@ bool UniScratchpadClass::read()
       raw[i] = ow.read();
       
     // проверяем контрольную сумму
-    return OneWire::crc8(raw, sizeof(UniRawScratchpad)-1) == raw[sizeof(UniRawScratchpad)-1];
+    bool isCrcGood =  OneWire::crc8(raw, sizeof(UniRawScratchpad)-1) == raw[sizeof(UniRawScratchpad)-1];
+
+   #ifdef UNI_DEBUG
+    if(isCrcGood) {
+      Serial.print(F("Checksum OK on 1-Wire pin "));
+      Serial.println(pin);
+    } else {
+      Serial.print(F("BAD scratchpad checksum on 1-Wire pin "));
+      Serial.println(pin);
+      
+    }
+   #endif
+
+    return isCrcGood;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool UniScratchpadClass::startMeasure()
