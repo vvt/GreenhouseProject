@@ -38,6 +38,12 @@ void SMSModule::Setup()
   // запускаем наш сериал
   GSM_SERIAL.begin(GSM_BAUDRATE);
 
+
+  // говорим, что мы от модема не получали ничего
+  isAnyAnswerReceived = false;
+
+  inRebootMode = false;
+  rebootStartTime = 0;
  
   InitQueue(); // инициализируем очередь
    
@@ -53,6 +59,10 @@ void SMSModule::InitQueue()
   waitForSMSInNextLine = false;
   WaitForSMSWelcome = false; // не ждём приглашения
   needToWaitTimer = 0; // сбрасываем таймер
+
+  // инициализируем время отсылки команды и получения ответа
+  sendCommandTime = millis();
+  answerWaitTimer = 0;
    
   // настраиваем то, что мы должны сделать для начала работы
   currentAction = smaIdle; // свободны, ничего не делаем
@@ -69,6 +79,11 @@ void SMSModule::InitQueue()
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessAnswerLine(const String& line)
 {
+  // от модема получен какой-то ответ, мы можем утверждать, что на той стороне что-то отвечает
+  
+  // что-то пришло от модема, значит - откликается
+  isAnyAnswerReceived = true;
+  
   // получаем ответ на команду, посланную модулю
   if(!line.length()) // пустая строка, нечего её разбирать
     return;
@@ -85,7 +100,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
     #endif
 
     InitQueue(); // инициализировали очередь по новой, т.к. модем либо только загрузился, либо - перезагрузился
-    needToWaitTimer = 2000; // дадим модему ещё 2 секунды на раздупливание
+    needToWaitTimer = GSM_WAIT_BOOT_TIME; // дадим модему ещё 2 секунды на раздупливание
 
     return;
   }
@@ -98,6 +113,32 @@ void SMSModule::ProcessAnswerLine(const String& line)
     case smaCheckReady:
     {
       // ждём ответа "+CPAS: 0" от модуля
+      // ситуация следующая: ответ от модема может быть получен вместе с эхом,
+      // причём ответ не обязан быть +CPAS: 0
+      // нам надо обработать ситуацию, когда модем отвечает
+      // другими статусами, и перезапускать команду проверки готовности
+      // в этом случае. При этом мы должны игнорировать эхо и ответы OK и ERROR
+
+       if( line.startsWith( F("+CPAS:") ) ) {
+          // это ответ на команду AT+CPAS, можем его разбирать
+          if(line == F("+CPAS: 0")) {
+              // модем готов, можем убирать команду из очереди и переходить к следующей
+            #ifdef GSM_DEBUG_MODE
+              Serial.println(F("[OK] => Modem ready."));
+           #endif
+           actionsQueue.pop(); // убираем последнюю обработанную команду
+           currentAction = smaIdle; // и переходим на следующую
+          }
+          else {
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("[ERR] => Modem NOT ready, try again later..."));
+           #endif
+             needToWaitTimer = 2000; // повторим через 2 секунды
+             currentAction = smaIdle; // и пошлём ещё раз команду проверки готовности           
+          }
+       }
+      
+      /*
           if(line == F("+CPAS: 0")) // получили
           {
             #ifdef GSM_DEBUG_MODE
@@ -113,6 +154,21 @@ void SMSModule::ProcessAnswerLine(const String& line)
            #endif
              needToWaitTimer = 2000; // повторим через 2 секунды
           }
+         */
+    }
+    break;
+
+    case smaCheckModemHang:
+    {
+      // проверяли, отвечает ли модем
+      if(IsKnownAnswer(line,okFound)) {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("[OK] => Modem answered and available."));
+         #endif
+      }
     }
     break;
 
@@ -121,7 +177,10 @@ void SMSModule::ProcessAnswerLine(const String& line)
       if(IsKnownAnswer(line,okFound))
       {
         #ifdef GSM_DEBUG_MODE
-          Serial.println(F("[OK] => ECHO OFF processed."));
+          if(okFound)
+            Serial.println(F("[OK] => ECHO OFF processed."));
+          else
+            Serial.println(F("[ERR] => ECHO OFF FAIL!"));
         #endif
        actionsQueue.pop(); // убираем последнюю обработанную команду     
        currentAction = smaIdle;
@@ -257,7 +316,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       {
         // ещё не зарегистрированы
           isModuleRegistered = false;
-          needToWaitTimer = 4567; // через некоторое время повторим команду
+          needToWaitTimer = GSM_CHECK_REGISTRATION_INTERVAL; // через некоторое время повторим команду
           currentAction = smaIdle;
       } // else
     }
@@ -644,6 +703,10 @@ void SMSModule::SendCommand(const String& command, bool addNewLine)
     Serial.print(F("==> Send the \"")); Serial.print(command); Serial.println(F("\" command to modem..."));
   #endif
 
+  // запоминаем время отсылки последней команды
+  sendCommandTime = millis();
+  answerWaitTimer = 0;
+
   GSM_SERIAL.write(command.c_str(),command.length());
   
   if(addNewLine)
@@ -655,12 +718,22 @@ void SMSModule::SendCommand(const String& command, bool addNewLine)
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessQueue()
 {
+  
   if(currentAction != smaIdle) // чем-то заняты, не можем ничего делать
     return;
 
     size_t sz = actionsQueue.size();
-    if(!sz) // в очереди ничего нет
+    if(!sz) { // в очереди ничего нет
+
+      // тут проверяем - можем ли мы протестировать доступность модема?
+      if(millis() - sendCommandTime > GSM_AVAILABLE_CHECK_TIME) {
+          // раз в минуту можно проверить доступность модема,
+          // и делаем мы это ТОЛЬКО тогда, когда очередь пуста как минимум GSM_AVAILABLE_CHECK_TIME мс, т.е. все текущие команды отработаны.
+          actionsQueue.push_back(smaCheckModemHang);
+      }
+      
       return;
+    }
       
     currentAction = actionsQueue[sz-1]; // получаем очередную команду
 
@@ -675,6 +748,16 @@ void SMSModule::ProcessQueue()
       #endif
       SendCommand(F("AT+CPAS"));
       //SendCommand(F("AT+IPR=57600"));
+      }
+      break;
+
+      case smaCheckModemHang:
+      {
+          // проверяем, не завис ли модем?
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Check if modem available..."));
+        #endif
+        SendCommand(F("AT"));
       }
       break;
 
@@ -694,7 +777,7 @@ void SMSModule::ProcessQueue()
       #ifdef GSM_DEBUG_MODE
         Serial.println(F("Disable cell broadcast SMS..."));
       #endif
-      SendCommand(F("AT+CSCB=0"));
+      SendCommand(F("AT+CSCB=1"));
       }
       break;
 
@@ -810,18 +893,83 @@ void SMSModule::ProcessQueue()
     } // switch
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+void SMSModule::RebootModem()
+{
+  // перезагружаем модем тут
+  #ifdef GSM_DEBUG_MODE
+    Serial.println(F("[ERR] - GSM-modem not answering, reboot it..."));
+  #endif
+
+  // мы в процессе перезагрузки
+  inRebootMode = true;
+
+  // запоминаем время выключения питания
+  rebootStartTime = millis();
+
+  //TODO: Тут выключение питания модема !!!
+    
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Update(uint16_t dt)
 { 
-  if(needToWaitTimer > 0) // надо ждать следующей команды
+
+  if(inRebootMode) {
+    // мы в процессе перезагрузки модема, надо проверить, пора ли включать питание?
+    if(millis() - rebootStartTime > GSM_REBOOT_TIME) {
+      // две секунды держали питание выключенным, можно включать
+      inRebootMode = false;
+      isAnyAnswerReceived = false; // говорим, что мы ничего от модема не получали
+
+      // делать что-либо дополнительное не надо, т.к. как только от модема в порт упадёт строка о готовности - очередь проинициализируется сама.
+
+      //TODO: ТУТ включение питания модема !!!
+
+      needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // дадим модему GSM_WAIT_AFTER_REBOOT_TIME мс на раздупление, прежде чем начнём что-либо делать
+
+      #ifdef GSM_DEBUG_MODE
+        Serial.println(F("[REBOOT] - Modem rebooted, wait for ready..."));
+      #endif
+    }
+    
+    return;
+  }
+  
+  if(needToWaitTimer > 0) // надо ждать следующей команды запрошенное время
   {
     needToWaitTimer -= dt;
     return;
   }
 
   needToWaitTimer = 0; // сбрасываем таймер ожидания
-  
-  ProcessQueue();
-  ProcessQueuedWindowCommand(dt);
+
+  if(currentAction != smaIdle) // только если мы в процессе обработки команды, то
+    answerWaitTimer += dt; // увеличиваем время ожидания ответа на последнюю команду
+
+   // сначала проверяем - а не слишком ли долго мы ждём ответа от модема?
+  if(answerWaitTimer > GSM_MAX_ANSWER_TIME) {
+     // очень долго, надо перезапустить последнюю команду.
+     // причём лучше всего перезапустить всё сначала
+     InitQueue();
+     needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // ещё через 5 секунд попробуем
+     sendCommandTime = millis(); // сбросили таймера
+     answerWaitTimer = 0;
+
+     if(isAnyAnswerReceived) {
+        // получали хоть один ответ от модема - возможно, он завис?
+        RebootModem();
+        
+     } else {
+        // ничего не получали, модема не подсоединено?
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("[ERR] - GSM-modem not found, check for presence after short time..."));
+        #endif
+     }
+     
+  } 
+  if(!inRebootMode) { // если мы не в процессе перезагрузки - то можем отрабатывать очередь
+    ProcessQueue();
+    ProcessQueuedWindowCommand(dt);
+  }
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------

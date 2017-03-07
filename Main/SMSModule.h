@@ -10,7 +10,7 @@ typedef enum
   smaIdle, // ничего не делаем, просто ждём
   smaCheckReady, // проверяем готовность (AT+CPAS)
   smaEchoOff, // выключаем эхо (ATE0)
-  smaDisableCellBroadcastMessages, // AT+CSCB=0
+  smaDisableCellBroadcastMessages, // AT+CSCB=1
   smaAON, // включаем АОН (AT+CLIP=1)
   smaPDUEncoding, // включаем кодировку PDU (AT+CMGF=0)
   smaUCS2Encoding, // включаем кодировку UCS2 (AT+CSCS="UCS2")
@@ -19,7 +19,8 @@ typedef enum
   smaHangUp, // кладём трубку (ATH)
   smaStartSendSMS, // начинаем отсылать SMS (AT+CMGS=)
   smaSmsActualSend, // актуальный отсыл SMS
-  smaClearAllSMS // очистка всех SMS (AT+CMGD=0,4)
+  smaClearAllSMS, // очистка всех SMS (AT+CMGD=0,4)
+  smaCheckModemHang, // проверяем, не завис ли модем (AT)
   
 } SMSActions;
 
@@ -52,6 +53,13 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void ProcessIncomingSMS(const String& line); // обрабатываем входящее СМС
 
     String customSMSCommandAnswer;
+
+    unsigned long sendCommandTime, answerWaitTimer;
+    bool isAnyAnswerReceived;
+
+    void RebootModem(); // перезагружаем модем
+    unsigned long rebootStartTime;
+    bool inRebootMode;
         
   public:
     SMSModule() : AbstractModule("SMS") {}
