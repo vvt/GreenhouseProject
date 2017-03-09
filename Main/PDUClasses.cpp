@@ -1,5 +1,6 @@
 #include "PDUClasses.h"
 #include <avr/pgmspace.h>
+#include "Globals.h"
 
 PDUHelper PDU;
 
@@ -166,8 +167,18 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
   String recipient = ToHex(srcPhoneNum.length()) + F("91") + encodedPhoneNum;
   String headers = F("000100");
 
+  #ifdef GSM_DEBUG_MODE
+    Serial.print(F("recipient: ")); Serial.println(recipient);
+    Serial.print(F("headers: ")); Serial.println(headers);
+  #endif
+
   unsigned int bytesProcessed = 0;
   String message = UTF8ToUCS2(utf8Message,bytesProcessed);
+
+  #ifdef GSM_DEBUG_MODE
+    Serial.print(F("bytes processed: ")); Serial.println(bytesProcessed);
+    Serial.print(F("message: ")); Serial.println(message);
+  #endif
   
   // 00, FLASH, 16bit, message length
   
@@ -175,9 +186,21 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
   headers2 += (isFlash ? F("1") : F("0")); 
   headers2 += F("8");
   headers2 += ToHex(bytesProcessed*2);
+
+  #ifdef GSM_DEBUG_MODE
+    Serial.print(F("headers2: ")); Serial.println(headers2);
+  #endif  
   
   String completeMessage = headers + recipient + headers2 + message;
+  
+   #ifdef GSM_DEBUG_MODE
+    Serial.print(F("completeMessage: ")); Serial.println(completeMessage);
+  #endif   
   int hlen = completeMessage.length()/2 - 1;// без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
+
+   #ifdef GSM_DEBUG_MODE
+    Serial.print(F("hlen: ")); Serial.println(hlen);
+  #endif   
 
   result.MessageLength = hlen;
   result.Message = completeMessage;

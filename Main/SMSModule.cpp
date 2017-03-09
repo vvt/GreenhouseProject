@@ -1194,6 +1194,8 @@ void SMSModule::SendSMS(const String& sms)
 
   #ifdef GSM_DEBUG_MODE
     Serial.print(F("commandToSend = ")); Serial.println(commandToSend);
+    Serial.print(F("SMS message length = ")); Serial.println(pduMessage.MessageLength);    
+    Serial.print(F("SMS to send = ")); Serial.println(pduMessage.Message);
   #endif
 
   smsToSend = pduMessage.Message; // сохраняем SMS для отправки
