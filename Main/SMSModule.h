@@ -21,6 +21,7 @@ typedef enum
   smaSmsActualSend, // актуальный отсыл SMS
   smaClearAllSMS, // очистка всех SMS (AT+CMGD=0,4)
   smaCheckModemHang, // проверяем, не завис ли модем (AT)
+  smaRequestBalance, // запрос баланса (ATD#100#;)
   
 } SMSActions;
 
@@ -51,6 +52,8 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
 
     void ProcessIncomingCall(const String& line); // обрабатываем входящий звонок
     void ProcessIncomingSMS(const String& line); // обрабатываем входящее СМС
+
+    void RequestBalance();
 
     String customSMSCommandAnswer;
 

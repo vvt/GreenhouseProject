@@ -154,7 +154,7 @@ void GSM_EVENT_FUNC()
   while(GSM_SERIAL.available())
   {
     ch = GSM_SERIAL.read();
-
+    
     if(ch == '\r')
       continue;
     
@@ -163,13 +163,15 @@ void GSM_EVENT_FUNC()
       smsModule.ProcessAnswerLine(smsReceiveBuff);
       smsReceiveBuff = F("");
     }
+    
     else
     {
         
         if(smsModule.WaitForSMSWelcome && ch == '>') // ждут команду >
-        {
+        {         
           smsModule.WaitForSMSWelcome = false;
           smsModule.ProcessAnswerLine(F(">"));
+          smsReceiveBuff = F("");
         }
         else
           smsReceiveBuff += ch;

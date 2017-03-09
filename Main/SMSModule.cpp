@@ -172,6 +172,14 @@ void SMSModule::ProcessAnswerLine(const String& line)
     }
     break;
 
+    case smaRequestBalance:
+    {
+        // проверяли баланс
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+    }
+    break;
+
     case smaEchoOff: // выключили эхо
     {
       if(IsKnownAnswer(line,okFound))
@@ -339,6 +347,10 @@ void SMSModule::ProcessAnswerLine(const String& line)
 
     case smaStartSendSMS: // начинаем посылать SMS
     {
+
+        if(line == F(">")) {
+          
+          // дождались приглашения, можно посылать    
             #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => Welcome received, continue sending..."));
             #endif
@@ -346,6 +358,19 @@ void SMSModule::ProcessAnswerLine(const String& line)
            actionsQueue.pop(); // убираем последнюю обработанную команду     
            currentAction = smaIdle;
            actionsQueue.push_back(smaSmsActualSend); // добавляем команду на обработку
+        } 
+        else {
+
+          // пришло не то, что ждали - просто игнорируем отсыл СМС
+          
+           actionsQueue.pop(); // убираем последнюю обработанную команду     
+           currentAction = smaIdle;
+            
+            #ifdef GSM_DEBUG_MODE
+              Serial.print(F("[ERR] => BAD ANWER TO SMS COMMAND: WANT '>', RECEIVED: "));
+              Serial.println(line);
+            #endif          
+        }
       
     }
     break;
@@ -761,6 +786,17 @@ void SMSModule::ProcessQueue()
       }
       break;
 
+      case smaRequestBalance:
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Request balance..."));
+        #endif
+        SendCommand(F("ATD#105#"));
+       // SendCommand(F("AT+CUSD=1,\"*105#\""));
+        
+      }
+      break;
+
       case smaEchoOff:
       {
         // выключаем эхо
@@ -1166,6 +1202,10 @@ void SMSModule::SendSMS(const String& sms)
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+void SMSModule::RequestBalance() {
+  actionsQueue.push_back(smaRequestBalance);
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
@@ -1288,6 +1328,15 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton.Status = true;
           PublishSingleton = STAT_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+        }
+        else if(t == BALANCE_COMMAND) { // получить баланс
+
+          RequestBalance();
+          
+          PublishSingleton.Status = true;
+          PublishSingleton = BALANCE_COMMAND; 
+          PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+          
         }
         else
         {
