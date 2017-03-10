@@ -37,6 +37,11 @@ void SMSModule::Setup()
 
   smsToSend = new String();
   cusdSMS = NULL;
+
+  #ifdef USE_GSM_REBOOT_PIN
+    WORK_STATUS.PinMode(GSM_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
+  #endif
   
   // запускаем наш сериал
   GSM_SERIAL.begin(GSM_BAUDRATE);
@@ -986,7 +991,11 @@ void SMSModule::RebootModem()
   // запоминаем время выключения питания
   rebootStartTime = millis();
 
-  //TODO: Тут выключение питания модема !!!
+  //Тут выключение питания модема
+  #ifdef USE_GSM_REBOOT_PIN
+    WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+  #endif
+
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -1002,8 +1011,10 @@ void SMSModule::Update(uint16_t dt)
 
       // делать что-либо дополнительное не надо, т.к. как только от модема в порт упадёт строка о готовности - очередь проинициализируется сама.
 
-      //TODO: ТУТ включение питания модема !!!
-
+      // ТУТ включение питания модема 
+      #ifdef USE_GSM_REBOOT_PIN
+        WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
+      #endif
       needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // дадим модему GSM_WAIT_AFTER_REBOOT_TIME мс на раздупление, прежде чем начнём что-либо делать
 
       #ifdef GSM_DEBUG_MODE
