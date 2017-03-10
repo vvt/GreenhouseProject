@@ -74,7 +74,7 @@ void PDUMessageEncoder::UTF8ToUCS2(const String& s, unsigned int& bytesProcessed
   // т.е. нам надо зарезервировать буфер в 4 раза больше, чем длина строки. В дополнение к этому зарезервируем
   // в хвосте ещё 34 байта, которые будут нужны для заголовков, итого - плюс 35 байт, учитывая место под завершающий ноль.
   // но мы добавим ещё пару байт, на всякий, итого - 37.
-  output->reserve(s.length()*4+37);
+  output->reserve(s.length()*4+PDU_EXTRA_LENGTH);
 
   while(*ptr) 
   {
@@ -141,7 +141,7 @@ String PDUMessageEncoder::ToHex(int i)
   return out;
 
 }
-PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer)
+PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer, bool incomingMessageInUCS2Format)
 {
   PDUOutgoingMessage result;
 
@@ -174,7 +174,17 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
   #endif
 
   unsigned int bytesProcessed = 0;
-  UTF8ToUCS2(utf8Message,bytesProcessed,result.Message);
+  
+  if(!incomingMessageInUCS2Format) // если входящее сообщение не в UCS2 - кодируем его
+    UTF8ToUCS2(utf8Message,bytesProcessed,result.Message);
+  else {
+    // иначе - подсчитываем необходимые нам данные
+    bytesProcessed = utf8Message.length()/4; // поскольку каждый символ в UCS2 кодируется 4 байтами - кол-во символов вычисляется легко 
+    // выделяем буфер нужной длины
+    outBuffer->reserve(utf8Message.length()+PDU_EXTRA_LENGTH);
+    *outBuffer = utf8Message;
+  }
+    
   String strBytesProcessed = ToHex(bytesProcessed*2);
 
   #ifdef GSM_DEBUG_MODE

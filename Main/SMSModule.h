@@ -39,6 +39,7 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void ProcessQueue(); // разбираем очередь команд
     void InitQueue(); // инициализируем очередь
 
+    String* cusdSMS;
     String* smsToSend; // какое SMS отправить
     String commandToSend; // какую команду сперва отправить для отсыла SMS
     bool waitForSMSInNextLine;
@@ -72,7 +73,7 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void Update(uint16_t dt);
 
     void SendStatToCaller(const String& phoneNum);
-    void SendSMS(const String& sms);
+    void SendSMS(const String& sms, bool isSMSInUCS2Format=false);
 
     void ProcessAnswerLine(const String& line);
     volatile bool WaitForSMSWelcome; // флаг, что мы ждём приглашения на отсыл SMS - > (плохое ООП, негодное :) )

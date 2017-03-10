@@ -2,6 +2,8 @@
 #define PDU_CLASSES_H
 #include <Arduino.h>
 
+#define PDU_EXTRA_LENGTH 37
+
 struct PDUOutgoingMessage // исходящее сообщение
 {
   int MessageLength; // длина пакета, которую надо вставить в команду AT+CMGS=
@@ -30,7 +32,7 @@ class PDUMessageEncoder // кодировщик сообщений из UTF-8 в
   
   public:
     PDUMessageEncoder();
-    PDUOutgoingMessage Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer); // кодирует сообщение из UTF-8 в UCS2
+    PDUOutgoingMessage Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer, bool incomingMessageInUCS2Format=false); // кодирует сообщение из UTF-8 в UCS2
 }; 
 
 

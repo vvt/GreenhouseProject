@@ -36,6 +36,7 @@ void SMSModule::Setup()
   Settings = MainController->GetSettings();
 
   smsToSend = new String();
+  cusdSMS = NULL;
   
   // запускаем наш сериал
   GSM_SERIAL.begin(GSM_BAUDRATE);
@@ -140,23 +141,6 @@ void SMSModule::ProcessAnswerLine(const String& line)
           }
        }
       
-      /*
-          if(line == F("+CPAS: 0")) // получили
-          {
-            #ifdef GSM_DEBUG_MODE
-              Serial.println(F("[OK] => Modem ready."));
-           #endif
-           actionsQueue.pop(); // убираем последнюю обработанную команду
-           currentAction = smaIdle;
-          }
-          else
-          {
-           #ifdef GSM_DEBUG_MODE
-              Serial.println(F("[ERR] => Modem NOT ready, try again later..."));
-           #endif
-             needToWaitTimer = 2000; // повторим через 2 секунды
-          }
-         */
     }
     break;
 
@@ -176,9 +160,51 @@ void SMSModule::ProcessAnswerLine(const String& line)
 
     case smaRequestBalance:
     {
-        // проверяли баланс
-         actionsQueue.pop(); // убираем последнюю обработанную команду     
-         currentAction = smaIdle;
+         if(IsKnownAnswer(line,okFound)) {
+          // проверяли баланс
+           actionsQueue.pop(); // убираем последнюю обработанную команду     
+           currentAction = smaIdle;
+           
+           // теперь можем отсылать СМС с балансом
+           if(cusdSMS && okFound ) {
+            #ifdef GSM_DEBUG_MODE
+              Serial.println(F("Send balance to caller..."));
+            #endif
+              SendSMS(*cusdSMS,true);
+           } else {
+              // неудачно
+            #ifdef GSM_DEBUG_MODE
+              Serial.println(F("CUSD Query FAILED!"));
+            #endif            
+           }
+
+           delete cusdSMS;
+           cusdSMS = NULL;
+           
+         } else {
+            // пока не пришло OK или ERROR от модема - ждём команды +CUSD
+            if(line.startsWith(F("+CUSD:"))) {
+               // дождались ответа, парсим
+                int quotePos = line.indexOf('"');
+                int lastQuotePos = line.lastIndexOf('"');
+
+               if(quotePos != -1 && lastQuotePos != -1 && quotePos != lastQuotePos) {
+
+                  if(!cusdSMS)
+                    cusdSMS = new String();
+                    
+                  *cusdSMS = line.substring(quotePos+1,lastQuotePos);
+                  
+                  #ifdef GSM_DEBUG_MODE
+                    Serial.println(F("BALANCE RECEIVED, PARSE..."));
+                    Serial.print(F("CUSD IS: ")); Serial.println(*cusdSMS);
+                  #endif
+
+                  
+                
+               }
+            }
+         }
     }
     break;
 
@@ -563,6 +589,20 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
       return;
     }
 
+    idx = message.Message.indexOf(SMS_BALANCE_COMMAND); // послать баланс
+    if(idx != -1)
+    {
+    #ifdef GSM_DEBUG_MODE
+      Serial.println(F("BALANCE command found, execute it..."));
+    #endif
+
+      // посылаем баланс хозяину
+      RequestBalance();
+
+      // возвращаемся, поскольку нет необходимости посылать СМС с ответом ОК - вместо этого придёт баланс
+      return;
+    }
+    
     if(!shouldSendSMS)
     {
         // тут пробуем найти файл по хэшу переданной команды
@@ -793,7 +833,7 @@ void SMSModule::ProcessQueue()
         #ifdef GSM_DEBUG_MODE
           Serial.println(F("Request balance..."));
         #endif
-        SendCommand(F("ATD#105#"));
+        SendCommand(GSM_BALANCE_COMMAND);
        // SendCommand(F("AT+CUSD=1,\"*105#\""));
         
       }
@@ -1168,7 +1208,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-void SMSModule::SendSMS(const String& sms)
+void SMSModule::SendSMS(const String& sms, bool isSMSInUCS2Format)
 {
   #ifdef GSM_DEBUG_MODE
     Serial.print(F("Send SMS:  ")); Serial.println(sms);
@@ -1193,7 +1233,7 @@ void SMSModule::SendSMS(const String& sms)
     return;
   }
   
-  PDUOutgoingMessage pduMessage = PDU.Encode(num,sms,true, smsToSend);
+  PDUOutgoingMessage pduMessage = PDU.Encode(num,sms,true, smsToSend,isSMSInUCS2Format);
   commandToSend = F("AT+CMGS="); commandToSend += String(pduMessage.MessageLength);
 
   #ifdef GSM_DEBUG_MODE
