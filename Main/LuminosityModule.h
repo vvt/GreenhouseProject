@@ -57,7 +57,7 @@ class LuminosityModule : public AbstractModule // модуль управлен�
 {
   private:
 
-  GlobalSettings* settings; // настройки
+ // GlobalSettings* settings; // настройки
 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
   BlinkModeInterop blinker;
 #endif

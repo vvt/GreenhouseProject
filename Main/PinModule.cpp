@@ -13,11 +13,12 @@ void PinModule::UpdatePinStates()
   {
     PIN_STATE* s = &(pinStates[i]);
     
-    if(s->isActive && s->hasChanges) // если мы управляем пином
+    if((s->flags & 1) == 1 && (s->flags & 2) == 2)//(s->isActive && s->hasChanges) // если мы управляем пином
     {
-      s->hasChanges = false;
+      //s->hasChanges = false;
+      s->flags &= ~2;
       WORK_STATUS.PinMode(s->pinNumber,OUTPUT); // делаем пин запоминающим значения
-      WORK_STATUS.PinWrite(s->pinNumber,s->pinState); // запоминаем текущее состояние пина
+      WORK_STATUS.PinWrite(s->pinNumber,/*s->pinState*/ (s->flags & 4) == 4 ? HIGH : LOW); // запоминаем текущее состояние пина
    
     }
   } // for
@@ -46,18 +47,26 @@ PIN_STATE* PinModule::AddPin(uint8_t pinNumber,uint8_t currentState)
   PIN_STATE* s = GetPin(pinNumber);
   if(s)
   {
-    s->pinState = currentState;          
-    s->isActive = true;
-    s->hasChanges = true; 
+    //s->pinState = currentState;          
+    s->flags &= ~4;
+    s->flags |= (currentState << 2);
+    //s->isActive = true;
+    s->flags |= 1;
+    //s->hasChanges = true; 
+    s->flags |= 2;
     return s;   
   }
 
   // можем добавлять, т.к. не нашли пин
     PIN_STATE p;
     p.pinNumber = pinNumber;
-    p.pinState = currentState;
-    p.isActive = true;
-    p.hasChanges = true;
+//    p.pinState = currentState;
+    p.flags &= ~ 4;
+    p.flags |= (currentState << 2);
+//    p.isActive = true;
+    p.flags |= 1;
+//    p.hasChanges = true;
+    p.flags |= 2;
     WORK_STATUS.PinMode(pinNumber,OUTPUT);
     pinStates.push_back(p);
 
@@ -67,7 +76,7 @@ uint8_t PinModule::GetPinState(uint8_t pinNumber)
 {
   PIN_STATE* s = GetPin(pinNumber);
   if(s)
-    return s->pinState;
+    return (s->flags & 4) == 4 ? HIGH : LOW;//s->pinState;
         
 // не можем читать состояние пина, не зарегистрированного у нас, поскольку
 // этим пином может управлять другой модуль, и мы не можем переводить его в режим 
@@ -140,7 +149,7 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
             PIN_STATE* s = GetPin(pinNumber);
             if(s)
             {
-              pinLevel = s->pinState;
+              pinLevel = (s->flags & 4) == 4 ? HIGH : LOW;//s->pinState;
               pinLevel = pinLevel == LOW ? HIGH : LOW;
             }
            } // else
@@ -152,7 +161,7 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
          // пришла команда DETACH, поэтому менять статус пина - не надо
          PIN_STATE* s = GetPin(pinNumber);
          if(s)
-          pinLevel = s->pinState; // читаем статус из пина
+          pinLevel = (s->flags & 4) == 4 ? HIGH : LOW;//s->pinState; // читаем статус из пина
          else
           AddPin(pinNumber,pinLevel); // пина нету, просто добавляем с уровнем LOW
       }
@@ -165,7 +174,7 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
             if(wantAnswer)
             {
               PublishSingleton = strNum;
-              PublishSingleton << PARAM_DELIMITER << (s->pinState == HIGH ? STATE_ON : STATE_OFF);
+              PublishSingleton << PARAM_DELIMITER << (/*s->pinState == HIGH*/(s->flags & 4) == 4 ? STATE_ON : STATE_OFF);
             }
        }
 
@@ -178,15 +187,27 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
          PIN_STATE* s = AddPin(pinNum.toInt(),pinLevel);
          if(s)
          {
-          s->isActive = bActive;
-          s->hasChanges = bActive;
+//          s->isActive = bActive;
+//          s->hasChanges = bActive;
+          s->flags &= ~1;
+          s->flags &= ~2;
+          if(bActive) {
+            s->flags |= 1;
+            s->flags |= 2;
+          }
          }
        } // while
        s =  AddPin(strNum.toInt(),pinLevel);
        if(s)
        {
-        s->isActive = bActive;
-        s->hasChanges = bActive;
+          s->flags &= ~1;
+          s->flags &= ~2;
+          if(bActive) {
+            s->flags |= 1;
+            s->flags |= 2;
+          }
+          //s->isActive = bActive;
+          //s->hasChanges = bActive;
        }
       
     } // if

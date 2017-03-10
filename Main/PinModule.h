@@ -7,9 +7,10 @@
 typedef struct
 {
   uint8_t pinNumber;
-  uint8_t pinState;
-  bool isActive;
-  bool hasChanges;
+ // uint8_t pinState;
+ // bool isActive;
+//  bool hasChanges;
+  byte flags; // первый бит - isActive, второй - hasChanges, третий - pinState
   
 } PIN_STATE;
 

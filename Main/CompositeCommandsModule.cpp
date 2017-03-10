@@ -188,7 +188,7 @@ void CompositeCommandsModule::ProcessCommand(uint8_t idx)
     if(textCommand.length())
     {
       // выполняем команду.
-      ModuleInterop.QueryCommand(ctSET,textCommand,true,false);
+      ModuleInterop.QueryCommand(ctSET,textCommand,true);//,false);
     }
   
   } // for

@@ -432,9 +432,9 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = "";
 
           // выполняем команды
-          ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false,false);
-          ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false,false);
-          ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false,false);
+          ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false);//,false);
+          ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false);//,false);
+          ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false);//,false);
 
           // говорим, что выполнили
           PublishSingleton = REG_SUCC;

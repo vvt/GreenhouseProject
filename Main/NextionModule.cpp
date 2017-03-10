@@ -31,84 +31,84 @@ void NextionModule::StringReceived(const char* str)
   if(!strcmp_P(str,(const char*)F("w_open")))
   {
     // попросили открыть окна
-    ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("w_close")))
   {
     // попросили закрыть окна
-    ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("w_auto")))
   {
     // попросили перевести в автоматический режим окон
-    ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("w_manual")))
   {
     // попросили перевести в ручной режим работы окон
-    ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("wtr_on")))
   {
     // попросили включить полив
-    ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("wtr_off")))
   {
     // попросили выключить полив
-    ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("wtr_auto")))
   {
     // попросили перевести в автоматический режим работы полива
-    ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("wtr_manual")))
   {
     // попросили перевести в ручной режим работы полива
-    ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("lht_on")))
   {
     // попросили включить досветку
-    ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("lht_off")))
   {
     // попросили выключить досветку
-    ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("lht_auto")))
   {
     // попросили перевести досветку в автоматический режим
-    ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false);//,false);
     return;
   }
   
   if(!strcmp_P(str,(const char*)F("lht_manual")))
   {
     // попросили перевести досветку в ручной режим
-    ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false,false);
+    ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false);//,false);
     return;
   }
   

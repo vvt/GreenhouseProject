@@ -49,7 +49,7 @@ class WateringModule : public AbstractModule // модуль управлени�
   #endif
 
 
-  GlobalSettings* settings; // настройки
+ // GlobalSettings* settings; // настройки
 
   uint8_t workMode; // текущий режим работы
 

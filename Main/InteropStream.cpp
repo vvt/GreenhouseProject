@@ -4,18 +4,20 @@
 InteropStream ModuleInterop;
 
 
-InteropStream::InteropStream() : Stream()
+InteropStream::InteropStream()// : Stream()
 {
-  
 }
-bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand,bool wantAnwer)
+
+InteropStream::~InteropStream()
 {
-//  data = F("");    
+}
+bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand)//,bool wantAnwer)
+{
   
  
  CHECK_PUBLISH_CONSISTENCY; // проверяем структуру публикации на предмет того, что там ничего нет
 
-  data = command; // копируем во внутренний буфер, т.к. входной параметр - const
+  String data = command; // копируем во внутренний буфер, т.к. входной параметр - const
    
   int delimIdx = data.indexOf('|');
   const char* params = NULL;
@@ -30,27 +32,31 @@ bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool
   Command cmd;
   cmd.Construct(moduleId,params,cType);
 
-   data = F("");
+  //data = F("");
   
  
     cmd.SetInternal(isInternalCommand); // устанавливаем флаг команды
+    /*
     if(wantAnwer)
     {
       cmd.SetIncomingStream(this); // просим контроллер опубликовать ответ в нас - мы сохраним ответ в data
     }
     else
+    */
       cmd.SetIncomingStream(NULL);
 
     MainController->ProcessModuleCommand(cmd,NULL);
     return true;
     
 }
-
+/*
 size_t InteropStream::write(uint8_t toWr)
 {
   data += (char) toWr;
   return 1;
 }
+*/
+
 BlinkModeInterop::BlinkModeInterop()
 {
   lastBlinkInterval = 0xFFFF;
@@ -67,11 +73,18 @@ void BlinkModeInterop::update()
   
 #ifdef USE_LOOP_MODULE 
 
-  s  = loopName;
+  //s  = loopName;
+  s = F("LOOP|");
+  s += loopName;
+  s += F("|SET|"); 
   s += lastBlinkInterval;
-  s += pinCommand;
+  //s += pinCommand;
+  s += F("|0|PIN|");
+  s += String(pin);
+  s += F("|T");
+  
 
-  ModuleInterop.QueryCommand(ctSET,s,false,false);
+  ModuleInterop.QueryCommand(ctSET,s,false);//,false);
 #endif
 
 #ifdef USE_PIN_MODULE 
@@ -82,7 +95,7 @@ void BlinkModeInterop::update()
         s += PARAM_DELIMITER;
         s += F("0");
 
-        ModuleInterop.QueryCommand(ctSET,s,false,false);
+        ModuleInterop.QueryCommand(ctSET,s,false);//,false);
  
       } // if
  #endif   
@@ -92,13 +105,14 @@ void BlinkModeInterop::update()
 void BlinkModeInterop::begin(uint8_t p, const String& lName)
 {
   pin = p;
-  loopName = F("LOOP|");
-  loopName += lName;
-  loopName += F("|SET|");
+  loopName = lName;
+  //loopName = F("LOOP|");
+ // loopName += lName;
+ // loopName += F("|SET|");
   
-  pinCommand = F("|0|PIN|");
-  pinCommand += String(pin);
-  pinCommand += F("|T");
+ // pinCommand = F("|0|PIN|");
+ // pinCommand += String(pin);
+ // pinCommand += F("|T");
 
   lastBlinkInterval = 0xFFFF;
 }

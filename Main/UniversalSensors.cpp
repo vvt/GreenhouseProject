@@ -791,7 +791,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
    // Serial.println("close windows");
     bitWrite(ourScratch.nextionStatus1,0,0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|CLOSE"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|CLOSE"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,1))
@@ -799,7 +799,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
   //  Serial.println("open windows");
     bitWrite(ourScratch.nextionStatus1,1, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|OPEN"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|OPEN"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,2))
@@ -807,7 +807,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("windows auto mode");
     bitWrite(ourScratch.nextionStatus1,2, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,3))
@@ -815,7 +815,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("windows manual mode");
     bitWrite(ourScratch.nextionStatus1,3,0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|MANUAL"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|MANUAL"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,4))
@@ -823,7 +823,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
   //  Serial.println("water on");
     bitWrite(ourScratch.nextionStatus1,4,0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("WATER|ON"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("WATER|ON"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,5))
@@ -831,7 +831,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("water off");
     bitWrite(ourScratch.nextionStatus1,5, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("WATER|OFF"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("WATER|OFF"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,6))
@@ -839,7 +839,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
   //  Serial.println("water auto mode");
     bitWrite(ourScratch.nextionStatus1,6,0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus1,7))
@@ -847,7 +847,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("water manual mode");
     bitWrite(ourScratch.nextionStatus1,7, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|MANUAL"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|MANUAL"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus2,0))
@@ -855,7 +855,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
   //  Serial.println("light on");
     bitWrite(ourScratch.nextionStatus2,0,0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("LIGHT|ON"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("LIGHT|ON"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus2,1))
@@ -863,7 +863,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("light off");
     bitWrite(ourScratch.nextionStatus2,1, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("LIGHT|OFF"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("LIGHT|OFF"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus2,2))
@@ -871,7 +871,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("light auto mode");
     bitWrite(ourScratch.nextionStatus2,2, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus2,3))
@@ -879,7 +879,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
  //   Serial.println("light manual mode");
     bitWrite(ourScratch.nextionStatus2,3, 0);
     changesCount++;
-    ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|MANUAL"),false,false);  
+    ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|MANUAL"),false);//,false);  
   }
 
   if(bitRead(ourScratch.nextionStatus2,4))

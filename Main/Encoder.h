@@ -6,15 +6,15 @@
 class RotaryEncoder
 {
   unsigned int state;
-  int pin0, pin1;
-  int ppc;
+  byte pin0, pin1;
+  byte ppc;
   int change;
 
   unsigned int readState();
 
 
 public:
-  RotaryEncoder(int p0, int p1, int pulsesPerClick);
+  RotaryEncoder(byte p0, byte p1, byte pulsesPerClick);
 
   void begin();
   void update();

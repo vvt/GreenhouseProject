@@ -38,7 +38,7 @@ SettingsMenuItem SettingsManageScreen; // экран настроек
 
 
 AbstractLCDMenuItem::AbstractLCDMenuItem(const unsigned char* i, const char* c) :
-icon(i), caption(c), focused(false), needToDrawCursor(false),cursorPos(-1), itemsCount(0)
+icon(i), caption(c), flags(0),/*focused(false), needToDrawCursor(false),*/cursorPos(-1), itemsCount(0)
 {
   
 }
@@ -48,10 +48,15 @@ void AbstractLCDMenuItem::init(LCDMenu* parent)
 }
 void AbstractLCDMenuItem::setFocus(bool f)
 {
-  focused = f;
+  //focused = f;
+  flags &= ~1;
+  if(f)
+    flags |= 1;
+    
  if(!f)
   {
-    needToDrawCursor = false;
+   // needToDrawCursor = false;
+   flags &= ~2;
     cursorPos = -1;
   }  
 }
@@ -61,20 +66,22 @@ void AbstractLCDMenuItem::OnButtonClicked(LCDMenu* menu)
   // фокус ввода может быть ещё не установлен (первое нажатие на кнопку),
   // или - установлен (повторные нажатия на кнопку)
   
-  bool lastNDC = needToDrawCursor;
-  needToDrawCursor = true;
+  bool lastNDC = (flags & 2);//needToDrawCursor;
+  //needToDrawCursor = true;
+  flags |= 2;
   int8_t lastCP = cursorPos;
 
   // увеличиваем позицию курсора
   ++cursorPos;
   if(!itemsCount || cursorPos > (itemsCount-1)) // значит, достигли края, и надо выйти из фокуса
   {
-    needToDrawCursor = false;
+    //needToDrawCursor = false;
+    flags &= ~2;
     cursorPos = -1;
-    focused = false; // не вызываем setFocus напрямую, т.к. он может быть переопределён
+    flags &= ~1; //focused = false; // не вызываем setFocus напрямую, т.к. он может быть переопределён
   }
 
-  if(lastNDC != needToDrawCursor || lastCP != cursorPos) // сообщаем, что надо перерисовать экран, т.к. позиция курсора изменилась
+  if(lastNDC != /*needToDrawCursor*/(bool)(flags & 2) || lastCP != cursorPos) // сообщаем, что надо перерисовать экран, т.к. позиция курсора изменилась
     menu->wantRedraw(); 
 }
 
@@ -234,7 +241,7 @@ void WindowMenuItem::init(LCDMenu* parent)
 }
 bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 {
-  if(!needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
+  if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
     bool lastWO = isWindowsOpen;
@@ -249,7 +256,7 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           {
             isWindowsOpen = true;
             //Тут посылаем команду на открытие окон
-            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false,false);
+            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);//,false);
           }
           break;
           
@@ -257,7 +264,7 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           {
             isWindowsOpen = false;
             //Тут посылаем команду на закрытие окон
-            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false,false);
+            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);//,false);
           }
           break;
           
@@ -266,9 +273,9 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             isWindowsAutoMode = !isWindowsAutoMode;
             //Тут посылаем команду на смену режима окон
             if(isWindowsAutoMode)
-              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false,false);
+              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false);//,false);
             else
-              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false,false);
+              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false);//,false);
           }
           break;
         
@@ -353,7 +360,7 @@ void WindowMenuItem::draw(DrawContext* dc)
   cur_top += MENU_BITMAP_SIZE + HINT_FONT_HEIGHT;
   dc->drawStr(left, cur_top, captions[i]);
 
-  if(needToDrawCursor && i == cursorPos)
+  if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
@@ -432,7 +439,7 @@ void WateringMenuItem::draw(DrawContext* dc)
   cur_top += MENU_BITMAP_SIZE + HINT_FONT_HEIGHT;
   dc->drawStr(left, cur_top, captions[i]);
 
-  if(needToDrawCursor && i == cursorPos)
+  if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
@@ -463,7 +470,7 @@ void WateringMenuItem::update(uint16_t dt, LCDMenu* menu)
 }
 bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 {
-  if(!needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
+  if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
     bool lastWO = isWateringOn;
@@ -478,7 +485,7 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           {
             isWateringOn = true;
             //Тут посылаем команду на включение полива
-            ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false,false);
+            ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);//,false);
           }
           break;
           
@@ -486,7 +493,7 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           {
             isWateringOn = false;
             //Тут посылаем команду на выключение полива
-            ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false,false);
+            ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);//,false);
           }
           break;
           
@@ -495,9 +502,9 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             isWateringAutoMode = !isWateringAutoMode;
             //Тут посылаем команду на смену режима полива
             if(isWateringAutoMode)
-              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false,false);
+              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false);//,false);
             else
-              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false,false);
+              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false);//,false);
           }
           break;
         
@@ -580,7 +587,7 @@ void LuminosityMenuItem::draw(DrawContext* dc)
   cur_top += MENU_BITMAP_SIZE + HINT_FONT_HEIGHT;
   dc->drawStr(left, cur_top, captions[i]);
 
-  if(needToDrawCursor && i == cursorPos)
+  if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
@@ -611,7 +618,7 @@ void LuminosityMenuItem::update(uint16_t dt, LCDMenu* menu)
 }
 bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 {
-  if(!needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
+  if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
     bool lastLO = isLightOn;
@@ -626,7 +633,7 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           {
             isLightOn = true;
             //Тут посылаем команду на включение досветки
-            ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false,false);
+            ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);//,false);
           }
           break;
           
@@ -634,7 +641,7 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           {
             isLightOn = false;
             //Тут посылаем команду на выключение досветки
-            ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false,false);
+            ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);//,false);
           }
           break;
           
@@ -643,9 +650,9 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             isLightAutoMode = !isLightAutoMode;
             //Тут посылаем команду на смену режима досветки
             if(isLightAutoMode)
-              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false,false);
+              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false);//,false);
             else
-              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false,false);
+              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false);//,false);
           }
           break;
         
@@ -723,7 +730,7 @@ void SettingsMenuItem::draw(DrawContext* dc)
   dc->drawStr(left, cur_top, captions[i]);
   yield();
 
-  if(needToDrawCursor && i == cursorPos)
+  if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
@@ -755,7 +762,7 @@ void SettingsMenuItem::update(uint16_t dt, LCDMenu* menu)
 }
 void SettingsMenuItem::setFocus(bool f)
 {
-  bool lastFocus = focused;
+  bool lastFocus = flags & 1;//focused;
   AbstractLCDMenuItem::setFocus(f);
   
   if(lastFocus && !f)
@@ -769,7 +776,7 @@ void SettingsMenuItem::setFocus(bool f)
 }
 bool SettingsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 {
-  if(!needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
+  if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
     uint8_t lastOT = openTemp;

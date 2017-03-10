@@ -217,8 +217,9 @@ class LCDMenu; // forward declaration
     const unsigned char* icon; // иконка, которая отображается для меню верхнего уровня
     const char* caption; // текст пункта меню
 
-    bool focused; // флаг наличия фокуса на окне
-    bool needToDrawCursor;
+//    bool focused; // флаг наличия фокуса на окне
+//    bool needToDrawCursor;
+    byte flags; // флаги: первый бит - focused, второй - needToDrawCursor
     int8_t cursorPos;
     uint8_t itemsCount; // сколько иконок в меню экрана
 
@@ -238,7 +239,7 @@ class LCDMenu; // forward declaration
     virtual void update(uint16_t dt, LCDMenu* menu) = 0; // обновляет внутреннее состояние
     
     virtual void setFocus(bool f=true); // устанавливает фокус ввода на пункте меню
-    virtual bool hasFocus() { return focused; } // проверяет, есть ли фокус на пункте меню
+    virtual bool hasFocus() { return /*focused*/ (flags & 1); } // проверяет, есть ли фокус на пункте меню
 
     virtual bool OnEncoderPositionChanged(int dir, LCDMenu* menu) // вызывается при смене позиции энкодера
     {

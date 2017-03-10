@@ -1,7 +1,7 @@
 #include "Encoder.h"
 #include "AbstractModule.h"
 
-RotaryEncoder::RotaryEncoder(int p0, int p1, int pulsesPerClick)
+RotaryEncoder::RotaryEncoder(byte p0, byte p1, byte pulsesPerClick)
 {
   pin0 = p0;
   pin1 = p1;

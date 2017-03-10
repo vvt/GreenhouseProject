@@ -7,20 +7,22 @@
 #include "CommandParser.h"
 
 // класс поддержки коммуникации между модулями
-class InteropStream : public Stream
+class InteropStream// : public Stream
 {
 private:
-  String data;
+  //String* data;
 
 
 public:
 
    InteropStream();
-  virtual ~InteropStream() {}
+  //virtual 
+  ~InteropStream();
 
-    bool QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand,bool wantAnwer=true); // вызывает команду для зарегистрированного модуля
+    bool QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand);//,bool wantAnwer=true); // вызывает команду для зарегистрированного модуля
 
-    const String& GetData() {return data;}
+   /*
+   const String& GetData() {return data;}
     
     virtual int available(){ return false; };
     virtual int read(){ return -1;};
@@ -29,6 +31,7 @@ public:
 
  
     virtual size_t write(uint8_t toWr);  
+    */
   
 };
 
@@ -41,7 +44,7 @@ class BlinkModeInterop
     uint16_t lastBlinkInterval; // последний интервал, с которым мигаем
     uint8_t pin; // пин, на котором диод
     String loopName; // имя периодически выполняемой операции
-    String pinCommand;
+  //  String pinCommand;
     bool needUpdate;
   
   public:

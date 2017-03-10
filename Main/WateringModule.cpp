@@ -20,7 +20,8 @@ void WateringModule::Setup()
   // настройка модуля тут
   WTR_LOG(F("[WTR] - setup..."));
 
-  settings = MainController->GetSettings();
+//  settings = MainController->GetSettings();
+GlobalSettings* settings = MainController->GetSettings();
   
    #ifdef USE_DS3231_REALTIME_CLOCK
     bIsRTClockPresent = true; // есть часы реального времени
@@ -261,7 +262,9 @@ void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, 
      // в ручной режим работы.
      return;
    }
-   
+
+     GlobalSettings* settings = MainController->GetSettings();
+    
      uint8_t weekDays = channelIdx == -1 ? settings->GetWateringWeekDays() : settings->GetChannelWateringWeekDays(channelIdx);
      uint8_t startWateringTime = channelIdx == -1 ? settings->GetStartWateringTime() : settings->GetChannelStartWateringTime(channelIdx);
      unsigned long timeToWatering = channelIdx == -1 ? settings->GetWateringTime() : settings->GetChannelWateringTime(channelIdx); // время полива (в минутах!)
@@ -419,6 +422,8 @@ bool WateringModule::IsAnyChannelActive(uint8_t wateringOption)
 #ifdef USE_PUMP_RELAY
 void WateringModule::HoldPumpState(bool anyChannelActive)
 {
+  GlobalSettings* settings = MainController->GetSettings();
+  
   // поддерживаем состояние реле насоса
   if(settings->GetTurnOnPump() != 1) // не надо включать насос
   {
@@ -446,7 +451,7 @@ void WateringModule::Update(uint16_t dt)
 #endif
 
 #if WATER_RELAYS_COUNT > 0
-  
+GlobalSettings* settings = MainController->GetSettings();  
 uint8_t wateringOption = settings->GetWateringOption(); // получаем опцию управления поливом
 bool anyChActive = IsAnyChannelActive(wateringOption);
 
@@ -607,7 +612,9 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               uint16_t wateringTime = (uint16_t) atoi(command.GetArg(3)); //String(command.GetArg(3)).toInt();
               uint8_t startWateringTime = (uint8_t) atoi(command.GetArg(4)); //String(command.GetArg(4)).toInt();
               uint8_t turnOnPump = (uint8_t) atoi(command.GetArg(5)); //String(command.GetArg(5)).toInt();
-      
+
+              GlobalSettings* settings = MainController->GetSettings();
+              
               // пишем в настройки
               settings->SetWateringOption(wateringOption);
               settings->SetWateringWeekDays(wateringWeekDays);
@@ -662,6 +669,8 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   uint8_t wDays = (uint8_t) atoi(command.GetArg(2));
                   uint16_t wTime =(uint16_t) atoi(command.GetArg(3));
                   uint8_t sTime = (uint8_t) atoi(command.GetArg(4));
+
+                  GlobalSettings* settings = MainController->GetSettings();
                   
                   settings->SetChannelWateringWeekDays(channelIdx,wDays);
                   settings->SetChannelWateringTime(channelIdx,wTime);
@@ -776,6 +785,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
     {
       PublishSingleton.Status = true;
       #if WATER_RELAYS_COUNT > 0
+      GlobalSettings* settings = MainController->GetSettings();
       PublishSingleton = (IsAnyChannelActive(settings->GetWateringOption()) ? STATE_ON : STATE_OFF);
       #else
       PublishSingleton = STATE_OFF;
@@ -788,6 +798,8 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
       
         if(t == WATER_SETTINGS_COMMAND) // запросили данные о настройках полива
         {
+          GlobalSettings* settings = MainController->GetSettings();
+          
           PublishSingleton.Status = true;
           PublishSingleton = WATER_SETTINGS_COMMAND; 
           PublishSingleton << PARAM_DELIMITER; 
@@ -828,6 +840,8 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   if(idx < WATER_RELAYS_COUNT)
                   {
                     PublishSingleton.Status = true;
+
+                    GlobalSettings* settings = MainController->GetSettings();
                  
                     PublishSingleton = WATER_CHANNEL_SETTINGS; 
                     PublishSingleton << PARAM_DELIMITER << (command.GetArg(1)) << PARAM_DELIMITER 

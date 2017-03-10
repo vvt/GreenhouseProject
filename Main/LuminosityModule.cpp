@@ -83,7 +83,7 @@ void LuminosityModule::Setup()
 
   
   // настройка модуля тут
-  settings = MainController->GetSettings();
+  //settings = MainController->GetSettings();
 
   workMode = lightAutomatic; // автоматический режим работы
   bRelaysIsOn = false; // все реле выключены

@@ -1,6 +1,8 @@
 #include "TempSensors.h"
 #include "ModuleController.h"
 
+TempSensors* WindowModule = NULL;
+
 #if SUPPORTED_SENSORS > 0
 static TempSensorSettings TEMP_SENSORS[] = { TEMP_SENSORS_PINS };
 #endif
@@ -9,9 +11,9 @@ static TempSensorSettings TEMP_SENSORS[] = { TEMP_SENSORS_PINS };
 static uint8_t WINDOWS_RELAYS[] = { WINDOWS_RELAYS_PINS };
 #endif
 
-void WindowState::Setup(TempSensors* parent, uint8_t relayChannel1, uint8_t relayChannel2)
+void WindowState::Setup(/*TempSensors* parent, */uint8_t relayChannel1, uint8_t relayChannel2)
 {
-  Parent = parent;
+//  Parent = parent;
 
   // считаем, что как будто мы открыты, т.к. при старте контроллера надо принудительно закрыть окна
   CurrentPosition = MainController->GetSettings()->GetOpenInterval();
@@ -78,8 +80,8 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
 {
 
   // уведомляем родителя, что такой-то канал имеет такое-то состояние, он сам разберётся, что с этим делать
-  Parent->SaveChannelState(RelayChannel1,rel1State);
-  Parent->SaveChannelState(RelayChannel2,rel2State);
+  WindowModule->SaveChannelState(RelayChannel1,rel1State);
+  WindowModule->SaveChannelState(RelayChannel2,rel2State);
 
   // тут говорим слепку состояния, чтобы он запомнил состояние каналов окон
   WORK_STATUS.SaveWindowState(RelayChannel1,rel1State);
@@ -234,7 +236,7 @@ void TempSensors::SetupWindows()
   for(uint8_t i=0, j=0;i<SUPPORTED_WINDOWS;i++, j+=2)
   {
       // раздаём каналы реле: первому окну - 0,1, второму - 2,3 и т.д.
-      Windows[i].Setup(this, j,j+1);
+      Windows[i].Setup(/*this, */ j,j+1);
 
       #ifdef USE_WINDOWS_SHIFT_REGISTER // если используем сдвиговые регистры
         // ничего не делаем, поскольку у нас все реле будут выключены после первоначальной настройки
@@ -258,6 +260,7 @@ void TempSensors::SetupWindows()
 
 void TempSensors::Setup()
 {
+  WindowModule = this;
   // настройка модуля тут
    workMode = wmAutomatic; // автоматический режим работы по умолчанию
    
