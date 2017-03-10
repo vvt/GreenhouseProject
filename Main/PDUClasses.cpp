@@ -64,39 +64,49 @@ PDUMessageEncoder::PDUMessageEncoder()
 {
   
 }
-String PDUMessageEncoder::UTF8ToUCS2(const String& s, unsigned int& bytesProcessed)
+void PDUMessageEncoder::UTF8ToUCS2(const String& s, unsigned int& bytesProcessed, String* output)
 {
+  // Попытка оптимизировать работу с памятью
+  const char* ptr = s.c_str();
+ 
 
-  String workStr = s;
-  String output;
+  // в исходной строке - N байт. в кодировке UCS2 каждый символ - два байта, в строковом представлении - 4 символа,
+  // т.е. нам надо зарезервировать буфер в 4 раза больше, чем длина строки. В дополнение к этому зарезервируем
+  // в хвосте ещё 34 байта, которые будут нужны для заголовков, итого - плюс 35 байт, учитывая место под завершающий ноль.
+  // но мы добавим ещё пару байт, на всякий, итого - 37.
+  output->reserve(s.length()*4+37);
 
-  while(workStr.length() > 0)
+  while(*ptr) 
   {
-    byte curChar = (byte) workStr[0];
+    byte curChar = (byte) *ptr;
     unsigned int charSz = utf8GetCharSize(curChar);
-    
-    String curBytes = workStr.substring(0,charSz);
-    unsigned int myChar;
 
+    // у нас максимальная длина символа в UTF-8 - 6 байт, поэтому используем промежуточный буфер в 7 байт
+    static char curBytes[7] = {0};
+
+    for(byte i=0;i<charSz;i++) 
+    {
+      curBytes[i] = *ptr++;
+    }
+
+    curBytes[charSz] = '\0'; // добавляем завершающий 0
+
+    unsigned int myChar;
     if(utf8ToUInt(curBytes,myChar))
     {
       bytesProcessed++;
-      output += ( ToHex( (myChar & 0xFF00)>>8 )) + ( ToHex( myChar & 0xFF ) );
+      *output += ( ToHex( (myChar & 0xFF00)>>8 )) + ( ToHex( myChar & 0xFF ) );
     }
- 
-    workStr = workStr.substring(charSz,workStr.length());
     
   } // while
 
-  return output;
-
 }
-String PDUMessageEncoder::EncodePhoneNumber(const String& nm)
+String PDUMessageEncoder::EncodePhoneNumber(const char* nm)
 {
   
     String result;
     
-    result.reserve(nm.length()+1);
+    result.reserve(strlen(nm)+2);
     result = nm;
     
     if(result.length() % 2 > 0)
@@ -113,30 +123,11 @@ String PDUMessageEncoder::EncodePhoneNumber(const String& nm)
     }
 
   return result;
-  /*
-  // дебильный код, заменил кодом выше.
-  
-  String result;
-  String num = nm;
- 
-  if(num.length() % 2 > 0)
-    num += F("F");
-    
-    unsigned int i=0;
-    while(i < num.length())
-    {
-      result += String((char) num[i+1]);
-      result += String((char) num[i]);
-      i+=2;
-    }
-    
-    return result;
-  */
+
 }
 String PDUMessageEncoder::ToHex(int i)
 {  
   
-  //String Out; Out.reserve(2);
   char out[3] = {0};
   int idx = i & 0xF;
   //char char1 
@@ -148,66 +139,123 @@ String PDUMessageEncoder::ToHex(int i)
 
 
   return out;
-  //Out[0] = char2;
- // Out[1] = char1;
-  //Out = String(char2); Out += String(char1);
-  
-  //return Out;
 
-  
 }
-PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash)
+PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer)
 {
   PDUOutgoingMessage result;
-  
-  String srcPhoneNum = recipientPhoneNum;
-  srcPhoneNum.replace(F("+"),F(""));
-  
-  String encodedPhoneNum = EncodePhoneNumber(srcPhoneNum);
-  String recipient = ToHex(srcPhoneNum.length()) + F("91") + encodedPhoneNum;
-  String headers = F("000100");
 
+  if(!outBuffer)
+    return result;
+
+   *outBuffer = ""; // очищаем строку
+
+   // сохраняем указатель на неё
+   result.Message = outBuffer;
+
+  // Попытка оптимизации работы с памятью
+  
+  const char* phonePtr = recipientPhoneNum.c_str();
+  if(*phonePtr == '+')
+    phonePtr++; 
+
+  int phoneNumLen = strlen(phonePtr);
+
+  String encodedPhoneNum = EncodePhoneNumber(phonePtr);
+
+  int reserveLen = encodedPhoneNum.length() + 7; // 1 байт - символ завершения строки, два байта - "91", 4 байта - длиза номера, закодированная в UCS2
+  
+  String recipient; 
+  recipient.reserve(reserveLen);
+  recipient = ToHex(phoneNumLen) + F("91") + encodedPhoneNum;
+  
   #ifdef GSM_DEBUG_MODE
     Serial.print(F("recipient: ")); Serial.println(recipient);
-    Serial.print(F("headers: ")); Serial.println(headers);
   #endif
 
   unsigned int bytesProcessed = 0;
-  String message = UTF8ToUCS2(utf8Message,bytesProcessed);
+  UTF8ToUCS2(utf8Message,bytesProcessed,result.Message);
+  String strBytesProcessed = ToHex(bytesProcessed*2);
 
   #ifdef GSM_DEBUG_MODE
     Serial.print(F("bytes processed: ")); Serial.println(bytesProcessed);
-    Serial.print(F("message: ")); Serial.println(message);
+    Serial.print(F("message: ")); Serial.println(*(result.Message));
   #endif
   
-  // 00, FLASH, 16bit, message length
-  
-  String headers2 = F("00");
-  headers2 += (isFlash ? F("1") : F("0")); 
-  headers2 += F("8");
-  headers2 += ToHex(bytesProcessed*2);
+  // длина headers - 6 байт, фиксирована
+  // длина recipient - максимум 20 байт
+  // длина headers2 - 8 байт
+  // итого имеем, что в message надо иметь запас буфера в 6+20+8 = 34 байта,
+  // таким образом мы сэкономим прорву памяти, не копируя туда-сюда буфера.
 
-  #ifdef GSM_DEBUG_MODE
-    Serial.print(F("headers2: ")); Serial.println(headers2);
-  #endif  
+  // в result.Message у нас уже лежит строка, у которой в конце есть свободный хвост.
+  // если мы сдвинем строку так, чтобы в начале оставался пробел нужной нам величины - 
+  // мы просто сможем записать туда нужную нам информацию.
+  unsigned int neededShiftLen = 10 + recipient.length() + strBytesProcessed.length();
+
+  // теперь мы должны сдвинуть каждый символ строки на neededShiftLen позиций вправо.
+  // сперва ищем окончание строки
+  const char* strBegin = result.Message->c_str();
+  const char* strEnd = strBegin;
+  while(*strEnd)
+    strEnd++;
+
+   // потом добавляем в строку N символов, чтобы она пересчитала свою длину.
+   // память при этом выделяться не будет, т.к. буфер уже выделен.
+   for(unsigned int i=0;i<neededShiftLen;i++)
+    *(result.Message) += '\0';
+
+  // strEnd у нас стоит на нулевом символе, после него - свободный буфер с памятью, которую мы можем использовать.
+  // начальная позиция копирования у нас - strEnd, а сдвиг - neededShiftLen, т.е. каждый символ из strEnd мы копируем
+  // вправо на neededShiftLen до тех пор, пока не дойдём до начала строки
+  while(strEnd >= strBegin) 
+  {
+    unsigned int startPos = (strEnd - strBegin);
+    unsigned int endPos = (startPos + neededShiftLen);
+    char ch = result.Message->charAt(startPos);
+    result.Message->setCharAt(endPos,ch);
+    strEnd--;  
+  }
+
+  // теперь у нас всё сдвинуто вправо на нужную величину, пишем в message всё, что нужно.
+  unsigned int curWritePos = 0;
   
-  String completeMessage = headers + recipient + headers2 + message;
+  unsigned int lengthHelper = 0;
   
+  result.Message->setCharAt(curWritePos++,'0');
+  result.Message->setCharAt(curWritePos++,'0');
+  result.Message->setCharAt(curWritePos++,'0');
+  result.Message->setCharAt(curWritePos++,'1');
+  result.Message->setCharAt(curWritePos++,'0');
+  result.Message->setCharAt(curWritePos++,'0');
+
+  lengthHelper = recipient.length();
+  for(unsigned int i=0;i<lengthHelper;i++) 
+  {
+    result.Message->setCharAt(curWritePos,recipient.charAt(i));
+    curWritePos++;
+  }
+
+  result.Message->setCharAt(curWritePos++,'0');
+  result.Message->setCharAt(curWritePos++,'0');
+  result.Message->setCharAt(curWritePos++, isFlash ? '1' : '0');
+  result.Message->setCharAt(curWritePos++,'8');
+
+  for(unsigned int i=0;i<strBytesProcessed.length();i++)
+    result.Message->setCharAt(curWritePos++,strBytesProcessed[i]);
+    
    #ifdef GSM_DEBUG_MODE
-    Serial.print(F("completeMessage: ")); Serial.println(completeMessage);
+    Serial.print(F("completeMessage: ")); Serial.println(*(result.Message));
   #endif   
-  int hlen = completeMessage.length()/2 - 1;// без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
+
+  result.MessageLength = result.Message->length()/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
 
    #ifdef GSM_DEBUG_MODE
-    Serial.print(F("hlen: ")); Serial.println(hlen);
+    Serial.print(F("hlen: ")); Serial.println(result.MessageLength);
   #endif   
-
-  result.MessageLength = hlen;
-  result.Message = completeMessage;
 
   return result; 
 }
-
 
 PDUMessageDecoder::PDUMessageDecoder()
 {

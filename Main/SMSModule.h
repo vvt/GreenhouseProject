@@ -39,7 +39,7 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void ProcessQueue(); // разбираем очередь команд
     void InitQueue(); // инициализируем очередь
 
-    String smsToSend; // какое SMS отправить
+    String* smsToSend; // какое SMS отправить
     String commandToSend; // какую команду сперва отправить для отсыла SMS
     bool waitForSMSInNextLine;
 

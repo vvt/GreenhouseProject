@@ -34,6 +34,8 @@ bool SMSModule::IsKnownAnswer(const String& line, bool& okFound)
 void SMSModule::Setup()
 {
   Settings = MainController->GetSettings();
+
+  smsToSend = new String();
   
   // запускаем наш сериал
   GSM_SERIAL.begin(GSM_BAUDRATE);
@@ -901,9 +903,11 @@ void SMSModule::ProcessQueue()
         Serial.println(F("Start sending SMS data..."));
       #endif
       
-        SendCommand(smsToSend,false);
+        SendCommand(*smsToSend,false);
         GSM_SERIAL.write(0x1A); // посылаем символ окончания посыла
-        smsToSend = "";
+        //smsToSend = "";
+        delete smsToSend;
+        smsToSend = new String();
         
         
       }
@@ -1189,16 +1193,15 @@ void SMSModule::SendSMS(const String& sms)
     return;
   }
   
-  PDUOutgoingMessage pduMessage = PDU.Encode(num,sms,true);
+  PDUOutgoingMessage pduMessage = PDU.Encode(num,sms,true, smsToSend);
   commandToSend = F("AT+CMGS="); commandToSend += String(pduMessage.MessageLength);
 
   #ifdef GSM_DEBUG_MODE
     Serial.print(F("commandToSend = ")); Serial.println(commandToSend);
     Serial.print(F("SMS message length = ")); Serial.println(pduMessage.MessageLength);    
-    Serial.print(F("SMS to send = ")); Serial.println(pduMessage.Message);
+    Serial.print(F("SMS to send = ")); Serial.println(*smsToSend);
   #endif
 
-  smsToSend = pduMessage.Message; // сохраняем SMS для отправки
   WaitForSMSWelcome = true; // выставляем флаг, что мы ждём >
   actionsQueue.push_back(smaStartSendSMS); // добавляем команду на обработку
   

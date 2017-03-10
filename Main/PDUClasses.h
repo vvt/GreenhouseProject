@@ -5,7 +5,7 @@
 struct PDUOutgoingMessage // исходящее сообщение
 {
   int MessageLength; // длина пакета, которую надо вставить в команду AT+CMGS=
-  String Message; // само закодированное сообщение в формате UCS2, 16 бит на символ (каждый символ кодируется двумя байтами)
+  String* Message; // указатель на закодированное сообщение в формате UCS2, 16 бит на символ (каждый символ кодируется двумя байтами)
   
 };
 
@@ -24,13 +24,13 @@ class PDUMessageEncoder // кодировщик сообщений из UTF-8 в
     unsigned int utf8GetCharSize(unsigned char byte);
     bool utf8ToUInt(const String& bytes, unsigned int& target);
     
-    String UTF8ToUCS2(const String& inpString, unsigned int& bytesProcessed);
+    void UTF8ToUCS2(const String& inpString, unsigned int& bytesProcessed, String* outString);
     String ToHex(int i);
-    String EncodePhoneNumber(const String& nm);
+    String EncodePhoneNumber(const char* nm);
   
   public:
     PDUMessageEncoder();
-    PDUOutgoingMessage Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash); // кодирует сообщение из UTF-8 в UCS2
+    PDUOutgoingMessage Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer); // кодирует сообщение из UTF-8 в UCS2
 }; 
 
 
