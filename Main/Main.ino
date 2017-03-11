@@ -90,6 +90,7 @@
 #include "PHModule.h"
 #endif
 
+/*
 // КОМАНДЫ ИНИЦИАЛИЗАЦИИ ПРИ СТАРТЕ
 //const char init_0[] PROGMEM = "CTSET=PIN|13|0";// ВЫКЛЮЧИМ ПРИ СТАРТЕ СВЕТОДИОД
 #ifdef USE_READY_DIODE
@@ -107,7 +108,7 @@ init_1,
 #endif
   init_STUB // ЗАГЛУШКА, НЕ ТРОГАТЬ!
 };
-
+*/
 
 // таймер
 unsigned long lastMillis = 0;
@@ -146,7 +147,7 @@ TempSensors tempSensors;
 #ifdef USE_SMS_MODULE
 // модуль управления по SMS
  SMSModule smsModule;
- String smsReceiveBuff;
+ String* smsReceiveBuff;
  
 void GSM_EVENT_FUNC()
 {
@@ -160,8 +161,10 @@ void GSM_EVENT_FUNC()
     
     if(ch == '\n')
     {
-      smsModule.ProcessAnswerLine(smsReceiveBuff);
-      smsReceiveBuff = F("");
+      smsModule.ProcessAnswerLine(*smsReceiveBuff);
+      //smsReceiveBuff = F("");
+      delete smsReceiveBuff;
+      smsReceiveBuff = new String();
     }
     
     else
@@ -171,10 +174,12 @@ void GSM_EVENT_FUNC()
         {         
           smsModule.WaitForSMSWelcome = false;
           smsModule.ProcessAnswerLine(F(">"));
-          smsReceiveBuff = F("");
+          //smsReceiveBuff = F("");
+          delete smsReceiveBuff;
+          smsReceiveBuff = new String();
         }
         else
-          smsReceiveBuff += ch;
+          *smsReceiveBuff += ch;
     }
 
     
@@ -260,7 +265,7 @@ TimerModule timerModule;
 #ifdef USE_WIFI_MODULE
 // модуль работы по Wi-Fi
 WiFiModule wifiModule;
-String wiFiReceiveBuff;
+String* wiFiReceiveBuff;
 
 void WIFI_EVENT_FUNC()
 {
@@ -275,16 +280,18 @@ void WIFI_EVENT_FUNC()
     
     if(ch == '\n')
     {    
-        if(wiFiReceiveBuff.startsWith(F("+IPD")))
+        if(wiFiReceiveBuff->startsWith(F("+IPD")))
         {
           // Не убираем переводы строки, когда пришёл пакет с данными, поскольку \r\n может придти прямо в пакете данных.
           // Т.к. у нас \r\n служит признаком окончания команды - значит, мы должны учитывать эти символы в пакете,
           // и не можем самовоизвольно их отбрасывать.
-          wiFiReceiveBuff += NEWLINE; 
+          *wiFiReceiveBuff += NEWLINE; 
         }
           
-        wifiModule.ProcessAnswerLine(wiFiReceiveBuff);
-        wiFiReceiveBuff = F("");
+        wifiModule.ProcessAnswerLine(*wiFiReceiveBuff);
+        //wiFiReceiveBuff = F("");
+        delete wiFiReceiveBuff;
+        wiFiReceiveBuff = new String();
     }
     else
     {     
@@ -294,7 +301,7 @@ void WIFI_EVENT_FUNC()
           wifiModule.ProcessAnswerLine(F(">"));
         }
         else
-          wiFiReceiveBuff += ch;
+          *wiFiReceiveBuff += ch;
     }
   
     
@@ -306,7 +313,8 @@ void WIFI_EVENT_FUNC()
 
 ZeroStreamListener zeroStreamModule;
 AlertModule alertsModule;
-   
+
+/*
 String ReadProgmemString(const char* c)
 {
   String s;
@@ -340,6 +348,7 @@ void ProcessInitCommands()
     curIdx++;
   } // while
 }
+*/
 
 void setup() 
 { 
@@ -373,7 +382,8 @@ void setup()
   #endif
 
   #ifdef USE_SMS_MODULE
-  smsReceiveBuff.reserve(100);
+  smsReceiveBuff = new String();
+  //smsReceiveBuff->reserve(50);
   controller.RegisterModule(&smsModule);
   #endif
 
@@ -435,7 +445,8 @@ void setup()
   #endif
 
   #ifdef USE_WIFI_MODULE
-  wiFiReceiveBuff.reserve(100);
+  wiFiReceiveBuff = new String();
+  //wiFiReceiveBuff->reserve(50);
   controller.RegisterModule(&wifiModule);
   #endif 
 
@@ -445,7 +456,7 @@ void setup()
 
   controller.begin(); // начинаем работу
 
-  ProcessInitCommands(); // запускаем на обработку команды инициализации
+//    ProcessInitCommands(); // запускаем на обработку команды инициализации
 
   // Печатаем в Serial готовность
   Serial.print(READY);
@@ -506,19 +517,29 @@ void loop()
     lastMillis = curMillis; // сохраняем последнее значение вызова millis()
     
 #ifdef USE_READY_DIODE
+
   #ifdef BLINK_READY_DIODE
-    static uint16_t ready_diode_timer = 0;
+   // static uint16_t ready_diode_timer = 0;
     static bool blink_ready_diode_inited = false;
-    ready_diode_timer += dt;
-    if(ready_diode_timer > 2000 && !blink_ready_diode_inited) {
+    //ready_diode_timer += dt;
+    if(/*ready_diode_timer > 2000 && */!blink_ready_diode_inited) {
       blink_ready_diode_inited = true;
-      readyDiodeBlinker.begin(6,F("SD"));
+      readyDiodeBlinker.begin(6);//,F("SD"));
       readyDiodeBlinker.blink(READY_DIODE_BLINK_INTERVAL);
     }
 
-    readyDiodeBlinker.update();
+    readyDiodeBlinker.update(dt);
+  #else
+    static bool blink_ready_diode_inited = false;
+    if(!blink_ready_diode_inited) {
+      blink_ready_diode_inited = true;
+
+      // просто зажигаем светодиод при старте
+      WORK_STATUS.PinMode(6,OUTPUT);
+      WORK_STATUS.PinWrite(6,HIGH);
+    }
   #endif
-  //const char init_1[] PROGMEM = "CTSET=LOOP|SD|SET|100|7|PIN|6|T";// помигаем 5 раз диодом для проверки
+
 #endif
 
 

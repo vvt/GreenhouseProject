@@ -6,9 +6,10 @@
 
 TCPClient::TCPClient()
 {
-  isConnected = false;
-  commandHolder = F("");
-  hasFullCommand = false; 
+  state.isConnected = false;
+  commandHolder = new String();//F("");
+  cachedData = new String();
+  state.hasFullCommand = false; 
   Clear();
 }
 TCPClient::~TCPClient()
@@ -16,7 +17,7 @@ TCPClient::~TCPClient()
 }
 void TCPClient::SetConnected(bool c) 
 {
-  isConnected = c;
+  state.isConnected = c;
   
 }
 void TCPClient::Clear()
@@ -27,22 +28,26 @@ void TCPClient::Clear()
   packetsLeft = 0;
   packetsSent = 0;
   sentContentLength = 0;
-  cachedData = F("");
+  //cachedData = F("");
+  delete cachedData;
+  cachedData = new String();
 }
 void TCPClient::Update()
 {
-  if(hasFullCommand)
+  if(state.hasFullCommand)
   {
     // есть полная команда, надо её обработать
-    Prepare(commandHolder.c_str()); 
-    commandHolder = F(""); // подготавливаем команду
+    Prepare(commandHolder->c_str()); 
+    //commandHolder = F(""); // подготавливаем команду
+    delete commandHolder;
+    commandHolder = new String();
 
-    hasFullCommand = false; // сбрасываем флаг наличия полной команды
+    state.hasFullCommand = false; // сбрасываем флаг наличия полной команды
   }
 }
 void TCPClient::CommandRequested(int dataLen, const char* command)
 {
-  if(hasFullCommand) // игнорируем новую команду, т.к. предыдущая ещё не обработана
+  if(state.hasFullCommand) // игнорируем новую команду, т.к. предыдущая ещё не обработана
     return;
     
   int ln = 0;
@@ -50,10 +55,10 @@ void TCPClient::CommandRequested(int dataLen, const char* command)
   {
     if(*command == '\r') // если прямо в пакете нашли \r - значит, команда получена полностью, иначе - будем ждать следующего пакета
     {
-      hasFullCommand = true; // выставляем флаг, что мы получили полную команду, и выходим
+      state.hasFullCommand = true; // выставляем флаг, что мы получили полную команду, и выходим
       break;
     }
-    commandHolder += *command; // складываем байтики во внутренний буфер
+    *commandHolder += *command; // складываем байтики во внутренний буфер
     ln++;
     command++;
   }
@@ -110,7 +115,7 @@ bool TCPClient::Prepare(const char* command)
  }
 
    // теперь считаем длину данных
-  contentLength = cachedData.length();
+  contentLength = cachedData->length();
 
   if(workFile)
   {
@@ -130,7 +135,7 @@ bool TCPClient::Prepare(const char* command)
     packetsCount++;
  }
 
- if(!cachedData.length()) // что-то не срослось - нет кешированных данных
+ if(!cachedData->length()) // что-то не срослось - нет кешированных данных
  {
   contentLength = 0;
   packetsCount = 0;
@@ -153,20 +158,20 @@ void TCPClient::OpenSDFile()
     return;
 
   char file_name[13];
-  sprintf_P(file_name,(const char*) F("%u.TCP"),tcpClientID);
+  sprintf_P(file_name,(const char*) F("%u.TCP"),state.tcpClientID);
   // открываем файл на запись
   workFile = SD.open(file_name, FILE_WRITE | O_TRUNC); // открываем файл и усекаем его до нуля   
     
 }
 void TCPClient::WriteErrorToFile()
 {
- if(cachedData.length() < CACHE_LENGTH)
+ if(cachedData->length() < CACHE_LENGTH)
  {
    // можем записать в кеш
-   cachedData = ERR_ANSWER;
-   cachedData += COMMAND_DELIMITER;
-   cachedData += UNKNOWN_COMMAND;
-   cachedData += NEWLINE;
+   *cachedData = ERR_ANSWER;
+   *cachedData += COMMAND_DELIMITER;
+   *cachedData += UNKNOWN_COMMAND;
+   *cachedData += NEWLINE;
  }
  else
  {
@@ -190,9 +195,9 @@ size_t TCPClient::write(uint8_t toWr)
 {
  // чтение ответов от модулей с кешированием первых N байт
 
- if(cachedData.length() < CACHE_LENGTH) // ещё можно писать в кеш
+ if(cachedData->length() < CACHE_LENGTH) // ещё можно писать в кеш
  {
-  cachedData += (char) toWr;
+  *cachedData += (char) toWr;
   return 1;
  }
 
@@ -216,7 +221,7 @@ bool TCPClient::SendPacket(Stream* s)
   // тут отсылаем пакет
   // возвращаем false, если больше нечего посылать
 
-  uint16_t cachedDataLen = cachedData.length();
+  uint16_t cachedDataLen = cachedData->length();
   if(cachedDataLen)
   {
     // ещё читаем из кешированных данных, надо послать либо все даннные, либо их часть, при этом дочитать остаток из файла
@@ -225,18 +230,20 @@ bool TCPClient::SendPacket(Stream* s)
        // длина оставшихся к отсылу данных больше, чем размер одного пакета.
        // поэтому можем отсылать пакет целиком, предварительно его сформировав.
      //  String str = cachedData.substring(0,nextPacketLength);
-       s->write(cachedData.c_str(),nextPacketLength); // пишем данные в поток
-       cachedData = cachedData.substring(nextPacketLength);
+       s->write(cachedData->c_str(),nextPacketLength); // пишем данные в поток
+       *cachedData = cachedData->substring(nextPacketLength);
        
     }
     else
     {
       // длина оставшихся данных меньше, чем длина следующего пакета, поэтому нам надо дочитать
       // необходимое кол-во байт из данных.
-      uint16_t dataLeft = nextPacketLength - cachedData.length();
+      uint16_t dataLeft = nextPacketLength - cachedData->length();
 
-      s->write(cachedData.c_str(),cachedData.length()); // пишем данные в поток
-      cachedData = F("");
+      s->write(cachedData->c_str(),cachedData->length()); // пишем данные в поток
+      //cachedData = F("");
+      delete cachedData;
+      cachedData = new String();
 
      // тут вычитываем данные из файла, длиной dataLeft
         if(workFile) // если файл открыт

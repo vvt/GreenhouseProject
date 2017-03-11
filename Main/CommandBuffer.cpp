@@ -3,6 +3,7 @@
 
 CommandBuffer::CommandBuffer(Stream* s) : pStream(s)
 {
+    strBuff = new String();
 }
 
 bool CommandBuffer::HasCommand()
@@ -16,12 +17,12 @@ bool CommandBuffer::HasCommand()
       ch = pStream->read();
       if(ch == '\r' || ch == '\n')
       {
-        return strBuff.length() > 0; // вдруг лишние управляющие символы придут в начале строки?
+        return strBuff->length() > 0; // вдруг лишние управляющие символы придут в начале строки?
       } // if
 
-      strBuff += ch;
+      *strBuff += ch;
       // не даём вычитать больше символов, чем надо - иначе нас можно заспамить
-      if(strBuff.length() >= MAX_RECEIVE_BUFFER_LENGTH)
+      if(strBuff->length() >= MAX_RECEIVE_BUFFER_LENGTH)
       {
          ClearCommand();
          return false;

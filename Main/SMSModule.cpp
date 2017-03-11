@@ -38,6 +38,10 @@ void SMSModule::Setup()
   smsToSend = new String();
   cusdSMS = NULL;
 
+  queuedWindowCommand = new String();
+  commandToSend = new String();
+  customSMSCommandAnswer = new String();
+
   #ifdef USE_GSM_REBOOT_PIN
     WORK_STATUS.PinMode(GSM_REBOOT_PIN,OUTPUT);
     WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
@@ -48,9 +52,9 @@ void SMSModule::Setup()
 
 
   // говорим, что мы от модема не получали ничего
-  isAnyAnswerReceived = false;
+  flags.isAnyAnswerReceived = false;
 
-  inRebootMode = false;
+  flags.inRebootMode = false;
   rebootStartTime = 0;
  
   InitQueue(); // инициализируем очередь
@@ -63,8 +67,8 @@ void SMSModule::InitQueue()
   while(actionsQueue.size() > 0) // чистим очередь 
     actionsQueue.pop();
  
-  isModuleRegistered = false;
-  waitForSMSInNextLine = false;
+  flags.isModuleRegistered = false;
+  flags.waitForSMSInNextLine = false;
   WaitForSMSWelcome = false; // не ждём приглашения
   needToWaitTimer = 0; // сбрасываем таймер
 
@@ -90,7 +94,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
   // от модема получен какой-то ответ, мы можем утверждать, что на той стороне что-то отвечает
   
   // что-то пришло от модема, значит - откликается
-  isAnyAnswerReceived = true;
+  flags.isAnyAnswerReceived = true;
   
   // получаем ответ на команду, посланную модулю
   if(!line.length()) // пустая строка, нечего её разбирать
@@ -346,7 +350,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       if(line.indexOf(F("+CREG: 0,1")) != -1)
       {
         // зарегистрированы в GSM-сети
-           isModuleRegistered = true;
+           flags.isModuleRegistered = true;
             #ifdef GSM_DEBUG_MODE
               Serial.println(F("[OK] => Modem registered in GSM!"));
             #endif
@@ -356,7 +360,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
       else
       {
         // ещё не зарегистрированы
-          isModuleRegistered = false;
+          flags.isModuleRegistered = false;
           needToWaitTimer = GSM_CHECK_REGISTRATION_INTERVAL; // через некоторое время повторим команду
           currentAction = smaIdle;
       } // else
@@ -441,9 +445,9 @@ void SMSModule::ProcessAnswerLine(const String& line)
 
     case smaIdle:
     {
-      if(waitForSMSInNextLine) // дождались входящего SMS
+      if(flags.waitForSMSInNextLine) // дождались входящего SMS
       {
-        waitForSMSInNextLine = false;
+        flags.waitForSMSInNextLine = false;
         ProcessIncomingSMS(line);
       }
       
@@ -451,7 +455,7 @@ void SMSModule::ProcessAnswerLine(const String& line)
         ProcessIncomingCall(line);
       else
       if(line.startsWith(F("+CMT:")))
-        waitForSMSInNextLine = true;
+        flags.waitForSMSInNextLine = true;
        
     
 
@@ -488,7 +492,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
 
         // открываем окна
         // сохраняем команду на выполнение тогда, когда окна будут открыты или закрыты - иначе она не отработает
-        queuedWindowCommand = F("STATE|WINDOW|ALL|OPEN");
+        *queuedWindowCommand = F("STATE|WINDOW|ALL|OPEN");
         shouldSendSMS = true;
     }
     
@@ -501,7 +505,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
 
       // закрываем окна
       // сохраняем команду на выполнение тогда, когда окна будут открыты или закрыты - иначе она не отработает
-      queuedWindowCommand = F("STATE|WINDOW|ALL|CLOSE");
+      *queuedWindowCommand = F("STATE|WINDOW|ALL|CLOSE");
       shouldSendSMS = true;
     }
     
@@ -682,13 +686,19 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
             Serial.println(F("Command parsed, execute it..."));
           #endif                
               // команду разобрали, можно исполнять
-              customSMSCommandAnswer = "";
+              //customSMSCommandAnswer = "";
+              delete customSMSCommandAnswer;
+              customSMSCommandAnswer = new String();
+              
               cmd.SetIncomingStream(this);
               MainController->ProcessModuleCommand(cmd);
 
               // теперь получаем ответ
-              if(!answerMessage.length())
-                SendSMS(customSMSCommandAnswer);
+              if(!answerMessage.length()) {
+                SendSMS(*customSMSCommandAnswer);
+                delete customSMSCommandAnswer;
+                customSMSCommandAnswer = new String();
+              }
               else
                 SendSMS(answerMessage);
               
@@ -724,7 +734,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
 //--------------------------------------------------------------------------------------------------------------------------------
 size_t SMSModule::write(uint8_t toWr)
 {
- customSMSCommandAnswer += (char) toWr;
+ *customSMSCommandAnswer += (char) toWr;
  return 1; 
 }
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -935,8 +945,10 @@ void SMSModule::ProcessQueue()
         Serial.println(F("Start SMS sending..."));
         #endif
         
-        SendCommand(commandToSend);
-        commandToSend = "";
+        SendCommand(*commandToSend);
+        //commandToSend = "";
+        delete commandToSend;
+        commandToSend = new String();
       
        
       }
@@ -986,7 +998,7 @@ void SMSModule::RebootModem()
   #endif
 
   // мы в процессе перезагрузки
-  inRebootMode = true;
+  flags.inRebootMode = true;
 
   // запоминаем время выключения питания
   rebootStartTime = millis();
@@ -1002,12 +1014,12 @@ void SMSModule::RebootModem()
 void SMSModule::Update(uint16_t dt)
 { 
 
-  if(inRebootMode) {
+  if(flags.inRebootMode) {
     // мы в процессе перезагрузки модема, надо проверить, пора ли включать питание?
     if(millis() - rebootStartTime > GSM_REBOOT_TIME) {
       // две секунды держали питание выключенным, можно включать
-      inRebootMode = false;
-      isAnyAnswerReceived = false; // говорим, что мы ничего от модема не получали
+      flags.inRebootMode = false;
+      flags.isAnyAnswerReceived = false; // говорим, что мы ничего от модема не получали
 
       // делать что-либо дополнительное не надо, т.к. как только от модема в порт упадёт строка о готовности - очередь проинициализируется сама.
 
@@ -1045,7 +1057,7 @@ void SMSModule::Update(uint16_t dt)
      sendCommandTime = millis(); // сбросили таймера
      answerWaitTimer = 0;
 
-     if(isAnyAnswerReceived) {
+     if(flags.isAnyAnswerReceived) {
         // получали хоть один ответ от модема - возможно, он завис?
         RebootModem();
         
@@ -1057,7 +1069,7 @@ void SMSModule::Update(uint16_t dt)
      }
      
   } 
-  if(!inRebootMode) { // если мы не в процессе перезагрузки - то можем отрабатывать очередь
+  if(!flags.inRebootMode) { // если мы не в процессе перезагрузки - то можем отрабатывать очередь
     ProcessQueue();
     ProcessQueuedWindowCommand(dt);
   }
@@ -1066,7 +1078,7 @@ void SMSModule::Update(uint16_t dt)
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
 {
-    if(!queuedWindowCommand.length()) // а нет команды на управление окнами
+    if(!queuedWindowCommand->length()) // а нет команды на управление окнами
     {
       queuedTimer = 0; // обнуляем таймер
       return;
@@ -1096,11 +1108,13 @@ void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
               if((strstr_P(strPtr,(const char*)STATE_OPEN) && !strstr_P(strPtr,(const char*)STATE_OPENING)) || strstr_P(strPtr,(const char*)STATE_CLOSED))
               {
                 // окна не двигаются, можем отправлять команду
-                 if(ModuleInterop.QueryCommand(ctSET,queuedWindowCommand,false))
+                 if(ModuleInterop.QueryCommand(ctSET,*queuedWindowCommand,false))
                  {
            
                   // команда разобрана, можно выполнять
-                    queuedWindowCommand = ""; // очищаем команду, нам она больше не нужна
+                    //queuedWindowCommand = ""; // очищаем команду, нам она больше не нужна
+                    delete queuedWindowCommand;
+                    queuedWindowCommand = new String();
 
                     // всё, команда выполнена, когда окна не находились в движении
                  } // if
@@ -1225,7 +1239,7 @@ void SMSModule::SendSMS(const String& sms, bool isSMSInUCS2Format)
     Serial.print(F("Send SMS:  ")); Serial.println(sms);
   #endif
 
-  if(!isModuleRegistered)
+  if(!flags.isModuleRegistered)
   {
     #ifdef GSM_DEBUG_MODE
       Serial.println(F("Module not registered!"));
@@ -1245,10 +1259,10 @@ void SMSModule::SendSMS(const String& sms, bool isSMSInUCS2Format)
   }
   
   PDUOutgoingMessage pduMessage = PDU.Encode(num,sms,true, smsToSend,isSMSInUCS2Format);
-  commandToSend = F("AT+CMGS="); commandToSend += String(pduMessage.MessageLength);
+  *commandToSend = F("AT+CMGS="); *commandToSend += String(pduMessage.MessageLength);
 
   #ifdef GSM_DEBUG_MODE
-    Serial.print(F("commandToSend = ")); Serial.println(commandToSend);
+    Serial.print(F("commandToSend = ")); Serial.println(*commandToSend);
     Serial.print(F("SMS message length = ")); Serial.println(pduMessage.MessageLength);    
     Serial.print(F("SMS to send = ")); Serial.println(*smsToSend);
   #endif

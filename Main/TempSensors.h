@@ -29,32 +29,39 @@ typedef enum
 
 class TempSensors;
 
+typedef struct
+{
+  bool OnMyWay : 1; // флаг того, что фрамуга в процессе открытия/закрытия
+  uint8_t Direction : 3; // направление, которое задали
+  uint8_t pad : 4;
+  
+} WindowStateFlags;
+
 class WindowState
 {
  private:
  
   unsigned long CurrentPosition; // текущая позиция фрамуги
   unsigned long RequestedPosition; // какую позицию запросили
-  bool OnMyWay; // флаг того, что фрамуга в процессе открытия/закрытия
   unsigned long TimerInterval; // сколько работать фрамуге?
   unsigned long TimerTicks; // сколько проработали уже?
-  uint8_t Direction; // направление, которое задали
 
   void SwitchRelays(uint8_t rel1State = SHORT_CIRQUIT_STATE, uint8_t rel2State = SHORT_CIRQUIT_STATE);
 
   uint8_t RelayChannel1;
   uint8_t RelayChannel2;
-//  TempSensors* Parent;
+
+  WindowStateFlags flags;
 
 public:
 
-  bool IsBusy() {return OnMyWay;} // заняты или нет?
+  bool IsBusy() {return flags.OnMyWay;} // заняты или нет?
   
   bool ChangePosition(uint8_t dir, unsigned long newPos); // меняет позицию
   
   unsigned long GetCurrentPosition() {return CurrentPosition;}
   unsigned long GetRequestedPosition() {return RequestedPosition;}
-  uint8_t GetDirection() {return Direction;}
+  uint8_t GetDirection() {return flags.Direction;}
 
   void UpdateState(uint16_t dt); // обновляет состояние фрамуги
   
@@ -65,12 +72,12 @@ public:
   {
     CurrentPosition = 0;
     RequestedPosition = 0;
-    OnMyWay = false;
+    flags.OnMyWay = false;
     TimerInterval = 0;
     TimerTicks = 0;
     RelayChannel1 = 0;
     RelayChannel2 = 0;
-    Direction = dirNOTHING;
+    flags.Direction = dirNOTHING;
   }  
   
   

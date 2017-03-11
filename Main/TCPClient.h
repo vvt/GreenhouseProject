@@ -18,13 +18,21 @@
 
 #define CACHE_LENGTH 256 // сколько байт кешировать в ответе
 
+typedef struct
+{
+    bool isConnected : 1; // флаг, что клиент подсоединён
+    bool hasFullCommand : 1; // флаг, что приняли всю команду
+    uint8_t tcpClientID : 6; // ID клиента
+  
+} TCPClientState;
+
 class TCPClient : public Stream
 {
   private:
 
     uint16_t MAX_PACKET_LENGTH; // максимальная длина пакета
-    
-    bool isConnected; // флаг, что клиент подсоединён
+
+    TCPClientState state;
 
     uint16_t nextPacketLength; // длина следующего пакета данных
     uint16_t packetsCount; // сколько всего пакетов отослать
@@ -35,11 +43,10 @@ class TCPClient : public Stream
     unsigned long sentContentLength; // какую общую длину уже отослали
 
     File workFile; // файл, в который мы будем складывать ответы от модулей
-    uint8_t tcpClientID; // ID клиента
-    String cachedData; // данные, которые будем кешировать для отсыла
-
-    String commandHolder; // сюда складываем команду
-    bool hasFullCommand; // флаг, что приняли всю команду
+    
+    String* cachedData; // данные, которые будем кешировать для отсыла
+    String* commandHolder; // сюда складываем команду
+    
     bool Prepare(const char* command); // подготавливаем данные для отправки
 
     void OpenSDFile();
@@ -52,14 +59,14 @@ class TCPClient : public Stream
   public:
 
     // настраиваем клиента, передаём ему его ID, ссылку на контроллер и максимальную длину пакета, которую можно отослать за раз
-    void Setup(uint8_t clientID, uint16_t maxPacketLength) {tcpClientID = clientID; MAX_PACKET_LENGTH = maxPacketLength;}
+    void Setup(uint8_t clientID, uint16_t maxPacketLength) {state.tcpClientID = clientID; MAX_PACKET_LENGTH = maxPacketLength;}
 
     // обновляем внутреннее состояние клиента в вызове Update модуля, в котором работает клиент. Как только клиент получит полный пакет данных - он
     // обработает команду, сложит весь ответ в промежуточный файл и будет готов к передаче (HasPacket будет возвращать true).
     void Update(); 
 
 
-    bool IsConnected(){return isConnected;} // клиент законнекчен?
+    bool IsConnected(){return state.isConnected;} // клиент законнекчен?
     void SetConnected(bool c); // устанавливаем флаг соединения клиента
 
     bool HasPacket() {return (packetsLeft > 0);} // есть ли ещё пакеты для отправки?

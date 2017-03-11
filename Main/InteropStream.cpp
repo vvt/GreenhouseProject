@@ -59,11 +59,30 @@ size_t InteropStream::write(uint8_t toWr)
 
 BlinkModeInterop::BlinkModeInterop()
 {
+  /*
   lastBlinkInterval = 0xFFFF;
   needUpdate = false;
+  */
+  blinkInterval = 0;
+  timer = 0;
+  pinState = LOW;
 }
-void BlinkModeInterop::update()
+void BlinkModeInterop::update(uint16_t dt)
 {
+  if(!blinkInterval) // выключены
+    return;
+
+  timer += dt;
+
+  if(timer < blinkInterval) // не настало время
+    return;
+
+  timer -= blinkInterval;
+  pinState = pinState == LOW ? HIGH : LOW;
+  WORK_STATUS.PinWrite(pin,pinState);
+  
+/*
+  UNUSED(dt);
   
   if(!needUpdate)
     return;
@@ -99,12 +118,14 @@ void BlinkModeInterop::update()
  
       } // if
  #endif   
-
+*/
     
 }
-void BlinkModeInterop::begin(uint8_t p, const String& lName)
+void BlinkModeInterop::begin(uint8_t p)//, const String& lName)
 {
   pin = p;
+  WORK_STATUS.PinMode(pin,OUTPUT);
+  /*
   loopName = lName;
   //loopName = F("LOOP|");
  // loopName += lName;
@@ -115,10 +136,16 @@ void BlinkModeInterop::begin(uint8_t p, const String& lName)
  // pinCommand += F("|T");
 
   lastBlinkInterval = 0xFFFF;
+  */
 }
-void BlinkModeInterop::blink(uint16_t blinkInterval)
+void BlinkModeInterop::blink(uint16_t interval)
 {
 
+  blinkInterval = interval;
+  
+  if(!blinkInterval)
+    WORK_STATUS.PinWrite(pin,LOW);
+/*
 
  if(lastBlinkInterval == blinkInterval)
   // незачем выполнять команду с тем же интервалом
@@ -126,7 +153,7 @@ void BlinkModeInterop::blink(uint16_t blinkInterval)
 
   needUpdate = true;
   lastBlinkInterval = blinkInterval;
-  
+*/  
 
 }
 

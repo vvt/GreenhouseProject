@@ -8,13 +8,13 @@ class CommandBuffer
 {
 private:
   Stream* pStream;
-  String strBuff;
+  String* strBuff;
 public:
   CommandBuffer(Stream* s);
 
   bool HasCommand();
-  const String& GetCommand() {return strBuff;}
-  void ClearCommand() {strBuff = "";}
+  const String& GetCommand() {return *strBuff;}
+  void ClearCommand() {/*strBuff = "";*/ delete strBuff; strBuff = new String(); }
   Stream* GetStream() {return pStream;}
 
 };

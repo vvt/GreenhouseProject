@@ -24,21 +24,21 @@ void WateringModule::Setup()
 GlobalSettings* settings = MainController->GetSettings();
   
    #ifdef USE_DS3231_REALTIME_CLOCK
-    bIsRTClockPresent = true; // есть часы реального времени
+    flags.bIsRTClockPresent = true; // есть часы реального времени
     DS3231Clock watch =  MainController->GetClock();
     DS3231Time t =   watch.getTime();
   #else
-    bIsRTClockPresent = false; // нет часов реального времени
+    flags.bIsRTClockPresent = false; // нет часов реального времени
   #endif 
 
 #ifdef USE_WATERING_MANUAL_MODE_DIODE
-  blinker.begin(DIODE_WATERING_MANUAL_MODE_PIN, F("WM"));  // настраиваем блинкер на нужный пин
+  blinker.begin(DIODE_WATERING_MANUAL_MODE_PIN);//, F("WM"));  // настраиваем блинкер на нужный пин
 #endif
 
-  workMode = wwmAutomatic; // автоматический режим работы
+  flags.workMode = wwmAutomatic; // автоматический режим работы
 
   #if WATER_RELAYS_COUNT > 0
-  internalNeedChange = false;
+  flags.internalNeedChange = false;
   dummyAllChannels.WateringTimer = 0; // обнуляем таймер полива для всех каналов
   dummyAllChannels.WateringDelta = 0;
   dummyAllChannels.SetRelayOn(false); // все реле выключены
@@ -227,7 +227,7 @@ GlobalSettings* settings = MainController->GetSettings();
   // выключаем реле насоса  
   WORK_STATUS.PinMode(PUMP_RELAY_PIN,OUTPUT);
   WORK_STATUS.PinWrite(PUMP_RELAY_PIN,RELAY_OFF);
-  bPumpIsOn = false;
+  flags.bPumpIsOn = false;
 #endif
 
     // настраиваем режим работы перед стартом
@@ -235,14 +235,14 @@ GlobalSettings* settings = MainController->GetSettings();
     
     if(currentWateringOption == wateringOFF) // если выключено автоуправление поливом
     {
-      workMode = wwmManual; // переходим в ручной режим работы
+      flags.workMode = wwmManual; // переходим в ручной режим работы
       #ifdef USE_WATERING_MANUAL_MODE_DIODE
       blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
       #endif
     }
     else
     {
-      workMode = wwmAutomatic; // иначе переходим в автоматический режим работы
+      flags.workMode = wwmAutomatic; // иначе переходим в автоматический режим работы
       #ifdef USE_WATERING_MANUAL_MODE_DIODE
       blinker.blink(); // гасим диод
       #endif
@@ -255,7 +255,7 @@ void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, 
 {
   unsigned long dt = _dt;
   
-   if(!bIsRTClockPresent)
+   if(!flags.bIsRTClockPresent)
    {
      // в системе нет модуля часов, в таких условиях мы можем работать только в ручном режиме.
      // поэтому в этой ситуации мы ничего не предпринимаем, поскольку автоматически деградируем
@@ -376,7 +376,7 @@ void WateringModule::HoldChannelState(int8_t channelIdx, WateringChannel* channe
 
     if(channelIdx == -1) // работаем со всеми каналами, пишем в пин только тогда, когда состояние реле поменялось
     {
-      if(channel->IsChanged() || internalNeedChange)
+      if(channel->IsChanged() || flags.internalNeedChange)
         for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
         {
           WORK_STATUS.PinWrite(WATER_RELAYS[i],state);  // сохраняем статус пинов
@@ -388,7 +388,7 @@ void WateringModule::HoldChannelState(int8_t channelIdx, WateringChannel* channe
 
     // работаем с одним каналом, пишем в пин только тогда, когда состояние реле поменялось
     
-    if(channel->IsChanged() || internalNeedChange)
+    if(channel->IsChanged() || flags.internalNeedChange)
     {
       WORK_STATUS.PinWrite(WATER_RELAYS[channelIdx],state); // сохраняем статус пина
       WORK_STATUS.SaveWaterChannelState(channelIdx,state); // сохраняем статус канала полива
@@ -398,7 +398,7 @@ void WateringModule::HoldChannelState(int8_t channelIdx, WateringChannel* channe
 
 bool WateringModule::IsAnyChannelActive(uint8_t wateringOption)
 {  
-   if(workMode == wwmManual) // в ручном режиме мы управляем только всеми каналами сразу
+   if(flags.workMode == wwmManual) // в ручном режиме мы управляем только всеми каналами сразу
     return dummyAllChannels.IsChannelRelayOn(); // поэтому смотрим состояние реле на всех каналах
 
     // в автоматическом режиме мы можем рулить как всеми каналами вместе (wateringOption == wateringWeekDays),
@@ -427,19 +427,19 @@ void WateringModule::HoldPumpState(bool anyChannelActive)
   // поддерживаем состояние реле насоса
   if(settings->GetTurnOnPump() != 1) // не надо включать насос
   {
-    if(bPumpIsOn) // если был включен - выключаем
+    if(flags.bPumpIsOn) // если был включен - выключаем
     {
-      bPumpIsOn = false;
+      flags.bPumpIsOn = false;
       WORK_STATUS.PinWrite(PUMP_RELAY_PIN,RELAY_OFF);
     }
     return; // и не будем ничего больше делать
   }
-    if(bPumpIsOn != anyChannelActive) // состояние изменилось, пишем в пин только при смене состояния
+    if(((bool)flags.bPumpIsOn) != anyChannelActive) // состояние изменилось, пишем в пин только при смене состояния
     {
-      bPumpIsOn = anyChannelActive;
+      flags.bPumpIsOn = anyChannelActive;
 
      // пишем в реле насоса вкл или выкл в зависимости от настройки "включать насос при поливе"
-      WORK_STATUS.PinWrite(PUMP_RELAY_PIN,bPumpIsOn ? RELAY_ON : RELAY_OFF);
+      WORK_STATUS.PinWrite(PUMP_RELAY_PIN,flags.bPumpIsOn ? RELAY_ON : RELAY_OFF);
     } 
 }
 #endif
@@ -447,7 +447,7 @@ void WateringModule::HoldPumpState(bool anyChannelActive)
 void WateringModule::Update(uint16_t dt)
 { 
 #ifdef USE_WATERING_MANUAL_MODE_DIODE
-   blinker.update();
+   blinker.update(dt);
 #endif
 
 #if WATER_RELAYS_COUNT > 0
@@ -456,7 +456,7 @@ uint8_t wateringOption = settings->GetWateringOption(); // получаем оп
 bool anyChActive = IsAnyChannelActive(wateringOption);
 
 SAVE_STATUS(WATER_STATUS_BIT, anyChActive ? 1 : 0); // сохраняем состояние полива
-SAVE_STATUS(WATER_MODE_BIT,workMode == wwmAutomatic ? 1 : 0); // сохраняем режим работы полива
+SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохраняем режим работы полива
 
 
 #ifdef USE_PUMP_RELAY
@@ -475,7 +475,7 @@ SAVE_STATUS(WATER_MODE_BIT,workMode == wwmAutomatic ? 1 : 0); // сохраня�
     {
       // начался новый день недели, принудительно переходим в автоматический режим работы
       // даже если до этого был включен полив командой от пользователя
-      workMode = wwmAutomatic;
+      flags.workMode = wwmAutomatic;
 
       //Тут затирание в EEPROM предыдущего сохранённого значения о статусе полива на всех каналах
       uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR;
@@ -491,14 +491,14 @@ SAVE_STATUS(WATER_MODE_BIT,workMode == wwmAutomatic ? 1 : 0); // сохраня�
 
     // модуль часов реального времени не включен в компиляцию, деградируем до ручного режима работы
     settings->SetWateringOption(wateringOFF); // отключим автоматический контроль полива
-    workMode = wwmManual; // переходим на ручное управление
+    flags.workMode = wwmManual; // переходим на ручное управление
     #ifdef USE_WATERING_MANUAL_MODE_DIODE
     blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
     #endif
  
   #endif
   
-  if(workMode == wwmAutomatic)
+  if(flags.workMode == wwmAutomatic)
   {
     // автоматический режим работы
  
@@ -506,7 +506,7 @@ SAVE_STATUS(WATER_MODE_BIT,workMode == wwmAutomatic ? 1 : 0); // сохраня�
     switch(wateringOption)
     {
       case wateringOFF: // автоматическое управление поливом выключено, значит, мы должны перейти в ручной режим работы
-          workMode = wwmManual; // переходим в ручной режим работы
+          flags.workMode = wwmManual; // переходим в ручной режим работы
           #ifdef USE_WATERING_MANUAL_MODE_DIODE
           blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
           #endif
@@ -577,7 +577,7 @@ SAVE_STATUS(WATER_MODE_BIT,workMode == wwmAutomatic ? 1 : 0); // сохраня�
   // таким образом, код перехода на новый день недели выполнится всего один раз при каждом переходе
   // через день недели.
 
-  internalNeedChange = false;
+  flags.internalNeedChange = false;
 
 #else
 UNUSED(dt);
@@ -627,7 +627,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
 
               if(wateringOption == wateringOFF) // если выключено автоуправление поливом
               {
-                workMode = wwmManual; // переходим в ручной режим работы
+                flags.workMode = wwmManual; // переходим в ручной режим работы
                 #if WATER_RELAYS_COUNT > 0
                 dummyAllChannels.SetRelayOn(false); // принудительно гасим полив на всех каналах
                 #endif
@@ -638,7 +638,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               }
               else
               {
-                workMode = wwmAutomatic; // иначе переходим в автоматический режим работы
+                flags.workMode = wwmAutomatic; // иначе переходим в автоматический режим работы
                 #ifdef USE_WATERING_MANUAL_MODE_DIODE
                 blinker.blink(); // гасим диод
                 #endif
@@ -704,8 +704,8 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
            
            if(param == WM_AUTOMATIC)
            {
-             workMode = wwmAutomatic; // переходим в автоматический режим работы
-             internalNeedChange = true; // говорим, что надо перезаписать в пины реле
+             flags.workMode = wwmAutomatic; // переходим в автоматический режим работы
+             flags.internalNeedChange = true; // говорим, что надо перезаписать в пины реле
              
              #ifdef USE_WATERING_MANUAL_MODE_DIODE
              blinker.blink(); // гасим диод
@@ -713,7 +713,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
            }
            else
            {
-            workMode = wwmManual; // переходим на ручной режим работы
+            flags.workMode = wwmManual; // переходим на ручной режим работы
             #ifdef USE_WATERING_MANUAL_MODE_DIODE
             blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
             #endif
@@ -731,7 +731,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         {
           if(!command.IsInternal()) // если команда от юзера, то
           {
-            workMode = wwmManual; // переходим в ручной режим работы
+            flags.workMode = wwmManual; // переходим в ручной режим работы
             #ifdef USE_WATERING_MANUAL_MODE_DIODE
             blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
             #endif
@@ -755,7 +755,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         {
           if(!command.IsInternal()) // если команда от юзера, то
           {
-            workMode = wwmManual; // переходим в ручной режим работы
+            flags.workMode = wwmManual; // переходим в ручной режим работы
             #ifdef USE_WATERING_MANUAL_MODE_DIODE
             blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
             #endif
@@ -790,7 +790,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
       #else
       PublishSingleton = STATE_OFF;
       #endif
-      PublishSingleton << PARAM_DELIMITER << (workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
+      PublishSingleton << PARAM_DELIMITER << (flags.workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
     }
     else
     {
@@ -822,7 +822,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         {
           PublishSingleton.Status = true;
           PublishSingleton = WORK_MODE; 
-          PublishSingleton << PARAM_DELIMITER << (workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
+          PublishSingleton << PARAM_DELIMITER << (flags.workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
         }
         else
         {

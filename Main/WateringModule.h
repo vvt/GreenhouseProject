@@ -13,24 +13,42 @@ typedef enum
   
 } WateringWorkMode; // режим работы полива
 
+
+typedef struct
+{
+  
+  bool rel_on : 1; // включено ли реле канала?
+  bool last_rel_on : 1; // последнее состояние реле канала
+  byte pad : 6;
+    
+} WateringChannelState;
+
 class WateringChannel // канал для полива
 {
   
 private:
-  
-  bool rel_on; // включено ли реле канала?
-  bool last_rel_on; // последнее состояние реле канала
+
+  WateringChannelState state;
 
 public:
 
-  bool IsChannelRelayOn() {return rel_on;}
-  void SetRelayOn(bool bOn) { last_rel_on = rel_on; rel_on = bOn; }
-  bool IsChanged() {return last_rel_on != rel_on; }
+  bool IsChannelRelayOn() {return state.rel_on;}
+  void SetRelayOn(bool bOn) { state.last_rel_on = state.rel_on; state.rel_on = bOn; }
+  bool IsChanged() {return state.last_rel_on != state.rel_on; }
   
   unsigned long WateringTimer; // таймер полива для канала
   unsigned long WateringDelta; // дельта дополива
     
-}; 
+};
+
+typedef struct
+{
+  uint8_t workMode : 5; // текущий режим работы
+  bool bIsRTClockPresent : 1; // флаг наличия модуля часов реального времени
+  bool bPumpIsOn : 1;
+  bool internalNeedChange : 1;
+  
+} WateringModuleFlags;
 
 class WateringModule : public AbstractModule // модуль управления поливом
 {
@@ -44,21 +62,21 @@ class WateringModule : public AbstractModule // модуль управлени�
   void HoldChannelState(int8_t channelIdx, WateringChannel* channel);  // поддерживаем состояние реле для канала.
   bool IsAnyChannelActive(uint8_t wateringOption); // возвращает true, если хотя бы один из каналов активен
 
-  bool internalNeedChange;
 
   #endif
 
 
  // GlobalSettings* settings; // настройки
 
-  uint8_t workMode; // текущий режим работы
 
   int8_t lastAnyChannelActiveFlag; // флаг последнего состояния активности каналов
 
+  WateringModuleFlags flags;
+   
   uint8_t lastDOW; // день недели с момента предыдущего опроса
   uint8_t currentDOW; // текущий день недели
   uint8_t currentHour; // текущий час
-  bool bIsRTClockPresent; // флаг наличия модуля часов реального времени
+  
 #ifdef USE_WATERING_MANUAL_MODE_DIODE
   BlinkModeInterop blinker;
 #endif
@@ -67,7 +85,6 @@ class WateringModule : public AbstractModule // модуль управлени�
 
 #ifdef USE_PUMP_RELAY   
    void HoldPumpState(bool anyChannelActive); // поддерживаем состояние реле насоса
-   bool bPumpIsOn;
 #endif
 
     

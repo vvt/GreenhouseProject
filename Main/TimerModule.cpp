@@ -6,9 +6,9 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 PeriodicTimer::PeriodicTimer()
 {
-  isHoldOnTimer = true;
+  flags.isHoldOnTimer = true;
   tTimer = 0;
-  lastPinState = 0xFF;
+  flags.lastPinState = 3;
   memset(&Settings,0,sizeof(Settings));
 }
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -17,9 +17,9 @@ void PeriodicTimer::On()
   if(!Settings.Pin)
     return;
 
-  if(lastPinState != TIMER_ON)
+  if(flags.lastPinState != TIMER_ON)
   {
-    lastPinState = TIMER_ON;
+    flags.lastPinState = TIMER_ON;
     WORK_STATUS.PinWrite(Settings.Pin,TIMER_ON);
   }
      
@@ -30,9 +30,9 @@ void PeriodicTimer::Off()
   if(!Settings.Pin)
     return;
 
-  if(lastPinState != TIMER_OFF)
+  if(flags.lastPinState != TIMER_OFF)
   {
-    lastPinState = TIMER_OFF;
+    flags.lastPinState = TIMER_OFF;
     WORK_STATUS.PinWrite(Settings.Pin,TIMER_OFF);
   }
      
@@ -80,7 +80,7 @@ void PeriodicTimer::Update(uint16_t dt)
   unsigned long tCompare = 0;
 
   // теперь смотрим, какой интервал мы обрабатываем
-  if(isHoldOnTimer)
+  if(flags.isHoldOnTimer)
   {
     // ждём истекания интервала включения
     tCompare = Settings.HoldOnTime;
@@ -90,7 +90,7 @@ void PeriodicTimer::Update(uint16_t dt)
     {
       Off();
       tTimer = 0;
-      isHoldOnTimer = false;
+      flags.isHoldOnTimer = false;
     }
   }
   else
@@ -102,7 +102,7 @@ void PeriodicTimer::Update(uint16_t dt)
       {
         On();
         tTimer = 0;
-        isHoldOnTimer = true;
+        flags.isHoldOnTimer = true;
       }
   } // else
   

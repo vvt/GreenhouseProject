@@ -52,6 +52,13 @@ class BH1750Support
     long GetCurrentLuminosity();
 };
 
+typedef struct
+{
+  uint8_t workMode : 6;
+  bool bRelaysIsOn : 1; // включены ли реле досветки?
+  bool bLastRelaysIsOn : 1; // флаг последнего состояния досветки
+  
+} LuminosityModuleFlags;
 
 class LuminosityModule : public AbstractModule // модуль управления освещенностью
 {
@@ -70,11 +77,8 @@ class LuminosityModule : public AbstractModule // модуль управлен�
   BH1750Support lightMeter2; // второй датчик освещенности
   #endif
 
-  uint8_t workMode;
-  bool bRelaysIsOn; // включены ли реле досветки?
-  bool bLastRelaysIsOn; // флаг последнего состояния досветки
   uint16_t lastUpdateCall;
-
+  LuminosityModuleFlags flags;
     
   public:
     LuminosityModule() : AbstractModule("LIGHT")

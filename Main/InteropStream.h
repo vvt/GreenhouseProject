@@ -41,18 +41,24 @@ extern InteropStream ModuleInterop;
 class BlinkModeInterop
 {
   private:
+  /*
     uint16_t lastBlinkInterval; // последний интервал, с которым мигаем
     uint8_t pin; // пин, на котором диод
     String loopName; // имя периодически выполняемой операции
   //  String pinCommand;
     bool needUpdate;
+  */
+  uint16_t blinkInterval;
+  uint16_t timer;
+  uint8_t pin;
+  uint8_t pinState;
   
   public:
     BlinkModeInterop();
 
-    void begin(uint8_t pin, const String& loopName); // запоминаем настройки
+    void begin(uint8_t pin);//, const String& loopName); // запоминаем настройки
     void blink(uint16_t interval=0); // мигаем диодом
-    void update(); // обновляем состояние
+    void update(uint16_t dt); // обновляем состояние
 };
 
 #endif

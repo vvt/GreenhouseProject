@@ -14,20 +14,20 @@ PushButton::PushButton(uint8_t _pin)
   OnInactive = NULL;
   OnRetention = NULL;
   
-  atLeastOneStateChangesFound = false;
+  state.atLeastOneStateChangesFound = false;
 
-  click_down      = false;
-  click_up        = false;
-  doubleclick     = false;
-  timer           = false;
-  retention       = false;
+  state.click_down      = false;
+  state.click_up        = false;
+  state.doubleclick     = false;
+  state.timer           = false;
+  state.retention       = false;
 
-  clickCounter  =     0;
+  state.clickCounter  =     0;
   
-  lastBounce  =      false;
-  lastDoubleClick =  false;
-  lastTimer  =        false;
-  lastRetention  =    false;
+  state.lastBounce  =      false;
+  state.lastDoubleClick =  false;
+  state.lastTimer  =        false;
+  state.lastRetention  =    false;
   
   lastMillis  =      millis();
 }
@@ -46,7 +46,7 @@ void PushButton::init(void* _userData
   OnInactive = _onInactive;
   OnRetention = _onRetention;
   
-  lastButtonState  = readButtonState(buttonPin);
+  state.lastButtonState  = readButtonState(buttonPin);
 }
 //--------------------------------------------------------------------------------------------------
 void PushButton::update()
@@ -59,21 +59,21 @@ void PushButton::update()
   bool curRetention  = false;
 
   // сбрасываем все флаги
-  click_down  = false;
-  click_up    = false;
-  doubleclick = false;
-  timer       = false;
-  retention   = false;
+  state.click_down  = false;
+  state.click_up    = false;
+  state.doubleclick = false;
+  state.timer       = false;
+  state.retention   = false;
 
 
   unsigned long curMillis = millis();
   unsigned long millisDelta = curMillis - lastMillis;
   uint8_t curButtonState = readButtonState(buttonPin); // читаем текущее состояние
 
- if (curButtonState != lastButtonState) // состояние изменилось
+ if (curButtonState != state.lastButtonState) // состояние изменилось
   {
-    atLeastOneStateChangesFound = true; // было хотя бы одно изменение в состоянии (нужно для того, чтобы не было события "clicked", когда кнопку не нажимали ни разу)
-    lastButtonState = curButtonState; // сохраняем его
+    state.atLeastOneStateChangesFound = true; // было хотя бы одно изменение в состоянии (нужно для того, чтобы не было события "clicked", когда кнопку не нажимали ни разу)
+    state.lastButtonState = curButtonState; // сохраняем его
     lastMillis = curMillis; // и время последнего обновления
   }
 
@@ -83,39 +83,39 @@ void PushButton::update()
   if (millisDelta > DOUBLECLICK_INTERVAL) // надо проверить на даблклик
     curDoubleClick = true;
 
-  if (curDoubleClick != lastDoubleClick) // состояние даблклика с момента последней проверки изменилось
+  if (curDoubleClick != state.lastDoubleClick) // состояние даблклика с момента последней проверки изменилось
   {
-    lastDoubleClick = curDoubleClick; // сохраняем текущее
-    if (lastDoubleClick) // проверяем - если кнопка не нажата, то сбрасываем счётчик нажатий 
-      clickCounter = 0;
+    state.lastDoubleClick = curDoubleClick; // сохраняем текущее
+    if (state.lastDoubleClick) // проверяем - если кнопка не нажата, то сбрасываем счётчик нажатий 
+      state.clickCounter = 0;
   }
 
-  if (curBounce != lastBounce) // состояние проверки дребезга изменилось
+  if (curBounce != state.lastBounce) // состояние проверки дребезга изменилось
   {
-    lastBounce = curBounce; // сохраняем текущее
+    state.lastBounce = curBounce; // сохраняем текущее
 
-    if (!lastButtonState && !curBounce) // если кнопка была нажата в момент последнего замера и сейчас - значит, дребезг прошёл и мы можем сохранять состояние
+    if (!state.lastButtonState && !curBounce) // если кнопка была нажата в момент последнего замера и сейчас - значит, дребезг прошёл и мы можем сохранять состояние
     {
-      click_down = true; // выставляем флаг, что кнопка нажата
+      state.click_down = true; // выставляем флаг, что кнопка нажата
 
       if(OnPress)
         OnPress(*this,userData);
       
-      ++clickCounter; // увеличиваем счётчик кликов
+      ++state.clickCounter; // увеличиваем счётчик кликов
       
-      if (clickCounter == 2) // если кликнули два раза
+      if (state.clickCounter == 2) // если кликнули два раза
       {
-        clickCounter = 0;  // сбрасываем счётчик кликов
-        doubleclick = true; // и выставляем флаг двойного нажатия
+        state.clickCounter = 0;  // сбрасываем счётчик кликов
+        state.doubleclick = true; // и выставляем флаг двойного нажатия
         
         if(OnDoubleClick)
           OnDoubleClick(*this,userData);
       }
     }
 
-    click_up = lastButtonState && lastBounce && atLeastOneStateChangesFound; // кнопка отпущена тогда, когда последний замер и текущий - равны 1 (пин подтянут к питанию!), и был хотя бы один клик на кнопке
+    state.click_up = state.lastButtonState && state.lastBounce && state.atLeastOneStateChangesFound; // кнопка отпущена тогда, когда последний замер и текущий - равны 1 (пин подтянут к питанию!), и был хотя бы один клик на кнопке
     
-    if(click_up && OnClick)
+    if(state.click_up && OnClick)
       OnClick(*this,userData);
 
   }
@@ -123,24 +123,24 @@ void PushButton::update()
   if (millisDelta > INACTIVITY_INTERVAL) // пора проверять неактивность
     curTimer = true;
     
-  if (curTimer != lastTimer) // состояние неактивности изменилось с момента последнего замера?
+  if (curTimer != state.lastTimer) // состояние неактивности изменилось с момента последнего замера?
   {
-    lastTimer = curTimer; // сохраняем текущее
-    timer = lastButtonState && lastTimer && atLeastOneStateChangesFound; // кнопка неактивна тогда, когда не была нажата с момента последнего опроса этого состояния
+    state.lastTimer = curTimer; // сохраняем текущее
+    state.timer = state.lastButtonState && state.lastTimer && state.atLeastOneStateChangesFound; // кнопка неактивна тогда, когда не была нажата с момента последнего опроса этого состояния
 
-    if(timer && OnInactive)
+    if(state.timer && OnInactive)
       OnInactive(*this,userData);
   }
 
   if (millisDelta > RETENTION_INTERVAL) // пора проверять удержание
     curRetention = true;
 
-  if (curRetention != lastRetention) // если состояние изменилось
+  if (curRetention != state.lastRetention) // если состояние изменилось
   {
-    lastRetention = curRetention; // сохраняем его
-    retention = !lastButtonState && lastRetention && atLeastOneStateChangesFound; // и считаем кнопку удерживаемой, когда она нажата сейчас и была нажата до этого
+    state.lastRetention = curRetention; // сохраняем его
+    state.retention = !state.lastButtonState && state.lastRetention && state.atLeastOneStateChangesFound; // и считаем кнопку удерживаемой, когда она нажата сейчас и была нажата до этого
     
-    if(retention && OnRetention)
+    if(state.retention && OnRetention)
       OnRetention(*this,userData); 
   }
   

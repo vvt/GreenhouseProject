@@ -27,6 +27,16 @@ typedef enum
 
 typedef Vector<SMSActions> SMSActionsVector;
 
+typedef struct
+{
+    bool waitForSMSInNextLine : 1;
+    bool isModuleRegistered : 1; // зарегистрирован ли модуль у оператора?
+    bool isAnyAnswerReceived : 1;
+    bool inRebootMode : 1;
+    byte pad : 4;
+      
+} SMSModuleFlags;
+
 class SMSModule : public AbstractModule, public Stream // модуль поддержки управления по SMS
 {
   private:
@@ -41,29 +51,27 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
 
     String* cusdSMS;
     String* smsToSend; // какое SMS отправить
-    String commandToSend; // какую команду сперва отправить для отсыла SMS
-    bool waitForSMSInNextLine;
+    String* commandToSend; // какую команду сперва отправить для отсыла SMS
 
-    String queuedWindowCommand; // команда на выполнение управления окнами, должна выполняться только когда окна не в движении
+    String* queuedWindowCommand; // команда на выполнение управления окнами, должна выполняться только когда окна не в движении
     uint16_t queuedTimer; // таймер, чтобы не дёргать часто проверку состояния окон - это незачем
     void ProcessQueuedWindowCommand(uint16_t dt); // обрабатываем команду управления окнами, помещенную в очередь
 
     long needToWaitTimer; // таймер ожидания до запроса следующей команды
-    bool isModuleRegistered; // зарегистрирован ли модуль у оператора?
 
     void ProcessIncomingCall(const String& line); // обрабатываем входящий звонок
     void ProcessIncomingSMS(const String& line); // обрабатываем входящее СМС
 
     void RequestBalance();
 
-    String customSMSCommandAnswer;
+    String* customSMSCommandAnswer;
 
     unsigned long sendCommandTime, answerWaitTimer;
-    bool isAnyAnswerReceived;
 
     void RebootModem(); // перезагружаем модем
     unsigned long rebootStartTime;
-    bool inRebootMode;
+
+    SMSModuleFlags flags;
         
   public:
     SMSModule() : AbstractModule("SMS") {}

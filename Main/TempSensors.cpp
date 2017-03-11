@@ -48,8 +48,8 @@ bool WindowState::ChangePosition(uint8_t dir, unsigned long newPos)
        TimerInterval = newPos - CurrentPosition;
        TimerTicks = 0;
        RequestedPosition = newPos;
-       Direction = dir;
-       OnMyWay = true; // поогнали!
+       flags.Direction = dir;
+       flags.OnMyWay = true; // поогнали!
        bRet = true;
 
        //Serial.println("OPEN FROM POSITION " + String(CurrentPosition) + " to " + String(newPos));
@@ -67,8 +67,8 @@ bool WindowState::ChangePosition(uint8_t dir, unsigned long newPos)
         TimerInterval = CurrentPosition - newPos;
         TimerTicks = 0;
         RequestedPosition = newPos;
-        Direction = dir;
-        OnMyWay = true; // поогнали!
+        flags.Direction = dir;
+        flags.OnMyWay = true; // поогнали!
         bRet = true;
 
        // Serial.println("CLOSE FROM POSITION " + String(CurrentPosition) + " to " + String(newPos));
@@ -91,7 +91,7 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
 void WindowState::UpdateState(uint16_t dt)
 {
   
-    if(!OnMyWay) // ничего не делаем
+    if(!flags.OnMyWay) // ничего не делаем
     {
       SwitchRelays(); // держим реле выключенными
       return;
@@ -99,7 +99,7 @@ void WindowState::UpdateState(uint16_t dt)
 
    uint8_t bRelay1State, bRelay2State; // состояние выходов реле
    
-   switch(Direction)
+   switch(flags.Direction)
    {
       case dirOPEN:
         bRelay1State = RELAY_ON; // крутимся в одну сторону
@@ -128,12 +128,12 @@ void WindowState::UpdateState(uint16_t dt)
         CurrentPosition = RequestedPosition; // сохранили текущую позицию
         TimerInterval = 0; // обнуляем интервал
         TimerTicks = 0; // и таймер
-        Direction = dirNOTHING; // уже никуда не движемся
+        flags.Direction = dirNOTHING; // уже никуда не движемся
 
         //ВЫКЛЮЧАЕМ РЕЛЕ
         SwitchRelays();
         
-        OnMyWay = false;
+        flags.OnMyWay = false;
 
         // говорим, что мы сменили позицию
         SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);
@@ -265,7 +265,7 @@ void TempSensors::Setup()
    workMode = wmAutomatic; // автоматический режим работы по умолчанию
    
 #ifdef USE_WINDOWS_MANUAL_MODE_DIODE
-  blinker.begin(DIODE_WINDOWS_MANUAL_MODE_PIN,F("SM"));  // настраиваем блинкер на нужный пин
+  blinker.begin(DIODE_WINDOWS_MANUAL_MODE_PIN);//,F("SM"));  // настраиваем блинкер на нужный пин
 #endif  
 
 
@@ -354,7 +354,7 @@ void TempSensors::Setup()
 void TempSensors::Update(uint16_t dt)
 { 
 #ifdef USE_WINDOWS_MANUAL_MODE_DIODE
-  blinker.update();
+  blinker.update(dt);
 #endif  
 
   for(uint8_t i=0;i<SUPPORTED_WINDOWS;i++) // обновляем каналы управления фрамугами

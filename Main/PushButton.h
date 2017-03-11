@@ -11,6 +11,26 @@
 class PushButton;
 typedef void (*PushButtonEvent)(const PushButton& Sender, void* UserData);
 //--------------------------------------------------------------------------------------------------
+typedef struct
+{
+  bool  lastBounce : 1;
+  bool  lastTimer : 1;
+  bool  lastRetention : 1;
+  bool click_down : 1; // нажата?
+  bool click_up : 1; // нажата и отпущена?
+  bool doubleclick : 1; // два раза нажата и отпущена?
+  bool timer : 1; // неактивна в течение установленного интервала?
+  bool retention : 1; // нажата и удерживается в течение установленного интервала?  
+
+  uint8_t  lastButtonState : 1;
+  bool atLeastOneStateChangesFound : 1;
+  bool lastDoubleClick : 1;
+  uint8_t clickCounter : 5;
+
+  
+} PushButtonState;
+//--------------------------------------------------------------------------------------------------
+
 class PushButton
 {
  public:
@@ -28,11 +48,11 @@ class PushButton
     );    
     void update(); // обновляем внутреннее состояние
     
-    bool isPressed() { return click_down; }
-    bool isClicked() { return click_up; }
-    bool isDoubleClicked() { return doubleclick; }
-    bool isInactive() { return timer; }
-    bool isRetention() { return retention; }
+    bool isPressed() { return state.click_down; }
+    bool isClicked() { return state.click_up; }
+    bool isDoubleClicked() { return state.doubleclick; }
+    bool isInactive() { return state.timer; }
+    bool isRetention() { return state.retention; }
 
 
  private:
@@ -44,23 +64,11 @@ class PushButton
   PushButtonEvent OnInactive; // событие - кнопка неактивна в течение настроенного интервала
   PushButtonEvent OnRetention; // событие - кнопка нажата и удерживается определённое время
   
+  byte buttonPin; // пин, на котором висит кнопка
   
   unsigned long lastMillis;
-  uint8_t  lastButtonState;
-  bool  lastBounce;
-  bool lastDoubleClick;
-  uint8_t     clickCounter;
-  bool  lastTimer;
-  bool  lastRetention;
-  bool atLeastOneStateChangesFound;
 
-  byte buttonPin; // пин, на котором висит кнопка
-
-  bool click_down; // нажата?
-  bool click_up; // нажата и отпущена?
-  bool doubleclick; // два раза нажата и отпущена?
-  bool timer; // неактивна в течение установленного интервала?
-  bool retention; // нажата и удерживается в течение установленного интервала?
+  PushButtonState state;
 
 
  protected:   

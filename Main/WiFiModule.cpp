@@ -361,32 +361,13 @@ void WiFiModule::Setup()
 {
   // настройка модуля тут
   
-  Settings = MainController->GetSettings();
-  nextClientIDX = 0;
-  currentClientIDX = 0;
-  inSendData = false;
+ // Settings = MainController->GetSettings();
   
   for(uint8_t i=0;i<MAX_WIFI_CLIENTS;i++)
     clients[i].Setup(i, WIFI_PACKET_LENGTH);
 
- // waitForQueryCompleted = false;
-  WaitForDataWelcome = false; // не ждём приглашения
 
-  // настраиваем то, что мы должны сделать
-  currentAction = wfaIdle; // свободны, ничего не делаем
-  
-  if(Settings->GetWiFiState() & 0x01) // коннектимся к роутеру
-    actionsQueue.push_back(wfaCWJAP); // коннектимся к роутеру совсем в конце
-  else  
-    actionsQueue.push_back(wfaCWQAP); // отсоединяемся от роутера
-    
-  actionsQueue.push_back(wfaCIPSERVER); // сервер поднимаем в последнюю очередь
-  actionsQueue.push_back(wfaCIPMUX); // разрешаем множественные подключения
-  actionsQueue.push_back(wfaCIPMODE); // устанавливаем режим работы
-  actionsQueue.push_back(wfaCWSAP); // создаём точку доступа
-  actionsQueue.push_back(wfaCWMODE); // // переводим в смешанный режим
-  actionsQueue.push_back(wfaEchoOff); // выключаем эхо
-  actionsQueue.push_back(wfaWantReady); // надо получить ready от модуля
+  InitQueue(); // инициализируем очередь
 
 
   // поднимаем сериал
@@ -407,6 +388,39 @@ void WiFiModule::Setup()
   } 
 
 }
+
+void WiFiModule::InitQueue()
+{
+
+  while(actionsQueue.size() > 0) // чистим очередь 
+    actionsQueue.pop();
+
+  WaitForDataWelcome = false; // не ждём приглашения
+  
+  nextClientIDX = 0;
+  currentClientIDX = 0;
+  inSendData = false;
+
+  // настраиваем то, что мы должны сделать
+  currentAction = wfaIdle; // свободны, ничего не делаем
+
+GlobalSettings* Settings = MainController->GetSettings();
+  
+  if(Settings->GetWiFiState() & 0x01) // коннектимся к роутеру
+    actionsQueue.push_back(wfaCWJAP); // коннектимся к роутеру совсем в конце
+  else  
+    actionsQueue.push_back(wfaCWQAP); // отсоединяемся от роутера
+    
+  actionsQueue.push_back(wfaCIPSERVER); // сервер поднимаем в последнюю очередь
+  actionsQueue.push_back(wfaCIPMUX); // разрешаем множественные подключения
+  actionsQueue.push_back(wfaCIPMODE); // устанавливаем режим работы
+  actionsQueue.push_back(wfaCWSAP); // создаём точку доступа
+  actionsQueue.push_back(wfaCWMODE); // // переводим в смешанный режим
+  actionsQueue.push_back(wfaEchoOff); // выключаем эхо
+  actionsQueue.push_back(wfaWantReady); // надо получить ready от модуля    
+  
+}
+
 void WiFiModule::SendCommand(const String& command, bool addNewLine)
 {
   #ifdef WIFI_DEBUG
@@ -474,6 +488,8 @@ void WiFiModule::ProcessQueue()
       #ifdef WIFI_DEBUG
         WIFI_DEBUG_WRITE(F("Creating the access point..."),currentAction);
       #endif
+
+        GlobalSettings* Settings = MainController->GetSettings();
       
         String com = F("AT+CWSAP_DEF=\"");
         com += Settings->GetStationID();
@@ -531,6 +547,9 @@ void WiFiModule::ProcessQueue()
       #ifdef WIFI_DEBUG
         WIFI_DEBUG_WRITE(F("Connecting to the router..."),currentAction);
       #endif
+
+        GlobalSettings* Settings = MainController->GetSettings();
+        
         String com = F("AT+CWJAP_DEF=\"");
         com += Settings->GetRouterID();
         com += F("\",\"");
@@ -689,6 +708,8 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
       {
         if(argsCnt > 5)
         {
+          GlobalSettings* Settings = MainController->GetSettings();
+          
           int shouldConnectToRouter = atoi(command.GetArg(1));
           String routerID = command.GetArg(2);
           String routerPassword = command.GetArg(3);

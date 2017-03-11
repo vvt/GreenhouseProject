@@ -85,15 +85,15 @@ void LuminosityModule::Setup()
   // настройка модуля тут
   //settings = MainController->GetSettings();
 
-  workMode = lightAutomatic; // автоматический режим работы
-  bRelaysIsOn = false; // все реле выключены
-  bLastRelaysIsOn = false; // состояние не изменилось
+  flags.workMode = lightAutomatic; // автоматический режим работы
+  flags.bRelaysIsOn = false; // все реле выключены
+  flags.bLastRelaysIsOn = false; // состояние не изменилось
   
   SAVE_STATUS(LIGHT_STATUS_BIT,0); // сохраняем, что досветка выключена
   SAVE_STATUS(LIGHT_MODE_BIT,1); // сохраняем, что мы в автоматическом режиме работы
   
 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
-  blinker.begin(DIODE_LIGHT_MANUAL_MODE_PIN,F("LX")); // настраиваем блинкер на нужный пин
+  blinker.begin(DIODE_LIGHT_MANUAL_MODE_PIN);//,F("LX")); // настраиваем блинкер на нужный пин
 #endif
 
   #if LAMP_RELAYS_COUNT > 0
@@ -112,19 +112,19 @@ void LuminosityModule::Update(uint16_t dt)
 { 
   // обновление модуля тут
 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
-    blinker.update();
+    blinker.update(dt);
 #endif
 
  // обновляем состояние всех реле управления досветкой
- if(bLastRelaysIsOn != bRelaysIsOn) // только если состояние с момента последнего опроса изменилось
+ if(flags.bLastRelaysIsOn != flags.bRelaysIsOn) // только если состояние с момента последнего опроса изменилось
  {
-    bLastRelaysIsOn = bRelaysIsOn; // сохраняем текущее
+    flags.bLastRelaysIsOn = flags.bRelaysIsOn; // сохраняем текущее
 
     #if LAMP_RELAYS_COUNT > 0
       for(uint8_t i=0;i<LAMP_RELAYS_COUNT;i++)
       {
-        WORK_STATUS.PinWrite(LAMP_RELAYS[i],bRelaysIsOn ? RELAY_ON : RELAY_OFF); // пишем в пин нужное состояние
-        WORK_STATUS.SaveLightChannelState(i,bRelaysIsOn ? RELAY_ON : RELAY_OFF);    
+        WORK_STATUS.PinWrite(LAMP_RELAYS[i],flags.bRelaysIsOn ? RELAY_ON : RELAY_OFF); // пишем в пин нужное состояние
+        WORK_STATUS.SaveLightChannelState(i,flags.bRelaysIsOn ? RELAY_ON : RELAY_OFF);    
       } // for
     #endif 
  } // if
@@ -170,7 +170,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
           
           // попросили включить досветку
           if(command.IsInternal() // если команда пришла от другого модуля
-          && workMode == lightManual)  // и мы в ручном режиме, то
+          && flags.workMode == lightManual)  // и мы в ручном режиме, то
           {
             // просто игнорируем команду, потому что нами управляют в ручном режиме
           } // if
@@ -178,20 +178,20 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
            {
               if(!command.IsInternal()) // пришла команда от пользователя,
               {
-                workMode = lightManual; // переходим на ручной режим работы
+                flags.workMode = lightManual; // переходим на ручной режим работы
                 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
                 // мигаем светодиодом на 8 пине
                 blinker.blink(WORK_MODE_BLINK_INTERVAL);
                 #endif
               }
 
-            if(!bRelaysIsOn)
+            if(!flags.bRelaysIsOn)
             {
               // значит - досветка была выключена и будет включена, надо записать в лог событие
               MainController->Log(this,s); 
             }
 
-            bRelaysIsOn = true; // включаем реле досветки
+            flags.bRelaysIsOn = true; // включаем реле досветки
             
             PublishSingleton.Status = true;
             if(wantAnswer) 
@@ -201,8 +201,8 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
             
            } // else
  
-            SAVE_STATUS(LIGHT_STATUS_BIT,bRelaysIsOn ? 1 : 0); // сохраняем состояние досветки
-            SAVE_STATUS(LIGHT_MODE_BIT,workMode == lightAutomatic ? 1 : 0); // сохраняем режим работы досветки
+            SAVE_STATUS(LIGHT_STATUS_BIT,flags.bRelaysIsOn ? 1 : 0); // сохраняем состояние досветки
+            SAVE_STATUS(LIGHT_MODE_BIT,flags.workMode == lightAutomatic ? 1 : 0); // сохраняем режим работы досветки
           
          } // STATE_ON
          else
@@ -210,7 +210,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
          {
           // попросили выключить досветку
           if(command.IsInternal() // если команда пришла от другого модуля
-          && workMode == lightManual)  // и мы в ручном режиме, то
+          && flags.workMode == lightManual)  // и мы в ручном режиме, то
           {
             // просто игнорируем команду, потому что нами управляют в ручном режиме
            } // if
@@ -218,20 +218,20 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
            {
               if(!command.IsInternal()) // пришла команда от пользователя,
               {
-                workMode = lightManual; // переходим на ручной режим работы
+                flags.workMode = lightManual; // переходим на ручной режим работы
                 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
                 // мигаем светодиодом на 8 пине
                 blinker.blink(WORK_MODE_BLINK_INTERVAL);
                 #endif
               }
 
-            if(bRelaysIsOn)
+            if(flags.bRelaysIsOn)
             {
               // значит - досветка была включена и будет выключена, надо записать в лог событие
               MainController->Log(this,s); 
             }
 
-            bRelaysIsOn = false; // выключаем реле досветки
+            flags.bRelaysIsOn = false; // выключаем реле досветки
             
             PublishSingleton.Status = true;
             if(wantAnswer) 
@@ -240,8 +240,8 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
             
            } // else
 
-            SAVE_STATUS(LIGHT_STATUS_BIT,bRelaysIsOn ? 1 : 0); // сохраняем состояние досветки
-            SAVE_STATUS(LIGHT_MODE_BIT,workMode == lightAutomatic ? 1 : 0); // сохраняем режим работы досветки
+            SAVE_STATUS(LIGHT_STATUS_BIT,flags.bRelaysIsOn ? 1 : 0); // сохраняем состояние досветки
+            SAVE_STATUS(LIGHT_MODE_BIT,flags.workMode == lightAutomatic ? 1 : 0); // сохраняем режим работы досветки
 
          } // STATE_OFF
          else
@@ -254,7 +254,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
               if(s == WM_MANUAL)
               {
                 // попросили перейти в ручной режим работы
-                workMode = lightManual; // переходим на ручной режим работы
+                flags.workMode = lightManual; // переходим на ручной режим работы
                 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
                  // мигаем светодиодом на 8 пине
                blinker.blink(WORK_MODE_BLINK_INTERVAL);
@@ -264,7 +264,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
               if(s == WM_AUTOMATIC)
               {
                 // попросили перейти в автоматический режим работы
-                workMode = lightAutomatic; // переходим на автоматический режим работы
+                flags.workMode = lightAutomatic; // переходим на автоматический режим работы
                 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
                  // гасим диод на 8 пине
                 blinker.blink();
@@ -275,11 +275,11 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
               if(wantAnswer)
               {
                 PublishSingleton = WORK_MODE; 
-                PublishSingleton << PARAM_DELIMITER << (workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
+                PublishSingleton << PARAM_DELIMITER << (flags.workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
               }
 
-            SAVE_STATUS(LIGHT_STATUS_BIT,bRelaysIsOn ? 1 : 0); // сохраняем состояние досветки
-            SAVE_STATUS(LIGHT_MODE_BIT,workMode == lightAutomatic ? 1 : 0); // сохраняем режим работы досветки
+            SAVE_STATUS(LIGHT_STATUS_BIT,flags.bRelaysIsOn ? 1 : 0); // сохраняем состояние досветки
+            SAVE_STATUS(LIGHT_MODE_BIT,flags.workMode == lightAutomatic ? 1 : 0); // сохраняем режим работы досветки
               
            } // if (argsCnt > 1)
          } // WORK_MODE
@@ -339,7 +339,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
           if(wantAnswer) 
           {
             PublishSingleton = WORK_MODE;
-            PublishSingleton << PARAM_DELIMITER << (workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
+            PublishSingleton << PARAM_DELIMITER << (flags.workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
           }
           
        } // if(s == WORK_MODE)
@@ -349,7 +349,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
           if(wantAnswer)
           {
             PublishSingleton = LIGHT_STATE_COMMAND;
-            PublishSingleton << PARAM_DELIMITER << (bRelaysIsOn ? STATE_ON : STATE_OFF) << PARAM_DELIMITER << (workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
+            PublishSingleton << PARAM_DELIMITER << (flags.bRelaysIsOn ? STATE_ON : STATE_OFF) << PARAM_DELIMITER << (flags.workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
           }
           
           PublishSingleton.Status = true;

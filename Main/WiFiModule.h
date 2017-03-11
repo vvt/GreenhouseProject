@@ -34,7 +34,7 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 {
   private:
 
-    GlobalSettings* Settings;
+   // GlobalSettings* Settings;
 
     volatile bool inSendData;
 
@@ -53,6 +53,8 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 
     // список клиентов
     TCPClient clients[MAX_WIFI_CLIENTS];
+
+    void InitQueue();
     
   
   public:
