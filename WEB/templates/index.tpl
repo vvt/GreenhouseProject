@@ -18,7 +18,10 @@
 
 <script type='text/javascript'>
 {literal}
-  $(document).ready(function() { numericExtension(); } );
+  $(document).ready(function() { 
+    mixins();
+    numericExtension(); 
+  });
 {/literal}
 </script>
 

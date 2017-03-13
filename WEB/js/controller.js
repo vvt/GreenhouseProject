@@ -295,7 +295,7 @@ var Controller = function(id, name, address, silent)
   {
     this._statusTimer = window.setInterval(
     (function(self) {         
-           return function() {   
+           return function() {
                self.updateStatus(); 
            }
        })(this)
@@ -348,12 +348,14 @@ if(this._currentAction != null || !this._queue.length)
     
     this._currentAction = this._queue.shift();
     
+    
     var preparedData = this._currentAction.prepareFunc(this);
     
     var _this = this;
     
  $.ajax( 
- { method: preparedData.method
+ { 
+    method: preparedData.method
   , url: preparedData.url
   , dataType: "json" 
   , data: preparedData.data
@@ -395,7 +397,7 @@ Controller.prototype.updateStatus = function()
     function(obj,result)
     {
       var lastIsOnline = obj._isOnline;
-    
+      
       obj._isOnline = result.online == 1 ? true : false;
 
       if(!lastIsOnline && obj._isOnline)
@@ -1096,7 +1098,7 @@ Controller.prototype.queryServerScript = function(script_name,params,doneFunc)
   
 }
 //-----------------------------------------------------------------------------------------------------
-Controller.prototype.delete = function(doneCallback,failCallback) {
+Controller.prototype.deleteController = function(doneCallback,failCallback) {
  var that = this; 
  $.ajax( 
  { 

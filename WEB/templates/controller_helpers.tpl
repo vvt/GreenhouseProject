@@ -95,7 +95,7 @@ var lastIsOnline = controller.IsOnline();
 controller.OnStatus = function(obj)
 {
   var is_online = controller.IsOnline();
-  
+    
   $('#reset_controller_link').toggle(is_online);
   
   if(!lastIsOnline && is_online)

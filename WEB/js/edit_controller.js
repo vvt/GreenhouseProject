@@ -24,7 +24,7 @@ function doDeleteController(controller_id) {
   for(var i=0;i<controllers.length;i++) {
     if(controllers[i].getId() == controller_id) {
       
-      controllers[i].delete(function(data){
+      controllers[i].deleteController(function(data){
 
          $( "#controller_in_process_dialog" ).dialog('close');
         

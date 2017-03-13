@@ -47,7 +47,6 @@ if($authorized)
  
 }
 
-
 // создаём массив данных
 $json_data = array('authorized' => $authorized, 'online' => $online);
 

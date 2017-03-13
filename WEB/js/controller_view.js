@@ -8,8 +8,10 @@ var View = function(controller)
   return this;
 }
 //-----------------------------------------------------------------------------------------------------
-View.prototype.fillSensorsList = function(parentElement, list, add, pattern = {index : true, module: true, data: true, customColumn : null})
+View.prototype.fillSensorsList = function(parentElement, list, add, pattern)
 {
+  pattern = pattern || {index : true, module: true, data: true, customColumn : null};
+  
   var arr = list.List;
   var view = this;
   for(var i=0;i<arr.length;i++)
