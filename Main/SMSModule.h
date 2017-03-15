@@ -40,7 +40,7 @@ typedef struct
 class SMSModule : public AbstractModule, public Stream // модуль поддержки управления по SMS
 {
   private:
-    GlobalSettings* Settings;
+  //  GlobalSettings* Settings;
 
     uint8_t currentAction; // текущая операция, завершения которой мы ждём
     SMSActionsVector actionsQueue; // что надо сделать, шаг за шагом 

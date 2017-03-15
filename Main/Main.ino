@@ -90,6 +90,10 @@
 #include "PHModule.h"
 #endif
 
+#ifdef USE_IOT_MODULE
+#include "IoTModule.h"
+#endif
+
 /*
 // КОМАНДЫ ИНИЦИАЛИЗАЦИИ ПРИ СТАРТЕ
 //const char init_0[] PROGMEM = "CTSET=PIN|13|0";// ВЫКЛЮЧИМ ПРИ СТАРТЕ СВЕТОДИОД
@@ -142,6 +146,11 @@ StatModule statModule;
 #ifdef USE_TEMP_SENSORS
 // модуль опроса температурных датчиков и управления фрамугами
 TempSensors tempSensors;
+#endif
+
+#ifdef USE_IOT_MODULE
+// модуль отсыла данных на внешние IoT-хранилища
+IoTModule iotModule; 
 #endif
 
 #ifdef USE_SMS_MODULE
@@ -437,6 +446,10 @@ void setup()
 
   #ifdef USE_TIMER_MODULE
   controller.RegisterModule(&timerModule);
+  #endif
+
+  #ifdef USE_IOT_MODULE
+    controller.RegisterModule(&iotModule);
   #endif
 
   #ifdef USE_LOG_MODULE

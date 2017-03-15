@@ -6,6 +6,10 @@
 #include "Settings.h"
 #include "TCPClient.h"
 
+#if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+#include "IoT.h"
+#endif
+
 #define MAX_WIFI_CLIENTS 4 // максимальное кол-во клиентов
 #define WIFI_PACKET_LENGTH 2048 // по скольку байт в пакете отсылать данные
 
@@ -24,20 +28,47 @@ typedef enum
   /*9*/  wfaCIPSERVER, // запускаем сервер
   /*10*/ wfaCIPSEND, // отсылаем команду на передачу данных
   /*11*/ wfaACTUALSEND, // отсылаем данные
-  /*12*/ wfaCIPCLOSE // закрываем соединение
+  /*12*/ wfaCIPCLOSE, // закрываем соединение
+  /*13*/ wfaCheckModemHang, // проверяем на зависание модема
+
+#if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+  
+  /*14*/ wfaStartIoTSend, // начинаем отсыл данных в IoT
+  /*15*/ wfaStartSendIoTData, // посылаем команду на отсыл данныз в IoT
+  /*16*/ wfaActualSendIoTData, // актуальный отсыл данных в IoT
+  /*17*/ wfaCloseIoTConnection, // закрываем соединение
+#endif
   
 } WIFIActions;
 
 typedef Vector<WIFIActions> ActionsVector;
 
+typedef struct
+{
+
+  bool inSendData : 1; 
+  bool isAnyAnswerReceived : 1;
+  bool inRebootMode : 1;
+  bool wantIoTToProcess : 1;
+  byte pad : 4;
+      
+} WiFiModuleFlags;
+
 class WiFiModule : public AbstractModule // модуль поддержки WI-FI
+#if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+, public IoTGate
+#endif
 {
   private:
 
-   // GlobalSettings* Settings;
+    WiFiModuleFlags flags;
+    
+    long needToWaitTimer; // таймер ожидания до запроса следующей команды   
+    unsigned long sendCommandTime, answerWaitTimer;
+    void RebootModem(); // перезагружаем модем
+    unsigned long rebootStartTime;
 
-    volatile bool inSendData;
-
+    
     bool IsKnownAnswer(const String& line); // если ответ нам известный, то возвращает true
     void SendCommand(const String& command, bool addNewLine=true); // посылает команды модулю вай-фай
     void ProcessQueue(); // разбираем очередь команд
@@ -54,8 +85,17 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
     // список клиентов
     TCPClient clients[MAX_WIFI_CLIENTS];
 
-    void InitQueue();
-    
+    void InitQueue(bool addRebootCommand=true);
+
+    #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+      IOT_OnWriteToStream iotWriter;
+      IOT_OnSendDataDone iotDone;
+      IoTService iotService;
+      String* iotDataHeader;
+      String* iotDataFooter;
+      uint16_t iotDataLength;
+      void EnsureIoTProcessed(bool success=false);
+    #endif
   
   public:
     WiFiModule() : AbstractModule("WIFI") {}
@@ -66,6 +106,10 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 
     void ProcessAnswerLine(const String& line);
     volatile bool WaitForDataWelcome; // флаг, что мы ждём приглашения на отсыл данных - > (плохое ООП, негодное :) )
+
+#if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+    virtual void SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone);
+#endif    
 
 };
 

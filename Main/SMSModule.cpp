@@ -33,7 +33,7 @@ bool SMSModule::IsKnownAnswer(const String& line, bool& okFound)
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Setup()
 {
-  Settings = MainController->GetSettings();
+ // Settings = MainController->GetSettings();
 
   smsToSend = new String();
   cusdSMS = NULL;
@@ -474,6 +474,8 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
 
   bool shouldSendSMS = false;
 
+  GlobalSettings* Settings = MainController->GetSettings();
+
   PDUIncomingMessage message = PDU.Decode(line, Settings->GetSmsPhoneNumber());
   if(message.IsDecodingSucceed) // сообщение пришло с нужного номера
   {
@@ -757,7 +759,7 @@ void SMSModule::ProcessIncomingCall(const String& line) // обрабатыва�
           Serial.print(F("RING DETECTED: ")); Serial.println(ring);
       #endif
 
- 
+  GlobalSettings* Settings = MainController->GetSettings();
   if(ring != Settings->GetSmsPhoneNumber()) // не наш номер
   {
     #ifdef GSM_DEBUG_MODE
@@ -1133,6 +1135,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
     Serial.println("Try to send stat SMS to " + phoneNum + "...");
   #endif
 
+  GlobalSettings* Settings = MainController->GetSettings();
   if(phoneNum != Settings->GetSmsPhoneNumber()) // не наш номер
   {
     #ifdef GSM_DEBUG_MODE
@@ -1248,6 +1251,7 @@ void SMSModule::SendSMS(const String& sms, bool isSMSInUCS2Format)
     return;
   }
 
+  GlobalSettings* Settings = MainController->GetSettings();
   String num = Settings->GetSmsPhoneNumber();
   if(num.length() < 1)
   {
@@ -1281,6 +1285,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
   UNUSED(wantAnswer);
 
   size_t argsCount = command.GetArgsCount();
+  GlobalSettings* Settings = MainController->GetSettings();
   
   if(command.GetType() == ctSET) 
   {
