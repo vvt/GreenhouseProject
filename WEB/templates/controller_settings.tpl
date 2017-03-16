@@ -515,6 +515,7 @@
       <div class='menuitem ui-corner-all hdn' id='WATER_MENU' onclick="content(this);">Настройки полива</div>
       <div class='menuitem ui-corner-all hdn' id='TIMERS_MENU' onclick="content(this);">Таймеры</div>
       <div class='menuitem ui-corner-all hdn' id='SMS_MENU' onclick="content(this);">Список SMS</div>
+      <div class='menuitem ui-corner-all hdn' id='IOT_MENU' onclick="content(this);">IoT</div>
       <div class='menuitem ui-corner-all' id='COMMAND_PROMPT_MENU' onclick="content(this);">Командная строка</div>
 
       <div class='ui-corner-all button_menu_spacer hdn' id='ph_calibration_button' onclick="editPHCalibration();">Настройки PH</div>
@@ -575,6 +576,45 @@
                      
                     
             </div>
+            
+            
+                  <div class='content hdn' id='IOT_MENU_CONTENT'>
+                  
+                    <h3 class='ui-widget-header ui-corner-all'>Настройки IoT</h3>
+                    
+                      <table border='0' width='100%'>
+                    
+                      <tr>
+                      <td valign='top' width='50%'>
+                        <h4 class='ui-widget-header ui-corner-all'>Настройки</h4>
+                        <div class='button_menu_spacer'>
+                          <input type='checkbox' id='thingspeak_enabled'><label for='thingspeak_enabled'>Отправлять данные на ThingSpeak?</label>
+                        </div>
+                        <div class='button_menu_spacer'>
+                          Интервал, с:<br/><input type='text' id='iot_interval' value=''/>
+                        </div>
+                        <div class='button_menu_spacer'>
+                          Ключ канала ThingSpeak:<br/><input type='text' id='thingspeak_channel' value='' maxlength='19'/>
+                        </div>
+                      </td>
+                      <td valign='top'>
+                        <h4 class='ui-widget-header ui-corner-all'>Выберите датчики (максимум 8)</h4>
+                        
+                        <div style='max-height:300px;overflow:auto;' id='iot_sensors_list'>
+                        </div>
+                        
+                      </td>
+                      </tr>
+                        
+                      </table>
+                    
+                    <div><br/><br/>
+                    
+                        <button id='save_iot_button' onclick='saveIoTSettings();'>Сохранить</button>
+                        
+                    </div>
+                    
+                  </div>            
                   
       
                   <div class='content hdn' id='DELTA_MENU_CONTENT'>

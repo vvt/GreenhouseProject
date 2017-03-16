@@ -31,6 +31,32 @@ typedef void (*DeltaReadWriteFunction)(uint8_t& sensorType, String& moduleName1,
 // и OnDeltaSetCount - чтобы сообщить подписчику - сколько записей он передаст в вызове OnDeltaRead.
 typedef void (*DeltaCountFunction)(uint8_t& count);
 
+typedef struct
+{
+  byte ThingSpeakEnabled : 1;
+  byte pad : 7;
+  
+} IoTSettingsFlags;
+
+typedef struct
+{
+  byte ModuleID;
+  byte Type;
+  byte SensorIndex;
+  
+} IoTSensorSettings;
+
+typedef struct
+{
+  byte Header1;
+  byte Header2;
+  IoTSettingsFlags Flags; // флаги
+  unsigned long UpdateInterval; // интервал обновления, мс
+  char ThingSpeakChannelID[20]; // ID канала ThingSpeak
+  IoTSensorSettings Sensors[8]; // датчики для отсыла
+  
+} IoTSettings;
+
 class GlobalSettings
 {
   private:
@@ -56,7 +82,9 @@ class GlobalSettings
   String routerID; // название точки доступа домашнего роутера
   String routerPassword; // пароль к точке доступа домашнего роутера
   String stationID; // название точки доступа у модуля ESP
-  String stationPassword; // пароль к точке доступа модуля ESP 
+  String stationPassword; // пароль к точке доступа модуля ESP
+
+   IoTSettings iotSettings;
  
   public:
     GlobalSettings();
@@ -64,6 +92,8 @@ class GlobalSettings
     void Load();
     void Save();
     void ResetToDefault();
+
+    IoTSettings* GetIoTSettings() {return &iotSettings; }
 
     uint8_t GetControllerID() {return controllerID;}
     void SetControllerID(uint8_t val);

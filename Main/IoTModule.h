@@ -4,12 +4,14 @@
 #include "AbstractModule.h"
 #include "IoT.h"
 
+/*
 typedef struct
 {
   byte type;
   byte index;
   const char* module;
 } IoTSensorData;
+*/
 
 class IoTModule : public AbstractModule // модуль отсылки данных в IoT-хранилища
 #if defined(USE_IOT_MODULE) && defined(IOT_UNIT_TEST)
@@ -35,6 +37,8 @@ class IoTModule : public AbstractModule // модуль отсылки данн�
 
   void SendDataToIoT();
   void ProcessNextGate();
+
+  AbstractModule* FindModule(byte index);
   
 #endif  
 

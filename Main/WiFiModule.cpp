@@ -11,7 +11,11 @@
 void WiFiModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone)
 {
     // тут смотрим, можем ли мы обработать запрос на отсыл данных в IoT
-    #if defined(THINGSPEAK_ENABLED) 
+    IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+
+    //#if defined(THINGSPEAK_ENABLED) 
+    if(iotSettings->Flags.ThingSpeakEnabled && strlen(iotSettings->ThingSpeakChannelID)) // включен один сервис хотя бы
+    {
 
      // сохраняем указатели на функции обратного вызова
       iotWriter = writer;
@@ -35,7 +39,7 @@ void WiFiModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToS
 
           // формируем запрос
           *iotDataHeader = F("GET /update?api_key=");
-          *iotDataHeader += THINGSPEAK_CHANNEL_KEY;
+          *iotDataHeader += iotSettings->ThingSpeakChannelID;//THINGSPEAK_CHANNEL_KEY;
           *iotDataHeader += F("&");
 
           *iotDataFooter = F(" HTTP/1.1\r\nAccept: */*\r\nUser-Agent: ");
@@ -58,11 +62,15 @@ void WiFiModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToS
          break;
         
       } // switch
-
-    #else
+    } // enabled
+    else
+    {
+      // ни одного сервиса не включено
+    //#else
       // тут ничего не можем отсылать, сразу дёргаем onDone, говоря, что у нас не получилось отослать
       onDone({false,service});
-    #endif
+    //#endif
+    }
 }
 #endif   
 

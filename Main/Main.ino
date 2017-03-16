@@ -537,7 +537,7 @@ void loop()
     //ready_diode_timer += dt;
     if(/*ready_diode_timer > 2000 && */!blink_ready_diode_inited) {
       blink_ready_diode_inited = true;
-      readyDiodeBlinker.begin(6);//,F("SD"));
+      readyDiodeBlinker.begin(DIODE_READY_PIN);//,F("SD"));
       readyDiodeBlinker.blink(READY_DIODE_BLINK_INTERVAL);
     }
 

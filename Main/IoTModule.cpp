@@ -4,11 +4,13 @@
 #if defined(USE_IOT_MODULE)
 
 IoTModule* _thisIotModule;
+/*
 IoTSensorData IOT_SENSORS_DATA[] = 
 {
    IOT_SENSORS
   ,{0,0,NULL} // последний элемент пустой, заглушка для признака окончания списка
 };
+*/
 #endif
 
 #if defined(USE_IOT_MODULE) && defined(IOT_UNIT_TEST)
@@ -51,6 +53,27 @@ void IoTModule::Write(Stream* writeTo)
   writeTo->write(dataToSend->c_str(),dataToSend->length());
   
 }
+
+AbstractModule* IoTModule::FindModule(byte index)
+{
+  switch(index)
+  {
+    case 1:
+      return MainController->GetModuleByID("STATE"); // температурные датчики
+    case 2:
+      return MainController->GetModuleByID("HUMIDITY"); // датчики влажности
+    case 3:
+      return MainController->GetModuleByID("LIGHT"); // датчики освещённости
+    case 4:
+      return MainController->GetModuleByID("SOIL"); // датчики влажности почвы
+    case 5:
+      return MainController->GetModuleByID("PH"); // датчики pH
+      
+  }
+
+  return NULL;
+}
+
 void IoTModule::SwitchToWaitMode()
 {
      delete dataToSend;
@@ -61,9 +84,41 @@ void IoTModule::SwitchToWaitMode()
 void IoTModule::CollectDataForThingSpeak()
 {
   // тут собираем данные для ThingSpeak, в понятном ему формате
-  byte iter = 0;
+  byte iter = 1;
   delete dataToSend;
   dataToSend = new String();
+
+  IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+  for(byte i=0;i<8;i++) // максимум 8 датчиков на канал
+  {
+      AbstractModule* mod = FindModule(iotSettings->Sensors[i].ModuleID);
+      if(!mod) // не нашли связанный модуль
+        continue;
+
+     OneState* os = mod->State.GetState((ModuleStates)iotSettings->Sensors[i].Type,iotSettings->Sensors[i].SensorIndex);
+     if(!os) // не нашли датчик с переданным индексом и нужного типа
+      continue;
+
+      if(os->HasData())
+      {
+        // с датчика есть показания, можно формировать данные
+        if(dataToSend->length())
+          *dataToSend += F("&");
+          
+        *dataToSend += F("field");
+        *dataToSend += String(iter++);
+        *dataToSend += F("=");
+
+         String  sensorData = *os;
+
+        // ThingSpeak просит float с точкой, поэтому заменяем запятую на точку
+        sensorData.replace(',','.');
+        
+        *dataToSend += sensorData;
+      }    
+  } // for
+
+  /*
   
   while(1) 
   {
@@ -103,6 +158,7 @@ void IoTModule::CollectDataForThingSpeak()
       }
       
   } // while
+  */
   
 }
 void IoTModule::SwitchToNextService()
@@ -182,10 +238,14 @@ void IoTModule::Setup()
  {
   if(inSendData) // уже что-то посылаем
     return;
- 
+
+ IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
 
   services.Clear();
-  services.push_back(iotThingSpeak);
+  
+  if(iotSettings->Flags.ThingSpeakEnabled) // ThingSpeak включен
+      services.push_back(iotThingSpeak);
+      
   //TODO: СЮДА ДОБАВЛЯЕМ ПОДДЕРЖИВАЕМЫЕ СЕРВИСЫ
 
 
@@ -222,12 +282,19 @@ void IoTModule::Update(uint16_t dt)
  #ifdef USE_IOT_MODULE  
   if(inSendData)
     return;
-    
+
+  IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+  bool canWork =   iotSettings->Flags.ThingSpeakEnabled;
+
+  if(canWork && iotSettings->UpdateInterval > 0)
+  {
   // обновление модуля тут
-  updateTimer += dt;
-  if(updateTimer > IOT_UPDATE_INTERVAL) {
-    updateTimer = 0;
-    SendDataToIoT();
+    updateTimer += dt;
+    if(updateTimer > iotSettings->UpdateInterval) 
+    {
+      updateTimer = 0;
+      SendDataToIoT();
+    }
   }
 #else
   UNUSED(dt);  
@@ -237,8 +304,119 @@ void IoTModule::Update(uint16_t dt)
 
 bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
 {
-  UNUSED(wantAnswer);
-  UNUSED(command);
+ if(wantAnswer) 
+    PublishSingleton = NOT_SUPPORTED;
+    
+  if(command.GetType() == ctSET) // установка свойств
+  {
+
+    uint8_t argsCnt = command.GetArgsCount();
+    if(argsCnt < 1)
+    {
+      if(wantAnswer) 
+        PublishSingleton = PARAMS_MISSED; // не хватает параметров
+      
+    } // argsCnt < 1
+    else
+    {
+          String param = command.GetArg(0);
+          if(param == F("T_SETT")) // запросили установить настройки IoT: CTSET=IOT|T_SETT
+          {
+              if(argsCnt < 28)
+              {
+                PublishSingleton = PARAMS_MISSED;
+              }
+              else
+              {
+                // с параметрами норм, разбираем
+                PublishSingleton.Status = true;
+                PublishSingleton = REG_SUCC;
+                
+                IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+
+                byte iter = 1;
+                
+                String strHelper = command.GetArg(iter++);
+                byte fl = (byte) strHelper.toInt();
+                memcpy(&(iotSettings->Flags),&fl,sizeof(byte));
+
+                strHelper = command.GetArg(iter++);
+
+                iotSettings->UpdateInterval = (unsigned long) strHelper.toInt();
+
+                // теперь выцепляем настройки датчиков
+                for(byte i=0;i<8;i++)
+                {
+                    strHelper = command.GetArg(iter++);
+                    iotSettings->Sensors[i].ModuleID = (byte) strHelper.toInt();
+
+                    strHelper = command.GetArg(iter++);
+                    iotSettings->Sensors[i].Type = (byte) strHelper.toInt();
+
+                    strHelper = command.GetArg(iter++);
+                    iotSettings->Sensors[i].SensorIndex = (byte) strHelper.toInt();
+                } // for
+
+                // теперь получаем ID канала thingspeak
+                strncpy(iotSettings->ThingSpeakChannelID,command.GetArg(iter++),sizeof(iotSettings->ThingSpeakChannelID)-1);
+
+
+                MainController->GetSettings()->Save();
+              } // else
+            
+          } // if(param == F("T_SETT")) // T_SETT
+          
+    } // else
+    
+  } // ctSET    
+  else
+  if(command.GetType() == ctGET) // запрос свойств
+  {
+      uint8_t argsCnt = command.GetArgsCount();
+      if(argsCnt < 1)
+      {
+        if(wantAnswer) 
+          PublishSingleton = PARAMS_MISSED; // не хватает параметров
+        
+      } // argsCnt < 1 
+      else
+      {     
+        String param = command.GetArg(0);
+        
+        if(param == F("T_SETT")) // запросили настройки IoT: CTGET=IOT|T_SETT
+        {
+          PublishSingleton.Status = true;
+
+          IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+
+          byte fl = 0;
+          memcpy(&fl,&(iotSettings->Flags),sizeof(byte));
+          PublishSingleton = fl;
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << iotSettings->UpdateInterval;
+
+          // теперь выводим настройки датчиков, поскольку настройки каналов лучше делать после датчиков (например, введение поддержки народного мониторинга)
+          for(byte i=0;i<8;i++)
+          {
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << iotSettings->Sensors[i].ModuleID;     
+
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << iotSettings->Sensors[i].Type;     
+
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << iotSettings->Sensors[i].SensorIndex;     
+          }
+
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << iotSettings->ThingSpeakChannelID;
+                
+        } // param == F("T_SETT")
+        
+      } // else
+  }
+  
+  MainController->Publish(this,command); 
 
   return true;
 }

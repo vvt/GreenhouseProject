@@ -39,13 +39,30 @@ deltaView.OnDeleteDelta = function(controllerObject, delta, row)
   row.remove(); // удаляем строку из таблицы  
 }
 //-----------------------------------------------------------------------------------------------------
-function showMessage(message)
+function showWaitDialog()
+{
+  $("#data_requested_dialog" ).dialog({
+                dialogClass: "no-close",
+                modal: true,
+                closeOnEscape: false,
+                draggable: false,
+                resizable: false,
+                buttons: []
+              });
+}
+//-----------------------------------------------------------------------------------------------------
+function closeWaitDialog()
+{
+  $("#data_requested_dialog" ).dialog('close');
+}
+//-----------------------------------------------------------------------------------------------------
+function showMessage(message, close_callback)
 {
   $('#message_dialog_message').html(message);
 
   $("#message_dialog").dialog({modal:true, buttons: [
     {text: "ОК", click: function(){$(this).dialog("close");} }
-  ] });     
+  ], close: function(){ if(close_callback) close_callback(); } });     
 }
 //-----------------------------------------------------------------------------------------------------
 function promptMessage(message, yesFunc, cancelFunc)
@@ -199,14 +216,7 @@ function newReservation()
 //-----------------------------------------------------------------------------------------------------
 function saveTimers()
 {
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+  showWaitDialog();
               
    var cmd = "TMR";
    
@@ -288,7 +298,8 @@ function saveTimers()
       
     controller.queryCommand(false,cmd,function(obj,answer){
     
-      $("#data_requested_dialog" ).dialog('close');
+      closeWaitDialog();
+      
       if(answer.IsOK)
         showMessage("Данные успешно сохранены!");
       else
@@ -299,20 +310,13 @@ function saveTimers()
 function saveReservationList()
 {
 
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+ showWaitDialog();
               
    controller.queryCommand(false,'RSRV|DEL',function(obj,answer){
     
         if(!answer.IsOK)
         {
-           $("#data_requested_dialog" ).dialog('close');
+           closeWaitDialog();
            return;
         } 
         
@@ -341,7 +345,11 @@ function saveReservationList()
           
                     controller.queryCommand(false,'RSRV|SAVE',function(obj,saveResult){
                     
-                      $("#data_requested_dialog" ).dialog('close');
+                      closeWaitDialog();
+                          if(saveResult.IsOK)
+                              showMessage("Данные успешно сохранены!");
+                            else
+                              showMessage("Ошибка сохранения данных :(");                      
                       
                     });
           
@@ -355,21 +363,14 @@ function saveReservationList()
 function saveDeltasList()
 {
 
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+  showWaitDialog();
               
               
     controller.queryCommand(false,'DELTA|DEL',function(obj,answer){
     
         if(!answer.IsOK)
         {
-           $("#data_requested_dialog" ).dialog('close');
+           closeWaitDialog();
            return;
         } 
         
@@ -391,7 +392,12 @@ function saveDeltasList()
           
                     controller.queryCommand(false,'DELTA|SAVE',function(obj,saveResult){
                     
-                      $("#data_requested_dialog" ).dialog('close');
+                            closeWaitDialog();
+                            if(saveResult.IsOK)
+                              showMessage("Данные успешно сохранены!");
+                            else
+                              showMessage("Ошибка сохранения данных :(");                      
+
                       
                     });
           
@@ -425,14 +431,7 @@ function editWiFiSettings()
         $(this).dialog("close");
 
       
-      $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+      showWaitDialog();
                     
         controller.queryServerScript("/x_save_wifi_settings.php",data, function(obj,answer){
         
@@ -441,8 +440,12 @@ function editWiFiSettings()
         
             controller.queryCommand(false,cmd,function(obj,answer){
            
-                $("#data_requested_dialog" ).dialog('close');
-        
+                closeWaitDialog();
+                if(answer.IsOK)
+                  showMessage("Данные успешно сохранены!");
+                else
+                  showMessage("Ошибка сохранения данных :(");                      
+
             });
         
            
@@ -475,18 +478,15 @@ function editPhoneNumber()
 
       var num = $('#edit_phone_number').val();
       
-      $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
-                    
+      showWaitDialog(); 
       controller.queryCommand(false,'0|PHONE|' + num,function(obj,answer){
       
-      $("#data_requested_dialog" ).dialog('close');
+      closeWaitDialog();
+      
+      if(answer.IsOK)
+        showMessage("Данные успешно сохранены!");
+      else
+        showMessage("Ошибка сохранения данных :(");                      
       
       });
       
@@ -568,14 +568,7 @@ function editPHCalibration()
       $(this).dialog("close");
 
       
-      $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+      showWaitDialog();
                     
       controller.queryCommand(false,'PH|T_SETT|' + cal1 + '|' + ph4V + '|' + ph7V + '|' + ph10V + '|' + phTempSensor  + '|' + phCalTemp
       + '|' + phTarget
@@ -585,7 +578,11 @@ function editPHCalibration()
       
       ,function(obj,answer){
       
-      $("#data_requested_dialog" ).dialog('close');
+      closeWaitDialog();
+      if(answer.IsOK)
+        showMessage("Данные успешно сохранены!");
+      else
+        showMessage("Ошибка сохранения данных :(");                      
       
       });
       
@@ -628,18 +625,15 @@ function editFlowCalibration()
       $(this).dialog("close");
 
       
-      $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+      showWaitDialog();
                     
       controller.queryCommand(false,'FLOW|T_SETT|' + cal1 + '|' + cal2,function(obj,answer){
       
-      $("#data_requested_dialog" ).dialog('close');
+      closeWaitDialog();
+      if(answer.IsOK)
+        showMessage("Данные успешно сохранены!");
+      else
+        showMessage("Ошибка сохранения данных :(");                      
       
       });
       
@@ -654,22 +648,15 @@ function editFlowCalibration()
 // получаем список дельт с контроллера
 function queryDeltasList()
 {
-  $("#data_requested_dialog" ).dialog('close');
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+  closeWaitDialog();
+  showWaitDialog();
               
               
      controller.queryCommand(true,'DELTA|CNT',function(obj,answer){
      
             if(!answer.IsOK)
             {
-              $("#data_requested_dialog" ).dialog('close');
+              closeWaitDialog();
               return;
             }
      
@@ -678,7 +665,7 @@ function queryDeltasList()
             
             if(!cnt)
             {
-              $("#data_requested_dialog" ).dialog('close');
+              closeWaitDialog();
               return;
             }
             
@@ -689,7 +676,7 @@ function queryDeltasList()
                   
                     if(!deltaInfo.IsOK)
                     {
-                      $("#data_requested_dialog" ).dialog('close');
+                      closeWaitDialog();
                       return;
                     }                  
                           
@@ -697,7 +684,7 @@ function queryDeltasList()
                     deltaList.Add(delta);
                     if(deltaList.List.length == cnt)
                     {
-                        $("#data_requested_dialog" ).dialog('close');
+                        closeWaitDialog();
                         
                         // заполняем список дельт
                         deltaView.fillList('#DELTA_LIST');
@@ -1391,14 +1378,7 @@ function newSms()
 function saveRulesList()
 {
 
-    $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+    showWaitDialog();
               
      var rulesToProcess = rulesList.Rules.length;
      var processedRules = 0;
@@ -1414,9 +1394,13 @@ function saveRulesList()
               processedRules++;
               if(processedRules >= rulesToProcess)
               {
-                  controller.queryCommand(false,"ALERT|SAVE", function() {
+                  controller.queryCommand(false,"ALERT|SAVE", function(obj,answer) {
                 
-                    $("#data_requested_dialog" ).dialog('close');
+                            closeWaitDialog();
+                            if(answer.IsOK)
+                              showMessage("Данные успешно сохранены!");
+                            else
+                              showMessage("Ошибка сохранения данных :(");                      
                 
                 });
               }
@@ -1427,9 +1411,13 @@ function saveRulesList()
           
           if(!rulesToProcess)
           {
-             controller.queryCommand(false,"ALERT|SAVE", function() {
+             controller.queryCommand(false,"ALERT|SAVE", function(obj,answer) {
                 
-                    $("#data_requested_dialog" ).dialog('close');
+                            closeWaitDialog();
+                            if(answer.IsOK)
+                              showMessage("Данные успешно сохранены!");
+                            else
+                              showMessage("Ошибка сохранения данных :(");                      
                 
                 });
           }
@@ -1441,14 +1429,7 @@ function saveRulesList()
 function saveSmsList()
 {
 
-    $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+    showWaitDialog();
               
      var smsToProcess = smsList.List.length;
      var processedSms = 0;
@@ -1467,7 +1448,11 @@ function saveSmsList()
               {
                   
                 
-                    $("#data_requested_dialog" ).dialog('close');
+                    closeWaitDialog();
+                    if(processResult.IsOK)
+                      showMessage("Данные успешно сохранены!");
+                    else
+                      showMessage("Ошибка сохранения данных :(");                      
                 
                
               }
@@ -1478,7 +1463,7 @@ function saveSmsList()
           
           if(!smsToProcess)
           {
-            $("#data_requested_dialog" ).dialog('close');
+            closeWaitDialog();
             
           }
      
@@ -1562,14 +1547,7 @@ function saveAllChannelsWateringOptions(watering_option)
 
    } // watering_option == 1 
    
-    $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });   
+    showWaitDialog(); 
    
    if(watering_option == 2)
    {
@@ -1585,8 +1563,15 @@ function saveAllChannelsWateringOptions(watering_option)
                 
                       wateringProcessedCommands++;
                       
-                      if(wateringProcessedCommands >= wateringTotalCommands)
-                        $("#data_requested_dialog" ).dialog('close');
+                      if(wateringProcessedCommands >= wateringTotalCommands) {
+                        closeWaitDialog();
+
+                        if(answer.IsOK)
+                          showMessage("Данные успешно сохранены!");
+                        else
+                          showMessage("Ошибка сохранения данных :(");                      
+
+                        }
                                       
                 });         
         
@@ -1605,8 +1590,13 @@ function saveAllChannelsWateringOptions(watering_option)
                 
                       wateringProcessedCommands++;
                       
-                      if(wateringProcessedCommands >= wateringTotalCommands)
-                        $("#data_requested_dialog" ).dialog('close');
+                      if(wateringProcessedCommands >= wateringTotalCommands) {
+                        closeWaitDialog();
+                        if(answer.IsOK)
+                          showMessage("Данные успешно сохранены!");
+                        else
+                          showMessage("Ошибка сохранения данных :(");                           
+                        }
                                       
                 }); 
     
@@ -1623,18 +1613,11 @@ function saveWateringSettings()
 //-----------------------------------------------------------------------------------------------------
 function doRequestRulesList()
 {
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+  showWaitDialog();
               
     requestRulesList(function(){
     
-      $("#data_requested_dialog" ).dialog('close');
+      closeWaitDialog();
     
     });
               
@@ -1700,14 +1683,7 @@ var totalPHSensors = 0; // кол-во датчиков pH в прошивке
 controller.OnGetModulesList = function(obj)
 {  
 
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+  showWaitDialog();
 
     var hasDeltaModule = controller.Modules.includes('DELTA');
     $('#DELTA_MENU').toggle(hasDeltaModule); // работаем с дельтами только если в прошивке есть модуль дельт
@@ -1747,7 +1723,9 @@ controller.OnGetModulesList = function(obj)
       });    
     
     
-    if(controller.Modules.includes('SMS')) // если в прошивке есть модуль Neoway M590
+    var hasSMSModule= controller.Modules.includes('SMS');
+    
+    if(hasSMSModule) // если в прошивке есть модуль Neoway M590
     {
     
     
@@ -1890,35 +1868,35 @@ controller.OnGetModulesList = function(obj)
           
           if(answer.IsOK)
           {
-            totalTempSensors = parseInt(answer.Params[1]);
-            totalHumiditySensors = parseInt(answer.Params[2]);
-            totalLuminositySensors = parseInt(answer.Params[3]);
-            totalSoilMoistureSensors = parseInt(answer.Params[4]);
-            totalPHSensors = parseInt(answer.Params[5]);
-            
-              controller.queryCommand(true,'0|UNI',function(obj,answer2){
-              
-                  if(answer2.IsOK)
-                  {
-                      totalTempSensors += parseInt(answer2.Params[1]);
-                      totalHumiditySensors += parseInt(answer2.Params[2]);
-                      totalLuminositySensors += parseInt(answer2.Params[3]);
-                      totalSoilMoistureSensors += parseInt(answer2.Params[4]);
-                      totalPHSensors += parseInt(answer2.Params[5]);
-
-                      $('#sensors_info_temp').html(totalTempSensors);
-                      $('#sensors_info_humidity').html(totalHumiditySensors);
-                      $('#sensors_info_luminosity').html(totalLuminositySensors);
-                      $('#sensors_info_soil').html(totalSoilMoistureSensors);
-                      $('#sensors_info_ph').html(totalPHSensors);
-
-                  }
-              
-              });
+            totalTempSensors += parseInt(answer.Params[1]);
+            totalHumiditySensors += parseInt(answer.Params[2]);
+            totalLuminositySensors += parseInt(answer.Params[3]);
+            totalSoilMoistureSensors += parseInt(answer.Params[4]);
+            totalPHSensors += parseInt(answer.Params[5]);
           
           }
         
         });
+        
+    controller.queryCommand(true,'0|UNI',function(obj,answer2){
+    
+        if(answer2.IsOK)
+        {
+            totalTempSensors += parseInt(answer2.Params[1]);
+            totalHumiditySensors += parseInt(answer2.Params[2]);
+            totalLuminositySensors += parseInt(answer2.Params[3]);
+            totalSoilMoistureSensors += parseInt(answer2.Params[4]);
+            totalPHSensors += parseInt(answer2.Params[5]);
+
+            $('#sensors_info_temp').html(totalTempSensors);
+            $('#sensors_info_humidity').html(totalHumiditySensors);
+            $('#sensors_info_luminosity').html(totalLuminositySensors);
+            $('#sensors_info_soil').html(totalSoilMoistureSensors);
+            $('#sensors_info_ph').html(totalPHSensors);
+
+        }
+    
+    });        
     
     // запрашиваем список правил
     requestRulesList(function(){ 
@@ -1927,8 +1905,9 @@ controller.OnGetModulesList = function(obj)
     
     });
     
+    var hasWIFIModule = controller.Modules.includes('WIFI');
     
-    if(controller.Modules.includes('WIFI')) // если в прошивке есть модуль wi-fi
+    if(hasWIFIModule) // если в прошивке есть модуль wi-fi
     {
         controller.queryServerScript("/x_get_wifi_settings.php",{}, function(obj,result){
            
@@ -1948,6 +1927,123 @@ controller.OnGetModulesList = function(obj)
               $('#connect_to_router').attr('checked', 'checked');
         
         });
+    }
+    
+    if(controller.Modules.includes('IOT') && (hasWIFIModule || hasSMSModule))
+    {
+      // можем получать настройки IoT
+        controller.queryCommand(true,'IOT|T_SETT',function(obj,answer){
+           
+          $('#IOT_MENU').toggle(answer.IsOK);
+          
+          if(answer.IsOK)
+          {
+              // тут парсим настройки IoT
+              var paramIdx = 1;
+
+              var flags = parseInt(answer.Params[paramIdx++]);
+              var thingspeak_enabled = (flags & 1) == 1;
+              $('#thingspeak_enabled').get(0).checked = thingspeak_enabled;
+              
+              var iot_interval = parseInt(answer.Params[paramIdx++])/1000;
+              $('#iot_interval').val(iot_interval);
+              
+              // теперь пробегаем по всем датчикам
+              var lst = $('#iot_sensors_list');
+              lst.empty();
+              
+              var idCntr = 0;
+              for(var i=0;i<totalTempSensors;i++)
+              {
+                var div = $('<div/>').appendTo(lst);
+                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
+                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Температура, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'STATE')) + '"').appendTo(div);
+                
+                chb.data('iot_sensor',{moduleID : 1, sensorIndex : i, sensorType : 1});
+                
+                idCntr++;
+              } // for
+
+              for(var i=0;i<totalHumiditySensors;i++)
+              {
+                var div = $('<div/>').appendTo(lst);
+                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
+                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Температура, датчик влажности "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'HUMIDITY')) + '"').appendTo(div);
+                
+                chb.data('iot_sensor',{moduleID : 2, sensorIndex : i, sensorType : 1});
+                
+                idCntr++;
+                
+                div = $('<div/>').appendTo(lst);
+                chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
+                lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Влажность, датчик влажности "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'HUMIDITY')) + '"').appendTo(div);
+                
+                chb.data('iot_sensor',{moduleID : 2, sensorIndex : i, sensorType : 8});
+                
+                idCntr++;                
+              } // for
+              
+              for(var i=0;i<totalLuminositySensors;i++)
+              {
+                var div = $('<div/>').appendTo(lst);
+                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
+                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Освещённость, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'LIGHT')) + '"').appendTo(div);
+                
+                chb.data('iot_sensor',{moduleID : 3, sensorIndex : i, sensorType : 4});
+                
+                idCntr++;
+              } // for
+              
+              for(var i=0;i<totalSoilMoistureSensors;i++)
+              {
+                var div = $('<div/>').appendTo(lst);
+                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
+                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Влажность почвы, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'SOIL')) + '"').appendTo(div);
+                
+                chb.data('iot_sensor',{moduleID : 4, sensorIndex : i, sensorType : 64});
+                
+                idCntr++;
+              } // for                                 
+              
+               for(var i=0;i<totalPHSensors;i++)
+              {
+                var div = $('<div/>').appendTo(lst);
+                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
+                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Показания pH, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'PH')) + '"').appendTo(div);
+                
+                chb.data('iot_sensor',{moduleID : 5, sensorIndex : i, sensorType : 128});
+                
+                idCntr++;
+              } // for    
+              
+              var checkboxes = lst.find('input[type="checkbox"]');
+              
+              // и выделяем нужные из них
+              for(var i=0;i<8;i++)
+              {
+                var moduleID = parseInt(answer.Params[paramIdx++]);
+                var sensorType = parseInt(answer.Params[paramIdx++]);
+                var sensorIndex = parseInt(answer.Params[paramIdx++]);
+                
+                checkboxes.each(function(){
+                
+                    var chb = $(this);
+                    var iot_sensor = chb.data('iot_sensor');
+                    if(iot_sensor.moduleID == moduleID && iot_sensor.sensorType == sensorType && iot_sensor.sensorIndex == sensorIndex)
+                    {
+                      chb.get(0).checked = true;
+                    }
+                
+                });
+                
+              }
+              
+              // теперь получаем ID канала ThingSpeak
+              var thingSpeakChannelKey = answer.Params[paramIdx++];
+              $('#thingspeak_channel').val(thingSpeakChannelKey);
+              
+          }
+       });
     }
     
     if(controller.Modules.includes('CC')) // если в прошивке есть модуль составных команд
@@ -2174,17 +2270,75 @@ $("#new_cc_command_dialog").dialog({modal:true, buttons: [{text: "Добавит
 
 }
 //-----------------------------------------------------------------------------------------------------
+function saveIoTSettings()
+{
+  var flags = 0;
+  if($('#thingspeak_enabled').get(0).checked)
+    flags |= 1;
+    
+  var interval = parseInt($('#iot_interval').val());
+  if(isNaN(interval) || interval < 1) {
+    showMessage("Пожалуйста, укажите положительный интервал в секундах.", function(){
+    
+      $('#iot_interval').focus();
+    
+    });
+    return;
+  }
+  
+  interval *= 1000;
+  
+  var thingSpeakChannelKey = $('#thingspeak_channel').val().substring(0,19);
+  
+  // теперь выбираем все датчики
+  var lst = $('#iot_sensors_list');
+  var sensors_command = '';
+  var sensorsProcessed = 0;
+  
+  lst.find('input[type="checkbox"]').each(function(){
+    if(sensorsProcessed > 8)
+      return;
+      
+    var chb = $(this);
+    if(chb.get(0).checked) {
+      sensorsProcessed++;
+      var iot_sensor = chb.data('iot_sensor');
+      
+      sensors_command += "|" + iot_sensor.moduleID + "|" + iot_sensor.sensorType + "|" + iot_sensor.sensorIndex;
+      
+    }
+  
+  });
+  
+  // дополняем до 8
+  for(var i=sensorsProcessed;i<8;i++)
+  {
+    sensors_command += "|0|0|0";
+  }
+  
+  // теперь составляем команду
+  var full_command = "IOT|T_SETT|" + flags + "|" + interval + sensors_command + "|" + thingSpeakChannelKey;
+  
+  showWaitDialog();
+  
+  controller.queryCommand(false,full_command,function(obj,answer){
+                                
+                                  closeWaitDialog();
+                                  if(answer.IsOK)
+                                    showMessage("Данные успешно сохранены!");
+                                  else
+                                    showMessage("Ошибка сохранения данных :(");                           
+                                  
+                                  
+                                });  
+
+
+}
+//-----------------------------------------------------------------------------------------------------
 // сохраняем все списки составных команд в БД
 function saveCCLists()
 {
-  $("#data_requested_dialog" ).dialog({
-                dialogClass: "no-close",
-                modal: true,
-                closeOnEscape: false,
-                draggable: false,
-                resizable: false,
-                buttons: []
-              });
+  showWaitDialog();
       
    var totalCommands = compositeCommands.List.length;
    var commandsProcessed = 0;
@@ -2201,7 +2355,7 @@ function saveCCLists()
  
       if(commandsProcessed == totalCommands)
       {
-        $("#data_requested_dialog" ).dialog('close');
+        closeWaitDialog();
       }
  
        for(var i=0;i<compositeCommands.List.length;i++)
@@ -2214,7 +2368,8 @@ function saveCCLists()
             
                   if(commandsProcessed == totalCommands)
                   {
-                    $("#data_requested_dialog" ).dialog('close');
+                    closeWaitDialog();
+                    showMessage("Данные успешно сохранены!");
                   }
             
                  var thisCCList = compositeCommands.List[currentListIndex++];
@@ -2228,7 +2383,8 @@ function saveCCLists()
                   
                   if(commandsProcessed == totalCommands)
                   {
-                    $("#data_requested_dialog" ).dialog('close');
+                    closeWaitDialog();
+                    showMessage("Данные успешно сохранены!");
                   }
                   
                   });
@@ -2276,21 +2432,14 @@ $("#select_cc_lists_dialog").dialog({modal:true, width:500, buttons: [{text: "З
       $('#select_cc_lists_dialog').dialog('close');
  
 
-             $("#data_requested_dialog" ).dialog({
-                            dialogClass: "no-close",
-                            modal: true,
-                            closeOnEscape: false,
-                            draggable: false,
-                            resizable: false,
-                            buttons: []
-                          });
+             showWaitDialog();
                           
                           
                 controller.queryCommand(false,'CC|DEL',function(obj,answer){
                 
                     if(!answer.IsOK)
                     {
-                       $("#data_requested_dialog" ).dialog('close');
+                       closeWaitDialog();
                        return;
                     } 
                     
@@ -2322,9 +2471,14 @@ $("#select_cc_lists_dialog").dialog({modal:true, width:500, buttons: [{text: "З
                           
                       } // for
                       
-                                controller.queryCommand(false,'CC|SAVE',function(obj,saveResult){
+                                controller.queryCommand(false,'CC|SAVE',function(obj,answer){
                                 
-                                  $("#data_requested_dialog" ).dialog('close');
+                                  closeWaitDialog();
+                                  if(answer.IsOK)
+                                    showMessage("Данные успешно сохранены!");
+                                  else
+                                    showMessage("Ошибка сохранения данных :(");                           
+                                  
                                   
                                 });
                       
@@ -2620,7 +2774,7 @@ $(document).ready(function(){
       }
     });
     
-  $( "#save_delta_button, #save_cc_button, #save_watering_button, #save_rules_button, #save_sms_button, #save_timers_button" ).button({
+  $( "#save_delta_button, #save_iot_button, #save_cc_button, #save_watering_button, #save_rules_button, #save_sms_button, #save_timers_button" ).button({
       icons: {
         primary: "ui-icon-arrowthickstop-1-n"
       }
@@ -2690,7 +2844,7 @@ $(document).ready(function(){
       }
     }).hide().css('width','100%');       
     
-    $('#cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
+    $('#iot_interval, #cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
     $('#all_watering_start_hour, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature, #phTarget, #phHisteresis, #phMixPumpTime, #phReagentPumpTime').forceNumericOnly();
     $('#watering_start_hour, #watering_time').forceNumericOnly(); 

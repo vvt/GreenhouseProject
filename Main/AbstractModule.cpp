@@ -165,7 +165,7 @@ void WorkStatus::PinWrite(byte pin, byte level)
 
   // тут проверки, чтобы не записывать статус информационных мигающих пинов
   #ifdef USE_READY_DIODE
-    if(pin == 6) // моргает пин индикации работы, игнорируем
+    if(pin == DIODE_READY_PIN) // моргает пин индикации работы, игнорируем
       return;
   #endif
 

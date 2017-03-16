@@ -174,6 +174,8 @@ void GlobalSettings::ResetToDefault()
   startWateringTime = 12;
   wifiState = 0x01; // первый бит устанавливаем, говорим, что мы коннектимся к роутеру
   controllerID = 0; // по умолчанию 0 как ID контроллера
+
+  memset(&iotSettings,0,sizeof(iotSettings));
 }
 void GlobalSettings::SetControllerID(uint8_t val)
 {
@@ -336,6 +338,14 @@ void GlobalSettings::Load()
         wifiState = 0; 
    }
 
+   EEPROM.get(readPtr,iotSettings);
+   readPtr += sizeof(iotSettings);
+
+   if(!(iotSettings.Header1 == SETT_HEADER1 && iotSettings.Header2 == SETT_HEADER2))
+  {
+    memset(&iotSettings,0,sizeof(iotSettings));
+  }
+
    
   // читаем другие настройки!
 
@@ -409,7 +419,7 @@ void GlobalSettings::Save()
  EEPROM.write(addr++,wifiState);
 
 // сохраняем ID роутера
-  uint8_t str_len = routerID.length();
+  uint8_t str_len = routerID. length();
   EEPROM.write(addr++,str_len);
   
   const char* str_p = routerID.c_str();
@@ -440,6 +450,12 @@ void GlobalSettings::Save()
   str_p = stationPassword.c_str();
   for(uint8_t i=0;i<str_len;i++)
     EEPROM.write(addr++, *str_p++);
+
+   iotSettings.Header1 = SETT_HEADER1;
+   iotSettings.Header2 = SETT_HEADER2;
+
+   EEPROM.put(addr,iotSettings);
+   addr += sizeof(iotSettings);
   
   // сохраняем другие настройки!
 
