@@ -582,11 +582,6 @@
                   
                     <h3 class='ui-widget-header ui-corner-all'>Настройки IoT</h3>
                     
-                      <table border='0' width='100%'>
-                    
-                      <tr>
-                      <td valign='top' width='50%'>
-                        <h4 class='ui-widget-header ui-corner-all'>Настройки</h4>
                         <div class='button_menu_spacer'>
                           <input type='checkbox' id='thingspeak_enabled'><label for='thingspeak_enabled'>Отправлять данные на ThingSpeak?</label>
                         </div>
@@ -595,23 +590,40 @@
                         </div>
                         <div class='button_menu_spacer'>
                           Ключ канала ThingSpeak:<br/><input type='text' id='thingspeak_channel' value='' maxlength='19'/>
-                        </div>
-                      </td>
-                      <td valign='top'>
-                        <h4 class='ui-widget-header ui-corner-all'>Выберите датчики (максимум 8)</h4>
-                        
-                        <div style='max-height:300px;overflow:auto;' id='iot_sensors_list'>
-                        </div>
-                        
-                      </td>
-                      </tr>
-                        
-                      </table>
+                        </div>                    
                     
-                    <div><br/><br/>
+                     <div class='ui-state-highlight ui-corner-all' style='margin-top:10px;margin-bottom:10px;padding:4px;'>
+                      <span class='ui-icon ui-icon-info' style='float:left;margin-right:10px;'></span>Датчики можно перетаскивать между списками.
+                     </div>
+                     
+                     <div>                    
                     
-                        <button id='save_iot_button' onclick='saveIoTSettings();'>Сохранить</button>
-                        
+                        <table border='0' width='100%'>
+                      
+                        <tr>
+                        <td valign='top' width='50%'>
+                           <h4 class='ui-widget-header ui-corner-all'>Доступные датчики</h4>
+                           
+                           <div class='iot_sortable' style='height:300px;overflow:auto;' id='iot_all_sensors'>
+                          </div>
+
+                        </td>
+                        <td valign='top'>
+                          <h4 class='ui-widget-header ui-corner-all'>Выбранные датчики (максимум 8)</h4>
+                          
+                          <div class='iot_sortable' style='height:300px;overflow:auto;' id='iot_selected_sensors'>
+                          </div>
+                          
+                        </td>
+                        </tr>
+                          
+                        </table>
+                      
+                      </div>
+                      
+                    
+                    <div style='margin-top:10px;'>
+                        <button id='save_iot_button' onclick='saveIoTSettings();'>Сохранить</button>                        
                     </div>
                     
                   </div>            

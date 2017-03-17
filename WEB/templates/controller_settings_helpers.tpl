@@ -1949,74 +1949,71 @@ controller.OnGetModulesList = function(obj)
               $('#iot_interval').val(iot_interval);
               
               // теперь пробегаем по всем датчикам
-              var lst = $('#iot_sensors_list');
-              lst.empty();
+              var sourceList = $('#iot_all_sensors');
+              sourceList.empty();
+              
+              var selectedList = $('#iot_selected_sensors');
+              selectedList.empty();
               
               var idCntr = 0;
               for(var i=0;i<totalTempSensors;i++)
               {
-                var div = $('<div/>').appendTo(lst);
-                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
-                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Температура, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'STATE')) + '"').appendTo(div);
+                var div = $('<div/>',{'class' : 'iot_sensor ui-state-default ui-corner-all'}).appendTo(sourceList);
+                var lbl = $('<span/>').text('Температура, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'STATE')) + '"').appendTo(div);
                 
-                chb.data('iot_sensor',{moduleID : 1, sensorIndex : i, sensorType : 1});
+                div.data('iot_sensor',{moduleID : 1, sensorIndex : i, sensorType : 1});
                 
                 idCntr++;
               } // for
 
               for(var i=0;i<totalHumiditySensors;i++)
               {
-                var div = $('<div/>').appendTo(lst);
-                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
-                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Температура, датчик влажности "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'HUMIDITY')) + '"').appendTo(div);
+                var div = $('<div/>',{'class' : 'iot_sensor ui-state-default ui-corner-all'}).appendTo(sourceList);
+                var lbl = $('<span/>').text('Температура, датчик влажности "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'HUMIDITY')) + '"').appendTo(div);
                 
-                chb.data('iot_sensor',{moduleID : 2, sensorIndex : i, sensorType : 1});
+                div.data('iot_sensor',{moduleID : 2, sensorIndex : i, sensorType : 1});
                 
                 idCntr++;
                 
-                div = $('<div/>').appendTo(lst);
-                chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
-                lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Влажность, датчик влажности "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'HUMIDITY')) + '"').appendTo(div);
+                div = $('<div/>',{'class' : 'iot_sensor ui-state-default ui-corner-all'}).appendTo(sourceList);
+                lbl = $('<span/>').text('Влажность, датчик влажности "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'HUMIDITY')) + '"').appendTo(div);
                 
-                chb.data('iot_sensor',{moduleID : 2, sensorIndex : i, sensorType : 8});
+                div.data('iot_sensor',{moduleID : 2, sensorIndex : i, sensorType : 8});
                 
                 idCntr++;                
               } // for
               
               for(var i=0;i<totalLuminositySensors;i++)
               {
-                var div = $('<div/>').appendTo(lst);
-                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
-                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Освещённость, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'LIGHT')) + '"').appendTo(div);
+                var div = $('<div/>',{'class' : 'iot_sensor ui-state-default ui-corner-all'}).appendTo(sourceList);
+                var lbl = $('<span/>').text('Освещённость, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'LIGHT')) + '"').appendTo(div);
                 
-                chb.data('iot_sensor',{moduleID : 3, sensorIndex : i, sensorType : 4});
+                div.data('iot_sensor',{moduleID : 3, sensorIndex : i, sensorType : 4});
                 
                 idCntr++;
               } // for
               
               for(var i=0;i<totalSoilMoistureSensors;i++)
               {
-                var div = $('<div/>').appendTo(lst);
-                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
-                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Влажность почвы, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'SOIL')) + '"').appendTo(div);
+                var div = $('<div/>',{'class' : 'iot_sensor ui-state-default ui-corner-all'}).appendTo(sourceList);
+                var lbl = $('<span/>').text('Влажность почвы, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'SOIL')) + '"').appendTo(div);
                 
-                chb.data('iot_sensor',{moduleID : 4, sensorIndex : i, sensorType : 64});
+                div.data('iot_sensor',{moduleID : 4, sensorIndex : i, sensorType : 64});
                 
                 idCntr++;
               } // for                                 
               
                for(var i=0;i<totalPHSensors;i++)
               {
-                var div = $('<div/>').appendTo(lst);
-                var chb = $('<input/>',{'type' : 'checkbox', 'id' : 'iot_sensor' + idCntr}).appendTo(div);
-                var lbl = $('<label/>',{'for' : 'iot_sensor' + idCntr}).text('Показания pH, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'PH')) + '"').appendTo(div);
+                var div = $('<div/>',{'class' : 'iot_sensor ui-state-default ui-corner-all'}).appendTo(sourceList);
+                var lbl = $('<span/>').text('Показания pH, датчик "' + controller.SensorsNames.getMnemonicName(new Sensor(i,'PH')) + '"').appendTo(div);
                 
-                chb.data('iot_sensor',{moduleID : 5, sensorIndex : i, sensorType : 128});
+                div.data('iot_sensor',{moduleID : 5, sensorIndex : i, sensorType : 128});
                 
                 idCntr++;
               } // for    
               
-              var checkboxes = lst.find('input[type="checkbox"]');
+              var sensors = sourceList.find('div.iot_sensor');
               
               // и выделяем нужные из них
               for(var i=0;i<8;i++)
@@ -2025,18 +2022,23 @@ controller.OnGetModulesList = function(obj)
                 var sensorType = parseInt(answer.Params[paramIdx++]);
                 var sensorIndex = parseInt(answer.Params[paramIdx++]);
                 
-                checkboxes.each(function(){
+                sensors.each(function(){
                 
-                    var chb = $(this);
-                    var iot_sensor = chb.data('iot_sensor');
+                    var record = $(this);
+                    var iot_sensor = record.data('iot_sensor');
                     if(iot_sensor.moduleID == moduleID && iot_sensor.sensorType == sensorType && iot_sensor.sensorIndex == sensorIndex)
                     {
-                      chb.get(0).checked = true;
+                      record.detach();
+                      record.appendTo(selectedList);
                     }
                 
                 });
                 
-              }
+              } // for
+              
+              // теперь делаем списки сортируемыми
+              selectedList.sortable({revert:true, connectWith: '.iot_sortable'});
+              sourceList.sortable({revert:true, connectWith: '.iot_sortable'});
               
               // теперь получаем ID канала ThingSpeak
               var thingSpeakChannelKey = answer.Params[paramIdx++];
@@ -2291,23 +2293,21 @@ function saveIoTSettings()
   var thingSpeakChannelKey = $('#thingspeak_channel').val().substring(0,19);
   
   // теперь выбираем все датчики
-  var lst = $('#iot_sensors_list');
+  var lst = $('#iot_selected_sensors');
   var sensors_command = '';
   var sensorsProcessed = 0;
   
-  lst.find('input[type="checkbox"]').each(function(){
+  lst.find('div.iot_sensor').each(function(){
     if(sensorsProcessed > 8)
       return;
       
-    var chb = $(this);
-    if(chb.get(0).checked) {
+      var record = $(this);
+    
       sensorsProcessed++;
-      var iot_sensor = chb.data('iot_sensor');
+      var iot_sensor = record.data('iot_sensor');
       
       sensors_command += "|" + iot_sensor.moduleID + "|" + iot_sensor.sensorType + "|" + iot_sensor.sensorIndex;
       
-    }
-  
   });
   
   // дополняем до 8
@@ -2318,6 +2318,7 @@ function saveIoTSettings()
   
   // теперь составляем команду
   var full_command = "IOT|T_SETT|" + flags + "|" + interval + sensors_command + "|" + thingSpeakChannelKey;
+  
   
   showWaitDialog();
   

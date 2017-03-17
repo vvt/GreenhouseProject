@@ -32,6 +32,12 @@ LABEL {
   font-weight:bold;
 }
 
+.iot_sensor {
+  padding: 4px;
+  margin-bottom: 4px;
+  cursor: default;
+}
+
 .peity {
   float: right;
 }

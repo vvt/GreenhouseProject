@@ -419,7 +419,7 @@ void GlobalSettings::Save()
  EEPROM.write(addr++,wifiState);
 
 // сохраняем ID роутера
-  uint8_t str_len = routerID. length();
+  uint8_t str_len = routerID.length();
   EEPROM.write(addr++,str_len);
   
   const char* str_p = routerID.c_str();
