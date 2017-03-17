@@ -174,6 +174,7 @@ void GlobalSettings::ResetToDefault()
   startWateringTime = 12;
   wifiState = 0x01; // первый бит устанавливаем, говорим, что мы коннектимся к роутеру
   controllerID = 0; // по умолчанию 0 как ID контроллера
+  gsmProvider = MTS;
 
   memset(&iotSettings,0,sizeof(iotSettings));
 }
@@ -346,6 +347,10 @@ void GlobalSettings::Load()
     memset(&iotSettings,0,sizeof(iotSettings));
   }
 
+  gsmProvider = EEPROM.read(readPtr++);
+  if(gsmProvider >= Dummy_Last_Op)
+    gsmProvider = MTS;
+
    
   // читаем другие настройки!
 
@@ -456,6 +461,9 @@ void GlobalSettings::Save()
 
    EEPROM.put(addr,iotSettings);
    addr += sizeof(iotSettings);
+
+
+  EEPROM.write(addr++,gsmProvider);
   
   // сохраняем другие настройки!
 

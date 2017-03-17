@@ -57,6 +57,16 @@ typedef struct
   
 } IoTSettings;
 
+enum
+{
+  MTS,
+  Beeline,
+  Megafon,
+  Tele2,
+  Yota,
+  Dummy_Last_Op
+};
+
 class GlobalSettings
 {
   private:
@@ -68,6 +78,7 @@ class GlobalSettings
   unsigned long openInterval; // интервал для открытия окон
 
   String smsPhoneNumber; // номер телефона для управления по SMS
+  byte gsmProvider; // оператор GSM
 
   uint8_t wateringOption; // какая опция управления выбрана?
   uint8_t wateringWeekDays; // в какие дни недели управляем поливом на всех каналах?
@@ -94,6 +105,16 @@ class GlobalSettings
     void ResetToDefault();
 
     IoTSettings* GetIoTSettings() {return &iotSettings; }
+
+    byte GetGSMProvider() { return gsmProvider; }
+    bool SetGSMProvider(byte p) {
+
+          if(p < Dummy_Last_Op) {
+            gsmProvider = p;
+            return true;
+          }
+          return false;
+      }
 
     uint8_t GetControllerID() {return controllerID;}
     void SetControllerID(uint8_t val);

@@ -850,8 +850,33 @@ void SMSModule::ProcessQueue()
         #ifdef GSM_DEBUG_MODE
           Serial.println(F("Request balance..."));
         #endif
-        SendCommand(GSM_BALANCE_COMMAND);
-       // SendCommand(F("AT+CUSD=1,\"*105#\""));
+
+        String balanceCommand = MTS_BALANCE;
+        byte op = MainController->GetSettings()->GetGSMProvider();
+
+        switch(op)
+        {
+          case MTS:
+          break;
+
+          case Beeline:
+            balanceCommand = BEELINE_BALANCE;
+          break;
+
+          case Megafon:
+            balanceCommand = MEGAFON_BALANCE;
+          break;
+
+          case Tele2:
+            balanceCommand = TELE2_BALANCE;
+          break;
+
+          case Yota:
+            balanceCommand = YOTA_BALANCE;
+          break;
+        }
+        
+        SendCommand(balanceCommand);
         
       }
       break;
@@ -1379,6 +1404,38 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
         } // else
         
       } // ADD
+      else if(t == F("PROV"))
+      {
+        // запросили установить провайдера GSM
+        if(argsCount < 2)
+        {
+          PublishSingleton = F("PROV");
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << PARAMS_MISSED;
+        }
+        else
+        {
+          String helper = command.GetArg(1);
+          byte p = (byte) helper.toInt();
+          GlobalSettings* s = MainController->GetSettings();
+          if(s->SetGSMProvider(p))
+          {
+            PublishSingleton.Status = true;
+            PublishSingleton = F("PROV");
+            PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+            s->Save();
+          }
+          else
+          {
+            
+            PublishSingleton = F("PROV");
+            PublishSingleton << PARAM_DELIMITER << PARAMS_MISSED;
+          }
+                    
+        } // enough args
+        
+        
+      }
       else
         PublishSingleton = UNKNOWN_COMMAND;
       
@@ -1403,6 +1460,13 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton.Status = true;
           PublishSingleton = STAT_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+        }
+        else if(t == F("PROV")) // запросили провайдера GSM
+        {
+          PublishSingleton.Status = true;
+          PublishSingleton = F("PROV");
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << MainController->GetSettings()->GetGSMProvider();
         }
         else if(t == BALANCE_COMMAND) { // получить баланс
 

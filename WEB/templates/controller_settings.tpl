@@ -34,10 +34,19 @@
   </form>
 </div>
 
-<div id='phone_number_dialog' title='Номер телефона' class='hdn'>
+<div id='phone_number_dialog' title='Настройки GSM' class='hdn'>
   <form>
-    Номер телефона:<br/>
+    Ваш номер телефона:<br/>
     <input type='text' id='edit_phone_number' maxlength='20' value='' style='width:100%;'/><br/>
+    
+    Оператор:<br/>
+    <select id='gsm_provider' style='width:100%;'>
+      <option value='0' selected>МТС</option>
+      <option value='1'>Билайн</option>
+      <option value='2'>Мегафон</option>
+      <option value='3'>Теле2</option>
+      <option value='4'>Йота</option>
+    </select>
   </form>
 </div>
 
@@ -679,7 +688,7 @@
                     
                         <button id='save_sms_button' onclick='saveSmsList();'>Сохранить в контроллер</button>
                         <button id='new_sms_button' onclick='newSms();'>Добавить SMS</button>
-                        <button id='phone_number' class='hdn' onclick="editPhoneNumber();">Номер телефона для SMS</button>
+                        <button id='phone_number' class='hdn' onclick="editPhoneNumber();">Ваш номер и оператор</button>
                         
                     </div>
                     

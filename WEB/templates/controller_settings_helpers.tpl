@@ -478,15 +478,22 @@ function editPhoneNumber()
 
       var num = $('#edit_phone_number').val();
       
+      var selectOp = $('#gsm_provider').get(0);
+      var gsmProvider = selectOp.options[selectOp.selectedIndex].value;
+      
       showWaitDialog(); 
       controller.queryCommand(false,'0|PHONE|' + num,function(obj,answer){
       
-      closeWaitDialog();
+              controller.queryCommand(false,'SMS|PROV|' + gsmProvider,function(obj,answer2){
       
-      if(answer.IsOK)
-        showMessage("Данные успешно сохранены!");
-      else
-        showMessage("Ошибка сохранения данных :(");                      
+              closeWaitDialog();
+              
+              if(answer2.IsOK)
+                showMessage("Данные успешно сохранены!");
+              else
+                showMessage("Ошибка сохранения данных :(");  
+                
+                });                    
       
       });
       
@@ -1739,6 +1746,15 @@ controller.OnGetModulesList = function(obj)
           }
         
         });
+        
+        controller.queryCommand(true,'SMS|PROV',function(obj,answer){
+                     
+          if(answer.IsOK)
+          {
+            $('#gsm_provider').get(0).selectedIndex = answer.Params[2];
+          }
+        
+        });        
         
         controller.queryServerScript("/x_get_sms.php",{}, function(obj,result){
            
