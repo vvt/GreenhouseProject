@@ -390,12 +390,6 @@ void setup()
   controller.RegisterModule(&tempSensors);
   #endif
 
-  #ifdef USE_SMS_MODULE
-  smsReceiveBuff = new String();
-  //smsReceiveBuff->reserve(50);
-  controller.RegisterModule(&smsModule);
-  #endif
-
   #ifdef USE_WATERING_MODULE
   controller.RegisterModule(&wateringModule);
   #endif
@@ -448,21 +442,26 @@ void setup()
   controller.RegisterModule(&timerModule);
   #endif
 
-  #ifdef USE_IOT_MODULE
-    controller.RegisterModule(&iotModule);
-  #endif
-
   #ifdef USE_LOG_MODULE
   controller.RegisterModule(&logModule);
   controller.SetLogWriter(&logModule); // задаём этот модуль как модуль, который записывает события в лог
   #endif
 
+  // модуль Wi-Fi регистрируем до модуля SMS, поскольку Wi-Fi дешевле, чем GPRS, для отсыла данных в IoT-хранилища
   #ifdef USE_WIFI_MODULE
   wiFiReceiveBuff = new String();
-  //wiFiReceiveBuff->reserve(50);
   controller.RegisterModule(&wifiModule);
   #endif 
 
+  #ifdef USE_SMS_MODULE
+  smsReceiveBuff = new String();
+  controller.RegisterModule(&smsModule);
+  #endif
+
+  #ifdef USE_IOT_MODULE
+    controller.RegisterModule(&iotModule);
+  #endif
+  
  // модуль алертов регистрируем последним, т.к. он должен вычитать зависимости с уже зарегистрированными модулями
   controller.RegisterModule(&zeroStreamModule);
   controller.RegisterModule(&alertsModule);

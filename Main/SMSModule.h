@@ -5,6 +5,10 @@
 #include "Settings.h"
 #include "TinyVector.h"
 
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+#include "IoT.h"
+#endif
+
 typedef enum
 {
   smaIdle, // ничего не делаем, просто ждём
@@ -22,10 +26,34 @@ typedef enum
   smaClearAllSMS, // очистка всех SMS (AT+CMGD=0,4)
   smaCheckModemHang, // проверяем, не завис ли модем (AT)
   smaRequestBalance, // запрос баланса (ATD#100#;)
+  smaCheckModemHardware, // запрос, какой модем подключен (AT+CGMM)
+  
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+  
+  smaStartIoTSend, // начинаем отсыл данных в IoT
+
+  // Команды, специфичные для M590
+  smaGDCONT, // задаём параметры PDP-контекста (AT+CGDCONT)
+  smaXGAUTH, // авторизация в APN (AT+XGAUTH)
+  smaXIIC, // установка соединения PPP (AT+XIIC=1)
+  smaCheckPPPIp, // проверяем выданный IP (AT+XIIC?)
+  smaTCPSETUP, // устанавливаем TCP-соединение
+  smaTCPSEND, // начинаем посылать данные
+  smaTCPSendData, // отсылаем данные
+  smaTCPClose, // закрываем соединение
+  smaTCPWaitAnswer, // ждём ответа
+  
+#endif  
   
 } SMSActions;
 
 typedef Vector<SMSActions> SMSActionsVector;
+
+enum
+{
+  M590,
+  SIM800
+};
 
 typedef struct
 {
@@ -33,14 +61,28 @@ typedef struct
     bool isModuleRegistered : 1; // зарегистрирован ли модуль у оператора?
     bool isAnyAnswerReceived : 1;
     bool inRebootMode : 1;
-    byte pad : 4;
+    bool wantIoTToProcess : 1;
+    byte model : 2;
+    bool isIPAssigned : 1;
       
 } SMSModuleFlags;
 
 class SMSModule : public AbstractModule, public Stream // модуль поддержки управления по SMS
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+, public IoTGate
+#endif
 {
   private:
-  //  GlobalSettings* Settings;
+
+    #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+      IOT_OnWriteToStream iotWriter;
+      IOT_OnSendDataDone iotDone;
+      IoTService iotService;
+      String* iotDataHeader;
+      String* iotDataFooter;
+      uint16_t iotDataLength;
+      void EnsureIoTProcessed(bool success=false);
+    #endif
 
     uint8_t currentAction; // текущая операция, завершения которой мы ждём
     SMSActionsVector actionsQueue; // что надо сделать, шаг за шагом 
@@ -92,7 +134,11 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     virtual void flush(){};
 
  
-    virtual size_t write(uint8_t toWr);         
+    virtual size_t write(uint8_t toWr);  
+
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+    virtual void SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone);
+#endif               
 
 };
 

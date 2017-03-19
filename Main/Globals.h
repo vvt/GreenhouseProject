@@ -370,12 +370,62 @@
 #define GSM_POWER_OFF LOW // уровень для выключения питания
 #define GSM_POWER_ON HIGH // уровень для включения питания
 
-// настройки команд запроса баланса для разрых операторов
+// настройки команд запроса баланса для разных операторов
 #define TELE2_BALANCE F("ATD#105#") // команда для проверки баланса Tele2 (баланс отсылается хозяину по приходу на контроллер СМС с текстом "#5" или выполнению команды CTGET=SMS|BAL.
 #define BEELINE_BALANCE F("ATD#102#") // Билайн
 #define MTS_BALANCE F("ATD#100#") // МТС
 #define MEGAFON_BALANCE F("ATD#100#") // Мегафон
 #define YOTA_BALANCE F("ATD#100#") // Йота
+#define MTS_BEL_BALANCE F("ATD#100#") // МТС Беларусь
+#define VELCOM_BEL_BALANCE F("ATD#100#") // Velcom Беларусь
+#define PRIVET_BEL_BALANCE F("ATD#100#") // Privet Беларусь
+#define LIFE_BEL_BALANCE F("ATD#100#") // Life Беларусь
+
+// настройки GPRS разных операторов
+// Билайн
+#define BEELINE_APN F("internet.beeline.ru")
+#define BEELINE_USER F("beeline")
+#define BEELINE_PASS F("beeline")
+
+// МТС
+#define MTS_APN F("internet.mts.ru")
+#define MTS_USER F("mts")
+#define MTS_PASS F("mts")
+
+// Мегафон
+#define MEGAFON_APN F("internet")
+#define MEGAFON_USER F("gdata")
+#define MEGAFON_PASS F("gdata")
+
+// Теле2
+#define TELE2_APN F("internet.tele2.ru")
+#define TELE2_USER F("")
+#define TELE2_PASS F("")
+
+// Йота
+#define YOTA_APN F("internet.yota")
+#define YOTA_USER F("")
+#define YOTA_PASS F("")
+
+// МТС Беларусь
+#define MTS_BEL_APN F("mts")
+#define MTS_BEL_USER F("mts")
+#define MTS_BEL_PASS F("mts")
+
+// Velcom Беларусь
+#define VELCOM_BEL_APN F("vmi.velcom.by")
+#define VELCOM_BEL_USER F("")
+#define VELCOM_BEL_PASS F("")
+
+// Privet Беларусь
+#define PRIVET_BEL_APN F("wap.privet.by")
+#define PRIVET_BEL_USER F("")
+#define PRIVET_BEL_PASS F("")
+
+// Life Беларусь
+#define LIFE_BEL_APN F("internet.life.com.by")
+#define LIFE_BEL_USER F("")
+#define LIFE_BEL_PASS F("")
 //--------------------------------------------------------------------------------------------------------------------------------
 // настройки модуля WI-FI
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -402,6 +452,7 @@
 // настройки IoT
 //--------------------------------------------------------------------------------------------------------------------------------
 #define USE_WIFI_MODULE_AS_IOT_GATE // закомментировать, если не хотим использовать ESP как один из шлюзов для отсыла данных в IoT
+#define USE_GSM_MODULE_AS_IOT_GATE // закомментировать, если не хотим использовать GSM-модем как один из шлюзов для отсыла данных в IoT
 #define IOT_USER_AGENT F("greenhouse") // User-agent для запроса
 #define THINGSPEAK_IP F("184.106.153.149") // IP сервиса ThingSpeak
 #define THINGSPEAK_HOST F("api.thingspeak.com") // Имя хоста ThingSpeak

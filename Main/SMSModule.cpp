@@ -31,6 +31,83 @@ bool SMSModule::IsKnownAnswer(const String& line, bool& okFound)
   return ( line.indexOf(F("ERROR")) != -1 );
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone)
+{
+
+    if(!flags.isModuleRegistered)
+    {
+      // не зарегистрированы, не можем обрабатывать запросы IoT
+      onDone({false,service});
+      return;
+    }
+  
+    // тут смотрим, можем ли мы обработать запрос на отсыл данных в IoT
+    IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+
+    if(iotSettings->Flags.ThingSpeakEnabled && strlen(iotSettings->ThingSpeakChannelID)) // включен один сервис хотя бы
+    {
+
+     // сохраняем указатели на функции обратного вызова
+      iotWriter = writer;
+      iotDone = onDone;
+      iotService = service;
+
+      #ifdef WIFI_DEBUG
+        Serial.println(F("Requested to write data to IoT using GSM..."));
+      #endif
+
+      // Тут формируем данные для запроса
+      switch(service)
+      {
+         case iotThingSpeak:
+         {
+          // попросили отослать данные через ThingSpeak
+          delete iotDataHeader;
+          delete iotDataFooter;
+          iotDataHeader = new String();
+          iotDataFooter = new String();
+
+          // формируем запрос
+          *iotDataHeader = F("GET /update?api_key=");
+          *iotDataHeader += iotSettings->ThingSpeakChannelID;
+          *iotDataHeader += F("&");
+
+          *iotDataFooter = F(" HTTP/1.1\r\nAccept: */*\r\nUser-Agent: ");
+          *iotDataFooter += IOT_USER_AGENT;
+          *iotDataFooter += F("\r\nHost: ");
+          *iotDataFooter += THINGSPEAK_HOST;
+          *iotDataFooter += F("\r\n\r\n");
+
+          // теперь вычисляем, сколько всего данных будет
+          iotDataLength = iotDataHeader->length() + iotDataFooter->length() + dataLength;
+
+          #ifdef GSM_DEBUG_MODE
+            Serial.println(F("IOT HEADER:"));
+            Serial.println(*iotDataHeader);
+            Serial.println(F("IOT FOOTER:"));
+            Serial.println(*iotDataFooter);
+          #endif
+
+          // теперь можно добавлять в очередь запрос на обработку. Но ситуация с очередью следующая:
+          // мы не знаем, чем сейчас занят GSM, и что у нас в очереди.
+          // следовательно, всё, что мы можем сделать - это взвести флаг, что как только очередь освободится - мы должны
+          // поместить в неё команду на отсыл данных в IoT.
+          flags.wantIoTToProcess = true;
+         }
+         break;
+        
+      } // switch
+    } // enabled
+    else
+    {
+      // ни одного сервиса не включено
+      // тут ничего не можем отсылать, сразу дёргаем onDone, говоря, что у нас не получилось отослать
+      onDone({false,service});
+    }
+}
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------  
 void SMSModule::Setup()
 {
  // Settings = MainController->GetSettings();
@@ -53,11 +130,24 @@ void SMSModule::Setup()
 
   // говорим, что мы от модема не получали ничего
   flags.isAnyAnswerReceived = false;
-
   flags.inRebootMode = false;
+  flags.wantIoTToProcess = false;
+  
   rebootStartTime = 0;
+
+  flags.model = M590; // считаем, что у нас по умолчанию Neoway M590
  
   InitQueue(); // инициализируем очередь
+
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+
+     iotWriter = NULL;
+     iotDone = NULL;
+     iotDataHeader = NULL;
+     iotDataFooter = NULL;
+     iotDataLength = 0;     
+     IoTList.RegisterGate(this); // регистрируем себя как отсылателя данных в IoT
+#endif    
    
   // настройка модуля тут
 }
@@ -86,6 +176,7 @@ void SMSModule::InitQueue()
   actionsQueue.push_back(smaDisableCellBroadcastMessages); // выключение броадкастовых SMS
   actionsQueue.push_back(smaEchoOff); // выключение эха
   actionsQueue.push_back(smaCheckReady); // проверка готовности
+  actionsQueue.push_back(smaCheckModemHardware); // проверяем, какой модем подключен
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -111,6 +202,11 @@ void SMSModule::ProcessAnswerLine(const String& line)
       Serial.println(F("Modem boot found, init queue.."));
     #endif
 
+     // убеждаемся, что мы вызвали коллбэк для отсыла данных в IoT
+     #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+      EnsureIoTProcessed();
+     #endif    
+
     InitQueue(); // инициализировали очередь по новой, т.к. модем либо только загрузился, либо - перезагрузился
     needToWaitTimer = GSM_WAIT_BOOT_TIME; // дадим модему ещё 2 секунды на раздупливание
 
@@ -122,6 +218,334 @@ void SMSModule::ProcessAnswerLine(const String& line)
 
   switch(currentAction)
   {
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+
+
+    case smaTCPClose: // закрывали соединение
+    {
+      if(line.startsWith(F("+TCPCLOSE")))
+      {
+          // наш ответ
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+               #ifdef GSM_DEBUG_MODE
+                Serial.println(F("TCP connection closed."));
+             #endif       
+      }
+    }
+    break;
+
+    case smaTCPWaitAnswer:
+    {
+      if(line.startsWith(F("+TCPRECV:")))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+               #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Answer received, closing connection..."));
+             #endif  
+
+             // говорим, что мы всё послали
+             EnsureIoTProcessed(true);
+             
+             actionsQueue.push_back(smaTCPClose);                  
+      }
+    }
+    break;
+
+    case smaTCPSendData: // писали данные для IoT в поток, проверяем, чего там
+    {
+      if(line.startsWith(F("+TCPSEND:")))
+      {
+          // наш ответ
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         // теперь смотрим, правильно ли отослалось?
+         String wantedEnd = F("0,");
+         wantedEnd += iotDataLength;
+
+         if(line.endsWith(wantedEnd))
+         {
+              #ifdef GSM_DEBUG_MODE
+                Serial.println(F("TCP data sent, waiting answer..."));
+             #endif
+
+             actionsQueue.push_back(smaTCPWaitAnswer);
+
+         }
+         else
+         {
+           // не удалось
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("TCP Send FAIL!"));
+             #endif
+
+             EnsureIoTProcessed();
+          }
+      }
+    }
+    break;
+
+    case smaTCPSEND: // отсылали данные, ждём приглашения
+    {
+      if(line == F(">"))
+      {
+        WaitForSMSWelcome = false;
+        // дождались приглашения, посылаем данные
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Welcome received, start sending data"));
+             #endif
+
+         actionsQueue.push_back(smaTCPSendData);
+      }
+    }
+    break;
+
+    case smaTCPSETUP: // коннектились к сервису IoT
+    {
+      if(line.startsWith(F("+TCPSETUP:")))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(line.endsWith(F(",OK")))
+         {
+          // законнектились, продолжаем
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("IoT connected, continue..."));
+             #endif
+
+            actionsQueue.push_back(smaTCPSEND);
+         }
+         else
+         {
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Unable to connect to IoT!"));
+             #endif
+           // не удалось законнектиться
+            EnsureIoTProcessed(); 
+         }
+      }
+    }
+    break;
+
+    case smaCheckPPPIp: // проверяли выбранный адрес
+    {
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(flags.isIPAssigned) 
+         {
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("IP assigned, start TCP connection..."));
+             #endif
+
+          actionsQueue.push_back(smaTCPSETUP);
+                          
+         }
+         else
+         {
+            // bad
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("No PPP IP assigned!"));
+             #endif      
+             // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureIoTProcessed();
+          
+         }
+      }
+      if(line.startsWith(F("+XIIC:")))
+      {
+         // пришёл адрес, проверяем
+         if(line.endsWith(F("0.0.0.0")))
+          flags.isIPAssigned = false;
+         else
+             flags.isIPAssigned = true;
+      }
+    }
+    break;
+
+    case smaXIIC: // устанавливали соединение PPP
+    {
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(okFound)
+         {
+           // good, можем проверять соединение
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("PPP connection established, check for IP address..."));
+             #endif
+
+             // Проверяем выданный IP
+             flags.isIPAssigned = false;
+             actionsQueue.push_back(smaCheckPPPIp);
+
+             needToWaitTimer = 5000; // дадим модему 5 секунд на раздупливание
+           
+         }
+         else
+         {
+           // bad
+            // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureIoTProcessed();
+  
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("PPP connection failed!"));
+             #endif                
+         }         
+         
+      }
+      
+    }
+    break;
+
+    case smaXGAUTH: // авторизовывались в APN
+    {    
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(okFound)
+         {
+           // good, можем продолжать авторизацию
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Authorized in APN, continue..."));
+             #endif
+
+             // устанавливаем соединение PPP
+             actionsQueue.push_back(smaXIIC);
+           
+         }
+         else
+         {
+           // bad
+            // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureIoTProcessed();
+  
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("APN authorization failed!"));
+             #endif                
+         }
+      }      
+    }
+    break;
+
+
+    case smaGDCONT: // устанавливали параметры APN для M590
+    {
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+                 
+          if(okFound)
+          {
+            // good
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("APN setup completed, continue..."));
+             #endif  
+
+             actionsQueue.push_back(smaXGAUTH);
+          }
+          else
+          {
+            // bad
+            // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureIoTProcessed();
+  
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("APN setup failed!"));
+             #endif         
+            
+          }
+        
+      } // if
+      
+      
+    }
+    break;
+
+    case smaStartIoTSend:
+
+      if(IsKnownAnswer(line,okFound)) 
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(!okFound) // не срослось
+         {
+
+          // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+          EnsureIoTProcessed();
+
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("IoT request failed!"));
+           #endif         
+         }
+         else
+         {
+           // всё норм, продолжаем
+           switch(flags.model)
+           {
+            case M590:
+              // пихаем в очередь следующую команду
+              actionsQueue.push_back(smaGDCONT);
+            break;
+
+            case SIM800:
+              #ifdef GSM_DEBUG_MODE
+                Serial.println(F("NOT IMPLEMENTED!"));
+                EnsureIoTProcessed();
+              #endif
+            break;
+            
+           } // switch
+         } // else
+        
+      }
+      
+    break;
+#endif
+
+    case smaCheckModemHardware:
+    {
+      
+      if(line.indexOf(F("M590")) != -1)
+        flags.model = M590;
+      else if(line.indexOf(F("SIM800")) != -1)
+        flags.model = SIM800;
+        
+       if(IsKnownAnswer(line,okFound)) {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         #ifdef GSM_DEBUG_MODE
+          Serial.print(F("[OK] => Modem hardware detected: "));
+          switch(flags.model)
+          {
+            case M590:
+              Serial.println(F("Neoway M590"));
+            break;
+
+            case SIM800:
+              Serial.println(F("SIM800 series"));
+            break;
+          }
+         #endif
+      }     
+    }
+    break;
+    
     case smaCheckReady:
     {
       // ждём ответа "+CPAS: 0" от модуля
@@ -809,6 +1233,16 @@ void SMSModule::ProcessQueue()
     size_t sz = actionsQueue.size();
     if(!sz) { // в очереди ничего нет
 
+      #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+      if(flags.wantIoTToProcess && iotWriter && iotDone)
+      {
+        // надо поместить в очередь команду на обработку запроса к IoT
+        flags.wantIoTToProcess = false;
+        actionsQueue.push_back(smaStartIoTSend);
+        return;
+      }
+      #endif      
+
       // тут проверяем - можем ли мы протестировать доступность модема?
       if(millis() - sendCommandTime > GSM_AVAILABLE_CHECK_TIME) {
           // раз в минуту можно проверить доступность модема,
@@ -824,6 +1258,277 @@ void SMSModule::ProcessQueue()
     // смотрим, что за команда
     switch(currentAction)
     {
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+
+      case smaTCPWaitAnswer: // ждём ответа, ничего модему не посылаем
+      break;
+      
+      case smaTCPClose: // закрываем соединение
+      {
+        SendCommand(F("AT+TCPCLOSE=0"));
+      }
+      break;
+
+      case smaTCPSendData: // отсылаем данные
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Send data to IoT using GSM..."));
+        #endif  
+          if(iotDataHeader && iotDataFooter && iotWriter && iotDone)
+          {      
+            // тут посылаем данные в IoT
+            SendCommand(*iotDataHeader,false);
+            iotWriter(&(GSM_SERIAL));
+            SendCommand(*iotDataFooter,false);
+            GSM_SERIAL.write(0x0D);       
+          }
+          else
+          {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("IoT data is INVALID!"));
+        #endif  
+        // чего-то в процессе не задалось, вызываем коллбэк, и говорим, что всё плохо
+            EnsureIoTProcessed();
+            actionsQueue.pop();
+            currentAction = smaIdle;
+          }        
+      }
+      break;
+
+
+      case smaTCPSEND: // начинаем посылать данные
+      {
+          #ifdef GSM_DEBUG_MODE
+            Serial.println(F("Start sending data command..."));
+          #endif
+
+          String command = F("AT+TCPSEND=0,");
+          command += iotDataLength;
+          WaitForSMSWelcome = true; // выставляем флаг, что мы ждём >
+          SendCommand(command); 
+      }
+      break;
+
+      case smaTCPSETUP: // устанавливаем TCP-соединение
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Connect to IoT..."));
+        #endif
+
+        String command = F("AT+TCPSETUP=0,");
+        switch(iotService)
+        {
+          case iotThingSpeak:
+            command += THINGSPEAK_IP;
+          break;
+
+          //TODO: Тут другие сервисы!!!
+        }
+
+        command += F(",80");
+        
+        SendCommand(command);        
+      }
+      break;
+      
+
+      case smaCheckPPPIp: // проверяем выданный IP
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Check PPP IP-address..."));
+        #endif
+
+        SendCommand(F("AT+XIIC?"));
+        
+      }
+      break;
+
+      case smaXIIC: // устанавливаем соединение PPP
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Establish PPP connection..."));
+        #endif
+
+        SendCommand(F("AT+XIIC=1"));
+        
+      }
+      break;
+
+      case smaXGAUTH: // авторизуемся в APN
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Authorize in APN..."));
+        #endif 
+        String command = F("AT+XGAUTH=1,1,\"");
+
+        // тут проверяем оператора, в зависимости от этого формируем нужную команду
+        byte provider = MainController->GetSettings()->GetGSMProvider();
+
+        switch(provider)
+        {
+           case MTS:
+            command += MTS_USER;
+            command += F("\",\"");
+            command += MTS_PASS;
+           break;
+
+           case Beeline:
+            command += BEELINE_USER;
+            command += F("\",\"");
+            command += BEELINE_PASS;
+           break;
+
+           case Megafon:
+            command += MEGAFON_USER;
+            command += F("\",\"");
+            command += MEGAFON_PASS;
+           break;
+
+           case Tele2:
+            command += TELE2_USER;
+            command += F("\",\"");
+            command += TELE2_PASS;
+           break;
+
+           case Yota:
+            command += YOTA_USER;
+            command += F("\",\"");
+            command += YOTA_PASS;
+           break;
+
+           case MTS_Bel:
+            command += MTS_BEL_USER;
+            command += F("\",\"");
+            command += MTS_BEL_PASS;
+           break;
+
+           case Velcom_Bel:
+            command += VELCOM_BEL_USER;
+            command += F("\",\"");
+            command += VELCOM_BEL_PASS;
+           break;
+
+           case Privet_Bel:
+            command += PRIVET_BEL_USER;
+            command += F("\",\"");
+            command += PRIVET_BEL_PASS;
+           break;
+
+           case Life_Bel:
+            command += LIFE_BEL_USER;
+            command += F("\",\"");
+            command += LIFE_BEL_PASS;
+           break;
+
+          
+        } // switch 
+
+        command += F("\"");
+        SendCommand(command);                         
+      }
+      break;
+
+      case smaGDCONT:
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Setup APN for IoT connection..."));
+        #endif        
+        // устанавливаем параметры PDP-контекста, эта команда актуальна для M590.
+        // начиная с этой команды - мы идём по отдельным веткам моделей модема, поэтому проверять модель модема тут необязательно.
+        String command = F("AT+CGDCONT=1,\"IP\",\"");
+
+        // тут проверяем оператора, в зависимости от этого формируем нужную команду
+        byte provider = MainController->GetSettings()->GetGSMProvider();
+
+        switch(provider)
+        {
+           case MTS:
+            command += MTS_APN;
+           break;
+
+           case Beeline:
+            command += BEELINE_APN;
+           break;
+
+           case Megafon:
+            command += MEGAFON_APN;
+           break;
+
+           case Tele2:
+            command += TELE2_APN;
+           break;
+
+           case Yota:
+            command += YOTA_APN;
+           break;
+          
+           case MTS_Bel:
+            command += MTS_BEL_APN;
+           break;
+          
+           case Velcom_Bel:
+            command += VELCOM_BEL_APN;
+           break;
+          
+           case Privet_Bel:
+            command += PRIVET_BEL_APN;
+           break;
+          
+           case Life_Bel:
+            command += LIFE_BEL_APN;
+           break;
+          
+        } // switch
+
+        command += F("\"");
+        SendCommand(command);
+        
+      }
+      break;
+
+      case smaStartIoTSend:
+      {
+          // надо отослать данные в IOT
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Connect to IoT using GPRS..."));
+        #endif
+    
+        String comm;
+
+        switch(flags.model)
+        {
+          case M590:
+            comm = F("AT+XISP=0"); // сначала переключаемся на внутренний стек протокола TCP/IP
+          break;
+
+          case SIM800:
+            #ifdef GSM_DEBUG_MODE
+              // пока для SIM800 не реализовано, прекращаем.
+              Serial.println(F("NOT IMPLEMENTED!."));
+              EnsureIoTProcessed();
+              actionsQueue.pop();
+              currentAction = smaIdle;
+            #endif
+          break;
+          
+        } // switch
+
+        SendCommand(comm);   
+      }     
+      break;      
+      
+#endif
+
+      case smaCheckModemHardware:
+      {
+        // надо проверить железку модема
+      #ifdef GSM_DEBUG_MODE
+        Serial.println(F("Request for modem hardware..."));
+      #endif
+      SendCommand(F("AT+CGMM"));
+      }
+      break;
+      
       case smaCheckReady:
       {
         // надо проверить модуль на готовность
@@ -831,7 +1536,6 @@ void SMSModule::ProcessQueue()
         Serial.println(F("Check for modem READY..."));
       #endif
       SendCommand(F("AT+CPAS"));
-      //SendCommand(F("AT+IPR=57600"));
       }
       break;
 
@@ -874,6 +1578,23 @@ void SMSModule::ProcessQueue()
           case Yota:
             balanceCommand = YOTA_BALANCE;
           break;
+
+          case MTS_Bel:
+            balanceCommand = MTS_BEL_BALANCE;
+          break;
+
+          case Velcom_Bel:
+            balanceCommand = VELCOM_BEL_BALANCE;
+          break;
+
+          case Privet_Bel:
+            balanceCommand = PRIVET_BEL_BALANCE;
+          break;
+          
+          case Life_Bel:
+            balanceCommand = LIFE_BEL_BALANCE;
+          break;
+
         }
         
         SendCommand(balanceCommand);
@@ -1038,6 +1759,29 @@ void SMSModule::RebootModem()
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+void SMSModule::EnsureIoTProcessed(bool success)
+{
+     if(iotDone) 
+     {
+        // да, нас вызывали для отсыла данных в IoT, но что-то пошло не так
+        iotDone({success,iotService});
+        iotDone = NULL;
+        iotWriter = NULL;
+     }
+
+     delete iotDataHeader;
+     iotDataHeader = NULL;
+
+     delete iotDataFooter;
+     iotDataFooter = NULL;
+     
+     iotDataLength = 0;  
+     flags.wantIoTToProcess = false;         
+  
+}
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Update(uint16_t dt)
 { 
 
@@ -1077,6 +1821,11 @@ void SMSModule::Update(uint16_t dt)
 
    // сначала проверяем - а не слишком ли долго мы ждём ответа от модема?
   if(answerWaitTimer > GSM_MAX_ANSWER_TIME) {
+
+     // тут смотрим - возможно, нам надо вызвать функцию обратного вызова для IoT
+     #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+      EnsureIoTProcessed();
+     #endif    
      // очень долго, надо перезапустить последнюю команду.
      // причём лучше всего перезапустить всё сначала
      InitQueue();

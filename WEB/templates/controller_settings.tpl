@@ -41,11 +41,15 @@
     
     Оператор:<br/>
     <select id='gsm_provider' style='width:100%;'>
-      <option value='0' selected>МТС</option>
-      <option value='1'>Билайн</option>
-      <option value='2'>Мегафон</option>
-      <option value='3'>Теле2</option>
-      <option value='4'>Йота</option>
+      <option value='0' selected>МТС (Россия)</option>
+      <option value='1'>Билайн (Россия)</option>
+      <option value='2'>Мегафон (Россия)</option>
+      <option value='3'>Теле2 (Россия)</option>
+      <option value='4'>Йота (Россия)</option>
+      <option value='5'>МТС (Беларусь)</option>
+      <option value='6'>Velcom (Беларусь)</option>
+      <option value='7'>Privet (Беларусь)</option>
+      <option value='8'>Life (Беларусь)</option>
     </select>
   </form>
 </div>

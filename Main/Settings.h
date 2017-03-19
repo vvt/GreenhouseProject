@@ -64,6 +64,10 @@ enum
   Megafon,
   Tele2,
   Yota,
+  MTS_Bel,
+  Velcom_Bel,
+  Privet_Bel,
+  Life_Bel,
   Dummy_Last_Op
 };
 
