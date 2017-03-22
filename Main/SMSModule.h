@@ -42,6 +42,16 @@ typedef enum
   smaTCPSendData, // отсылаем данные
   smaTCPClose, // закрываем соединение
   smaTCPWaitAnswer, // ждём ответа
+
+  // команды, специфичные для SIM800L
+  smaStartGPRSConnection,
+  smaCheckGPRSConnection,
+  smaCloseGPRSConnection,
+  smaConnectToIOT,
+  smaStartSendIoTData,
+  smaSendDataToSIM800,
+  smaWaitForIoTAnswer,
+ // smaSIM800GDCONT,
   
 #endif  
   
@@ -81,7 +91,10 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
       String* iotDataHeader;
       String* iotDataFooter;
       uint16_t iotDataLength;
+      //byte gprsConnectCounter;
       void EnsureIoTProcessed(bool success=false);
+      String GetAPN();
+      void GetAPNUserPass(String& user, String& pass);
     #endif
 
     uint8_t currentAction; // текущая операция, завершения которой мы ждём
