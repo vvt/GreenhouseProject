@@ -51,7 +51,6 @@ typedef enum
   smaStartSendIoTData,
   smaSendDataToSIM800,
   smaWaitForIoTAnswer,
- // smaSIM800GDCONT,
   
 #endif  
   
@@ -74,6 +73,9 @@ typedef struct
     bool wantIoTToProcess : 1;
     byte model : 2;
     bool isIPAssigned : 1;
+    
+    bool wantBalanceToProcess : 1;
+    byte pad : 7;
       
 } SMSModuleFlags;
 
@@ -91,7 +93,6 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
       String* iotDataHeader;
       String* iotDataFooter;
       uint16_t iotDataLength;
-      //byte gprsConnectCounter;
       void EnsureIoTProcessed(bool success=false);
       String GetAPN();
       void GetAPNUserPass(String& user, String& pass);

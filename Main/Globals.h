@@ -37,7 +37,7 @@
 #define UNI_MODULE_UPDATE_INTERVAL 2000 // через сколько мс обновлять показания с универсального модуля
 #define UNI_WIRED_MODULES_COUNT 1 // сколько проводных линий для универсальных модулей используется (0 - нисколько)
 // ДЛЯ ПЛАТЫ ВЫВОДЫ ПО УМОЛЧАНИЮ, ПОДТЯНУТЫЕ РЕЗИСТОРАМИ - A11, A12, A13
-#define UNI_WIRED_MODULES A12//, A13 // номера пинов (через запятую), на которых висят универсальные модули, кол-вом  UNI_WIRED_SENSORS_COUNT
+#define UNI_WIRED_MODULES A12//, A13 // номера пинов (через запятую), на которых висят универсальные модули, кол-вом  UNI_WIRED_MODULES_COUNT
 #define USE_UNI_NEXTION_MODULE // закомментировать, если не нужен выносной модуль с дисплеем Nextion на шине 1-Wire
 #define USE_UNI_EXECUTION_MODULE // закомментировать, если не нужна поддержка исполнительных модулей
 // показания с каких датчиков передавать выносному модулю с дисплеем Nextion? максимум 5 датчиков 
@@ -371,15 +371,15 @@
 #define GSM_POWER_ON HIGH // уровень для включения питания
 
 // настройки команд запроса баланса для разных операторов
-#define TELE2_BALANCE F("ATD#105#") // команда для проверки баланса Tele2 (баланс отсылается хозяину по приходу на контроллер СМС с текстом "#5" или выполнению команды CTGET=SMS|BAL.
-#define BEELINE_BALANCE F("ATD#102#") // Билайн
-#define MTS_BALANCE F("ATD#100#") // МТС
-#define MEGAFON_BALANCE F("ATD#100#") // Мегафон
-#define YOTA_BALANCE F("ATD#100#") // Йота
-#define MTS_BEL_BALANCE F("ATD#100#") // МТС Беларусь
-#define VELCOM_BEL_BALANCE F("ATD#100#") // Velcom Беларусь
-#define PRIVET_BEL_BALANCE F("ATD#100#") // Privet Беларусь
-#define LIFE_BEL_BALANCE F("ATD#100#") // Life Беларусь
+#define TELE2_BALANCE F("*105#") // команда для проверки баланса Tele2 (баланс отсылается хозяину по приходу на контроллер СМС с текстом "#5" или выполнению команды CTGET=SMS|BAL.
+#define BEELINE_BALANCE F("*102#") // Билайн
+#define MTS_BALANCE F("*100#") // МТС
+#define MEGAFON_BALANCE F("*100#") // Мегафон
+#define YOTA_BALANCE F("*100#") // Йота
+#define MTS_BEL_BALANCE F("*100#") // МТС Беларусь
+#define VELCOM_BEL_BALANCE F("*100#") // Velcom Беларусь
+#define PRIVET_BEL_BALANCE F("*100#") // Privet Беларусь
+#define LIFE_BEL_BALANCE F("*100#") // Life Беларусь
 
 // настройки GPRS разных операторов
 // Билайн

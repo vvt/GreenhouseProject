@@ -26,11 +26,13 @@ class PDUMessageEncoder // кодировщик сообщений из UTF-8 в
     unsigned int utf8GetCharSize(unsigned char byte);
     bool utf8ToUInt(const String& bytes, unsigned int& target);
     
-    void UTF8ToUCS2(const String& inpString, unsigned int& bytesProcessed, String* outString);
     String ToHex(int i);
     String EncodePhoneNumber(const char* nm);
   
   public:
+
+    void UTF8ToUCS2(const String& inpString, unsigned int& bytesProcessed, String* outString);
+
     PDUMessageEncoder();
     PDUOutgoingMessage Encode(const String& recipientPhoneNum, const String& utf8Message, bool isFlash, String* outBuffer, bool incomingMessageInUCS2Format=false); // кодирует сообщение из UTF-8 в UCS2
 }; 

@@ -223,6 +223,7 @@ void SMSModule::Setup()
   flags.isAnyAnswerReceived = false;
   flags.inRebootMode = false;
   flags.wantIoTToProcess = false;
+  flags.wantBalanceToProcess = false;
   
   rebootStartTime = 0;
 
@@ -766,7 +767,6 @@ void SMSModule::ProcessAnswerLine(const String& line)
             break;
 
             case SIM800:
-             // gprsConnectCounter = 0;
               actionsQueue.push_back(smaCloseGPRSConnection);
             break;
             
@@ -784,7 +784,6 @@ void SMSModule::ProcessAnswerLine(const String& line)
             break;
 
             case SIM800:
-             // gprsConnectCounter = 0;
               actionsQueue.push_back(smaStartGPRSConnection);
             break;
             
@@ -872,51 +871,54 @@ void SMSModule::ProcessAnswerLine(const String& line)
 
     case smaRequestBalance:
     {
-         if(IsKnownAnswer(line,okFound)) {
-          // проверяли баланс
-           actionsQueue.pop(); // убираем последнюю обработанную команду     
-           currentAction = smaIdle;
-           
-           // теперь можем отсылать СМС с балансом
-           if(cusdSMS && okFound ) {
-            #ifdef GSM_DEBUG_MODE
-              Serial.println(F("Send balance to caller..."));
-            #endif
-              SendSMS(*cusdSMS,true);
-           } else {
-              // неудачно
-            #ifdef GSM_DEBUG_MODE
-              Serial.println(F("CUSD Query FAILED!"));
-            #endif            
+         if(IsKnownAnswer(line,okFound))
+         {
+            if(!okFound)
+            {
+               // fail
+            // проверяли баланс
+             actionsQueue.pop(); // убираем последнюю обработанную команду     
+             currentAction = smaIdle;
+             
+              #ifdef GSM_DEBUG_MODE
+                Serial.println(F("CUSD Query FAILED!"));
+              #endif                 
            }
-
-           delete cusdSMS;
-           cusdSMS = NULL;
-           
-         } else {
-            // пока не пришло OK или ERROR от модема - ждём команды +CUSD
-            if(line.startsWith(F("+CUSD:"))) {
-               // дождались ответа, парсим
-                int quotePos = line.indexOf('"');
-                int lastQuotePos = line.lastIndexOf('"');
-
-               if(quotePos != -1 && lastQuotePos != -1 && quotePos != lastQuotePos) {
-
-                  if(!cusdSMS)
-                    cusdSMS = new String();
-                    
-                  *cusdSMS = line.substring(quotePos+1,lastQuotePos);
-                  
-                  #ifdef GSM_DEBUG_MODE
-                    Serial.println(F("BALANCE RECEIVED, PARSE..."));
-                    Serial.print(F("CUSD IS: ")); Serial.println(*cusdSMS);
-                  #endif
-
-                  
-                
-               }
-            }
          }
+         else
+         {
+                // пришёл ответ на команду CUSD ?
+                if(line.startsWith(F("+CUSD:"))) 
+                {
+                   // дождались ответа, парсим
+                    int quotePos = line.indexOf('"');
+                    int lastQuotePos = line.lastIndexOf('"');
+            
+                   if(quotePos != -1 && lastQuotePos != -1 && quotePos != lastQuotePos) 
+                   {
+
+                      delete cusdSMS;
+                      cusdSMS = new String();
+            
+                      actionsQueue.pop(); // убираем последнюю обработанную команду     
+                      currentAction = smaIdle;
+             
+                      *cusdSMS = line.substring(quotePos+1,lastQuotePos);
+                      
+                      #ifdef GSM_DEBUG_MODE
+                        Serial.println(F("BALANCE RECEIVED, PARSE..."));
+                        Serial.print(F("CUSD IS: ")); Serial.println(*cusdSMS);
+                        Serial.println(F("Send balance to master..."));
+                      #endif
+            
+                      SendSMS(*cusdSMS,true);
+                      delete cusdSMS;
+                      cusdSMS = NULL;              
+                    
+                   }
+                   
+                } // if(line.startsWith(F("+CUSD:")))              
+         } // else
     }
     break;
 
@@ -1160,11 +1162,14 @@ void SMSModule::ProcessAnswerLine(const String& line)
       if(line.startsWith(F("+CMT:")))
         flags.waitForSMSInNextLine = true;
        
-    
+
+   
 
     }
     break;
-  } // switch  
+  } // switch   
+
+ 
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -1511,6 +1516,14 @@ void SMSModule::ProcessQueue()
 
     size_t sz = actionsQueue.size();
     if(!sz) { // в очереди ничего нет
+
+        if(flags.wantBalanceToProcess) // запросили баланс
+        {
+          flags.wantBalanceToProcess = false;
+          actionsQueue.push_back(smaRequestBalance);
+          return;
+        }
+
 
       #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       if(flags.wantIoTToProcess && iotWriter && iotDone)
@@ -1881,8 +1894,19 @@ void SMSModule::ProcessQueue()
           break;
 
         }
+        //SendCommand(balanceCommand);
+
+        unsigned int bp = 0;
+        String out;
         
-        SendCommand(balanceCommand);
+        PDU.UTF8ToUCS2(balanceCommand, bp, &out);
+
+        String completeCommand = F("AT+CUSD=1,\"");
+        completeCommand += out;
+        completeCommand += F("\"");
+
+        SendCommand(completeCommand);
+        
         
       }
       break;
@@ -2335,8 +2359,10 @@ void SMSModule::SendSMS(const String& sms, bool isSMSInUCS2Format)
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-void SMSModule::RequestBalance() {
-  actionsQueue.push_back(smaRequestBalance);
+void SMSModule::RequestBalance() 
+{
+  // выставляем только флаг запроса баланса, и баланс будет запрошен только тогда, когда очередь пустая, т.е. не разрываем цепочки команд
+  flags.wantBalanceToProcess = true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
@@ -2502,7 +2528,8 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << MainController->GetSettings()->GetGSMProvider();
         }
-        else if(t == BALANCE_COMMAND) { // получить баланс
+        else if(t == BALANCE_COMMAND) 
+        { // получить баланс
 
           RequestBalance();
           
