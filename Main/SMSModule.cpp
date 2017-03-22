@@ -2175,10 +2175,11 @@ void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
 
     queuedTimer = 0; // обнуляем таймер ожидания
 
-       if(ModuleInterop.QueryCommand(ctGET,F("STATE|WINDOW|ALL"),false))
+      if(ModuleInterop.QueryCommand(ctGET,F("STATE|WINDOW|ALL"),false))
       {
         #ifdef GSM_DEBUG_MODE
           Serial.println(F("CTGET=STATE|WINDOW|ALL command parsed, process it..."));
+          Serial.println(PublishSingleton.Text);
         #endif
     
 

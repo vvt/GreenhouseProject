@@ -4,7 +4,7 @@
 InteropStream ModuleInterop;
 
 
-InteropStream::InteropStream()// : Stream()
+InteropStream::InteropStream() : Stream()
 {
 }
 
@@ -42,20 +42,21 @@ bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool
       cmd.SetIncomingStream(this); // просим контроллер опубликовать ответ в нас - мы сохраним ответ в data
     }
     else
-    */
       cmd.SetIncomingStream(NULL);
+    */
 
+    cmd.SetIncomingStream(this); // просим контроллер опубликовать ответ в нас - мы сохраним ответ в data
     MainController->ProcessModuleCommand(cmd,NULL);
     return true;
     
 }
-/*
+
 size_t InteropStream::write(uint8_t toWr)
 {
-  data += (char) toWr;
+//  data += (char) toWr;
   return 1;
 }
-*/
+
 
 BlinkModeInterop::BlinkModeInterop()
 {
