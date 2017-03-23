@@ -96,7 +96,8 @@ void WorkStatus::PinMode(byte pinNumber,byte mode, bool setMode)
   uint8_t byte_num = pinNumber/8;
   uint8_t bit_num = pinNumber%8;
   
-  if(byte_num < PINS_MAP_SIZE) { // помещаемся
+  if(byte_num < PINS_MAP_SIZE) 
+  { // помещаемся
   
       UsedPins.PinsUsed[byte_num] |= (1 << bit_num);  
 
@@ -154,13 +155,14 @@ void WorkStatus::SaveWaterChannelState(byte channel, byte state)
 }
 void WorkStatus::PinWrite(byte pin, byte level)
 {
-  digitalWrite(pin,level);
+  if(pin < VIRTUAL_PIN_START_NUMBER) // если у нас номер пина меньше, чем номер первого виртуального пина, то - пишем в него
+    digitalWrite(pin,level);
 
   // теперь копируем состояние пина во внутреннюю структуру
   uint8_t byte_num = pin/8;
   uint8_t bit_num = pin%8;
   
-  if(byte_num > 7) // не помещаемся
+  if(byte_num > 15) // не помещаемся
     return;
 
   // тут проверки, чтобы не записывать статус информационных мигающих пинов

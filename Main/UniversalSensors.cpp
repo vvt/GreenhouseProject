@@ -729,7 +729,7 @@ void UniExecutionModuleClient::Update(UniRawScratchpad* scratchpad, bool isModul
           byte byteNum = pinNumber/8;
           byte bitNum = pinNumber%8;
 
-          if(byteNum < 8)
+          if(byteNum < 16)
           {
             // если нужный бит с номером пина установлен - на пине высокий уровень
             if(state.PinsState[byteNum] & (1 << bitNum))

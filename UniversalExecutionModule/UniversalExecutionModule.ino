@@ -226,7 +226,7 @@ void UpdateFromControllerState(ControllerState* state)
 
               slotStatus = LOW;
      
-              if(byteNum < 8)
+              if(byteNum < 16)
               {
                 // если нужный бит с номером пина установлен - на пине высокий уровень
                 if(state->PinsState[byteNum] & (1 << bitNum))
@@ -557,6 +557,7 @@ void setup()
 
  #ifdef _DEBUG
   Serial.begin(57600);
+  Serial.println(F("Debug mode..."));
  #endif
    
     ReadROM(); // читаем наши настройки

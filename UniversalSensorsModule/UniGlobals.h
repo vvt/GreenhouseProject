@@ -74,19 +74,6 @@ typedef enum
   
 } UniSensorType; // тип датчика
 //----------------------------------------------------------------------------------------------------------------
-typedef enum
-{
-  stateSleep,
-  stateReset,
-  statePresence,
-  stateReadCommand,
-  stateReadScratchpad,
-  stateWriteScratchpad,
-  stateCheckReset,
-  stateMeasure
-    
-} MachineStates;
-//----------------------------------------------------------------------------------------------------------------
 typedef struct
 {
   byte samplesDone;
@@ -109,7 +96,7 @@ typedef struct
   unsigned long WindowsState; // состояние каналов окон, 4 байта = 32 бита = 16 окон)
   byte WaterChannelsState; // состояние каналов полива, 1 байт, (8 каналов)
   byte LightChannelsState; // состояние каналов досветки, 1 байт (8 каналов)
-  byte PinsState[8]; // состояние пинов, 8 байт, 64 пина
+  byte PinsState[16]; // состояние пинов, 16 байт, 128 пинов
   
 } ControllerState; // состояние контроллера
 //----------------------------------------------------------------------------------------------------------------
