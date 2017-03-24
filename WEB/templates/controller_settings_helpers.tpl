@@ -1087,6 +1087,7 @@ function newRule(editedRule, editedRow)
   $('#rule_action_input').val('0').trigger('change');
   $('#rule_additional_param_input').val('');
   $('#rule_wnd_interval_input').val('');
+  $('#is_alarm_rule').get(0).checked = false;
   
   __globalRuleDaymask = 0xFF;
 
@@ -1135,6 +1136,8 @@ function newRule(editedRule, editedRow)
     $('#rule_sensor_operand').val(editedRule.Operand);
     $('#rule_sensor_value_input').val(editedRule.AlertCondition);
     $('#rule_pin_state_input').val(editedRule.Operand);
+    
+    $('#is_alarm_rule').get(0).checked = editedRule.IsAlarm;
     
     var tci = editedRule.getTargetCommandIndex();
     $('#rule_action_input').val(tci).trigger('change');
@@ -1225,6 +1228,9 @@ function newRule(editedRule, editedRow)
      
      if(linked_rules == '')
       linked_rules = '_';
+      
+      
+      var isalarm = $('#is_alarm_rule').get(0).checked ? '1' : '0';
         
       
       if(ruleTarget != '_')
@@ -1276,7 +1282,7 @@ function newRule(editedRule, editedRow)
                      
        // вроде всё проверили, пытаемся посмотреть
        var fullRuleString = 'dummy|dummy|dummy|' + ruleName + '|' + moduleName + '|' + ruleTarget + '|' + sensorIndex + '|' + operand + '|' + alertCondition + '|' + 
-       ruleStartTime + '|' + ruleWorkTime + '|' + ruleDaymask + '|' + linked_rules + '|' + targetCommand;
+       ruleStartTime + '|' + ruleWorkTime + '|' + ruleDaymask + '|' + linked_rules + '|' + isalarm + '|' + targetCommand;
               
        if(newRuleRequested)
        {

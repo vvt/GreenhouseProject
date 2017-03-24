@@ -7,6 +7,8 @@
 #include "CommandParser.h"
 #include "TinyVector.h"
 #include "Settings.h"
+#include "AlarmDispatcher.h"
+
 
 #ifdef USE_DS3231_REALTIME_CLOCK
 #include "DS3231Support.h"
@@ -19,6 +21,7 @@
 #include <SD.h>
 
 class AbstractModule; // forward declaration
+class AlertRule;
 typedef Vector<AbstractModule*> ModulesVec;
 
 typedef void (*CallbackUpdateFunc)(AbstractModule* mod);
@@ -48,6 +51,10 @@ class ModuleController
 
   void PublishToCommandStream(AbstractModule* module,const Command& sourceCommand); // публикация в поток команды
 
+#ifdef USE_ALARM_DISPATCHER
+  AlarmDispatcher alarmDispatcher;
+#endif
+  
 public:
   ModuleController();
 
@@ -96,6 +103,11 @@ public:
 
   void SetCommandParser(CommandParser* c) {cParser = c;};
   CommandParser* GetCommandParser() {return cParser;}
+
+  void Alarm(AlertRule* rule); // обработчик тревог
+  #ifdef USE_ALARM_DISPATCHER
+    AlarmDispatcher* GetAlarmDispatcher(){ return &alarmDispatcher;}
+  #endif
   
 };
 

@@ -2,6 +2,9 @@
 #include "ModuleController.h"
 #include "PDUClasses.h"
 #include "InteropStream.h"
+#if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE)
+#include "AlarmDispatcher.h"
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 // функция хэширования строки
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -1515,7 +1518,30 @@ void SMSModule::ProcessQueue()
     return;
 
     size_t sz = actionsQueue.size();
-    if(!sz) { // в очереди ничего нет
+    if(!sz) 
+    { // в очереди ничего нет
+
+      #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE)
+
+        if(flags.isModuleRegistered && flags.isAnyAnswerReceived && !flags.inRebootMode)
+        {        
+          // проверяем, есть ли для нас тревоги
+          AlarmDispatcher* alD = MainController->GetAlarmDispatcher();
+          if(alD->HasSMSAlarm())
+          {
+            #ifdef GSM_DEBUG_MODE
+              Serial.println(F("HAS ALARM VIA SMS, send it..."));
+            #endif
+
+            // имеем тревогу, которую надо послать по СМС
+            String dt = alD->GetSMSAlarmData();
+            alD->MarkSMSAlarmDone();
+            SendSMS(dt,false);
+
+            return; // возвращаемся, ибо мы уже очередь пополнили
+          }
+        }
+      #endif
 
         if(flags.wantBalanceToProcess) // запросили баланс
         {

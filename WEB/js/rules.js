@@ -44,7 +44,7 @@ AlertRule.prototype.Construct = function(params)
   this.WorkTime = parseInt(params[startIdx++]);
   this.DayMask = parseInt(params[startIdx++]);
   this.LinkedRules = params[startIdx++].split(',');
-  
+  this.IsAlarm = parseInt(params[startIdx++]);
   
   this.TargetCommand = '';
   
@@ -65,7 +65,7 @@ AlertRule.prototype.getAlertRule = function()
 
   var result = '' + this.Name + '|' + this.ModuleName + '|' + this.Target + '|' + this.SensorIndex +
   '|' + this.Operand + '|' + this.AlertCondition + '|' + this.StartTime + '|' + this.WorkTime + '|' +
-  this.DayMask + '|' + this.LinkedRules.join(',') + '|' + this.TargetCommand;
+  this.DayMask + '|' + this.LinkedRules.join(',') + '|' + this.IsAlarm + '|' + this.TargetCommand;
   
   return result;
 }

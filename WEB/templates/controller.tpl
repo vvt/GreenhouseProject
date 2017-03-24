@@ -41,6 +41,7 @@
 <div id='online_block' class='hdn'>
 
   <div class='left_menu'>
+      <div class='menuitem ui-corner-all hdn' id='WELCOME_MENU' onclick="content(this);">Виджеты</div>      
       <div class='menuitem ui-corner-all hdn' id='STATUS_MENU' onclick="content(this);">Статус</div>      
       <div class='menuitem ui-corner-all hdn' id='TEMPERATURE_MENU' onclick="content(this);">Температура</div>
       <div class='menuitem ui-corner-all hdn' id='HUMIDITY_MENU' onclick="content(this);">Влажность</div>
@@ -313,11 +314,11 @@
                   
               </div>
 
-                  <div class='content' id='welcome'>
+                  <div class='content hdn' id='WELCOME_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Состояние контроллера</h3>
+                    <h3 class='ui-widget-header ui-corner-all'>Виджеты</h3>
                     
-                    Для просмотра состояния выберите пункт меню слева.
+                    {include file='controller_widgets.tpl'}
 
                     
                   </div>

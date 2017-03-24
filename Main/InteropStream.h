@@ -7,7 +7,7 @@
 #include "CommandParser.h"
 
 // класс поддержки коммуникации между модулями
-class InteropStream : public Stream
+class InteropStream// : public Stream
 {
 private:
   //String* data;
@@ -24,7 +24,8 @@ public:
    /*
    const String& GetData() {return data;}
    */
-      
+
+      /*
     virtual int available(){ return false; };
     virtual int read(){ return -1;};
     virtual int peek(){return -1;};
@@ -32,7 +33,7 @@ public:
 
  
     virtual size_t write(uint8_t toWr);  
-
+*/
   
 };
 

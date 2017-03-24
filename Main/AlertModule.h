@@ -39,8 +39,12 @@ typedef Vector<uint8_t> LinkedRulesToIdxVector;
 
 typedef struct
 {
+  uint8_t SensorIndex; // индекс датчика, за которым следим
+  uint8_t RuleNameIndex; // индекс имени правила у родителя // 64 правила, с запасом
+  
   uint8_t Operand : 2; // операнд, которым проверяем
-  uint8_t SensorIndex : 6; // индекс датчика, за которым следим
+  uint8_t IsAlarm : 1; // это правило - тревожное?
+  uint8_t reserved : 5; // выравнивание по границе байта
 
   uint8_t DataSource  : 2; // источник, с которого получаем установку значения для правила
   uint8_t Enabled : 1;
@@ -50,7 +54,6 @@ typedef struct
   uint8_t TargetModuleNameIndex : 4; // индекс имени модуля, для которого посылается команда
   uint8_t LinkedModuleNameIndex : 4; // индекс имени модуля, с которым мы связаны
 
-  uint8_t RuleNameIndex; // индекс имени правила у родителя
   uint8_t DayMask; // маска дней недели, когда работает правило
   uint16_t StartTime; // начало работы (минут от начала суток)
   uint16_t WorkTime; // продолжительность работы, минут
@@ -88,8 +91,8 @@ typedef enum
   
 } RuleKnownCommands; // известные правилу команды, которые оно может перевести в краткую форму
 
-#define RULE_SETT_HEADER1 0xAB
-#define RULE_SETT_HEADER2 0xBA
+#define RULE_SETT_HEADER1 0x21
+#define RULE_SETT_HEADER2 0x17
 
 class AlertRule
 {
@@ -105,6 +108,8 @@ class AlertRule
   public:
     AlertRule();
     ~AlertRule();
+
+    bool IsAlarm() {return Settings.IsAlarm == 1; }
 
     bool GetEnabled() {return  Settings.Enabled; }
     void SetEnabled(bool e)  { Settings.Enabled = e ? 1 : 0; }

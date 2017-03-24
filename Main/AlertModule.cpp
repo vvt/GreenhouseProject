@@ -1,18 +1,20 @@
 #include "AlertModule.h"
 #include "ModuleController.h"
 #include <EEPROM.h>
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertModule* RulesDispatcher = NULL;
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertModule::AlertModule() : AbstractModule("ALERT") 
 {
       RulesDispatcher = this;
       InitRules();
 }
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertRule::~AlertRule()
 {
   delete rawCommand;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertRule::AlertRule()
 {
   rawCommand = NULL;
@@ -26,8 +28,11 @@ AlertRule::AlertRule()
   Settings.Enabled = 1;
   Settings.CanWork = 1;
   Settings.TargetModuleNameIndex = 0;
+
+  Settings.IsAlarm = 0;
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t AlertRule::GetKnownModuleID(const char* moduleName)
 {
   if(!strcmp_P(moduleName,(const char*) F("STATE")))
@@ -60,10 +65,12 @@ uint8_t AlertRule::GetKnownModuleID(const char* moduleName)
   return 0;
 
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetLinkedModuleName()
 {
   return GetKnownModuleName(Settings.LinkedModuleNameIndex);
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetKnownModuleName(uint8_t type)
 {
   SD_BUFFER[0] = 0;
@@ -111,10 +118,12 @@ const char* AlertRule::GetKnownModuleName(uint8_t type)
   return SD_BUFFER;
     
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetTargetCommandModuleName()
 {
   return GetKnownModuleName(Settings.TargetModuleNameIndex);
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool AlertRule::HasTargetCommand()
 {
   if(Settings.TargetCommandType == commandUnparsed)
@@ -122,6 +131,7 @@ bool AlertRule::HasTargetCommand()
 
   return true;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetTargetCommand()
 {
   // возвращаем команду на выполнение, БЕЗ имени связанного модуля
@@ -188,11 +198,12 @@ const char* AlertRule::GetTargetCommand()
 
   return rawCommand;
 }
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetName()
 {
   return RulesDispatcher->GetParam(Settings.RuleNameIndex);
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertRule::Update(uint16_t dt
   #ifdef USE_DS3231_REALTIME_CLOCK 
      ,uint8_t currentHour // текущий час
@@ -264,6 +275,7 @@ void AlertRule::Update(uint16_t dt
   #endif  
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool AlertRule::HasAlert()
 {
   if(!linkedModule || !Settings.Enabled || !Settings.CanWork)
@@ -509,6 +521,7 @@ bool AlertRule::HasAlert()
 
   return false;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetAlertRule() // конструируем правило, когда запрашивают его просмотр
 {
     SD_BUFFER[0] = 0;
@@ -606,7 +619,6 @@ const char* AlertRule::GetAlertRule() // конструируем правило
     
   if(!sz)
     strcat_P(SD_BUFFER,(const char*) F("_"));
-
   else
   {
     for(size_t i=0;i<sz;i++)
@@ -618,9 +630,14 @@ const char* AlertRule::GetAlertRule() // конструируем правило
       
     } // for
   } // else
+
+  // теперь копируем в строку правила признак - тревожное оно или нет
+  strcat_P(SD_BUFFER,(const char*) PARAM_DELIMITER);
+  strcat_P(SD_BUFFER,(const char*) (Settings.IsAlarm == 1 ? F("1") : F("0") ));
   
   return SD_BUFFER;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t AlertRule::Save(uint16_t writeAddr) // сохраняем себя в EEPROM, возвращаем кол-во записанных байт
 {
   uint16_t curWriteAddr = writeAddr;
@@ -656,6 +673,7 @@ uint8_t AlertRule::Save(uint16_t writeAddr) // сохраняем себя в EE
   return (curWriteAddr - writeAddr) + 4;
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t AlertRule::Load(uint16_t readAddr)
 {
   // загружаем правило из EEPROM
@@ -689,6 +707,7 @@ uint8_t AlertRule::Load(uint16_t readAddr)
   return (curReadAddr - readAddr) + 4;
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const char* AlertRule::GetLinkedRuleName(uint8_t idx)
 {
 
@@ -698,10 +717,12 @@ const char* AlertRule::GetLinkedRuleName(uint8_t idx)
  return NULL;
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 size_t AlertRule::GetLinkedRulesCount()
 {
   return linkedRulesIndices.size();
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool AlertRule::Construct(AbstractModule* lm, const Command& command)
 {
   // конструируем команду
@@ -712,7 +733,7 @@ bool AlertRule::Construct(AbstractModule* lm, const Command& command)
   linkedRulesIndices.Clear();
 
   uint8_t argsCnt = command.GetArgsCount();
-  if(argsCnt < 11) // мало аргументов
+  if(argsCnt < 12) // мало аргументов
     return false;
 
   delete[] rawCommand; rawCommand = NULL;
@@ -833,6 +854,12 @@ bool AlertRule::Construct(AbstractModule* lm, const Command& command)
     
   } // if
 
+  // получаем флаг - тревожное или нет
+  curArg = command.GetArg(curArgIdx++);
+  Settings.IsAlarm = 0;
+  if(curArg.toInt() == 1)
+    Settings.IsAlarm = 1;
+
   // сохраняем команду, которую надо передать какому-либо модулю
   Settings.TargetCommandType = commandUnparsed; // неразобранная команда
 
@@ -923,6 +950,7 @@ bool AlertRule::Construct(AbstractModule* lm, const Command& command)
 
   return true;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::LoadRules() // читаем настройки из EEPROM
 {  
   for(uint8_t i=0;i<rulesCnt;i++)
@@ -973,6 +1001,7 @@ void AlertModule::LoadRules() // читаем настройки из EEPROM
   } // for
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::ClearParams()
 {
     for(size_t i=0;i<paramsArray.size();i++)
@@ -982,6 +1011,7 @@ void AlertModule::ClearParams()
     }
     paramsArray.Clear();
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::SaveRules() // сохраняем настройки в EEPROM
 {
   uint16_t writeAddr = EEPROM_RULES_START_ADDR; // пишем с этого смещения
@@ -1018,6 +1048,7 @@ void AlertModule::SaveRules() // сохраняем настройки в EEPROM
   } // for
 
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 char* AlertModule::GetParam(size_t idx)
 {
   if(idx < paramsArray.size())
@@ -1025,6 +1056,7 @@ char* AlertModule::GetParam(size_t idx)
 
   return NULL;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool AlertModule::AddRule(AbstractModule* m, const Command& c)
 {
 
@@ -1057,7 +1089,7 @@ bool AlertModule::AddRule(AbstractModule* m, const Command& c)
     rulesCnt++;
     return true;
 }
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::Setup()
 {
   // настройка модуля алертов тут  
@@ -1066,6 +1098,7 @@ void AlertModule::Setup()
 
   lastUpdateCall = 0;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::InitRules()
 {
   rulesCnt = 0; // кол-вo правил
@@ -1075,6 +1108,7 @@ void AlertModule::InitRules()
   } // for
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::Update(uint16_t dt)
 { 
   // обновление модуля алертов тут
@@ -1165,7 +1199,11 @@ void AlertModule::Update(uint16_t dt)
         yield();
 
       
-    } // if(tc.length())
+    } // if(r->HasTargetCommand())
+
+    // тут вызываем тревогу
+    if(r->IsAlarm())
+      MainController->Alarm(r);
  
   } // for
 
@@ -1174,6 +1212,7 @@ void AlertModule::Update(uint16_t dt)
   lastUpdateCall = lastUpdateCall - ALERT_UPDATE_INTERVAL;
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool AlertModule::IsRuleRaisedOnLastIteration(AlertRule* rule)
 {
     for(size_t i=0;i<lastIterationRaisedRules.size();i++)
@@ -1187,6 +1226,7 @@ bool AlertModule::IsRuleRaisedOnLastIteration(AlertRule* rule)
     
     return false;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool AlertModule::CanWorkWithRule(RulesVector& checkedRules, AlertRule* rule, RulesVector& raisedAlerts)
 {
 
@@ -1234,6 +1274,7 @@ bool AlertModule::CanWorkWithRule(RulesVector& checkedRules, AlertRule* rule, Ru
 return true;
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 size_t AlertModule::AddParam(char* nm, bool& added)
 {
   added = false;
@@ -1248,6 +1289,7 @@ size_t AlertModule::AddParam(char* nm, bool& added)
   paramsArray.push_back(nm);
   return (paramsArray.size()-1);
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertRule* AlertModule::GetLinkedRule(const char* linkedRuleName,RulesVector& raisedAlerts)
 {
   size_t sz = raisedAlerts.size();
@@ -1259,6 +1301,7 @@ AlertRule* AlertModule::GetLinkedRule(const char* linkedRuleName,RulesVector& ra
   }
   return NULL;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::SolveConflicts(RulesVector& raisedAlerts,RulesVector& workRules)
 {
   // разрешаем конфликты
@@ -1273,6 +1316,7 @@ void AlertModule::SolveConflicts(RulesVector& raisedAlerts,RulesVector& workRule
           
     } // for
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer) 
@@ -1291,7 +1335,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
     else
     {
       String t = command.GetArg(0);
-      t.toUpperCase();
+ //     t.toUpperCase();
  
           if(t == ADD_RULE)
           {
@@ -1518,4 +1562,5 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
   MainController->Publish(this,command);
   return true;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 

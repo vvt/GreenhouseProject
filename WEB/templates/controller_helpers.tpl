@@ -254,8 +254,12 @@ controller.OnUpdate = function(obj, answer)
     updateLightState();
     updatePHState();
       
+    //$('#WELCOME_MENU').show();
   
     $('#STATUS_MENU').show();
+    
+    if(!lastVisibleContent)
+      content($('#STATUS_MENU'));
     
     if(controller.TemperatureList.List.length > 0)
     {
@@ -366,9 +370,14 @@ function updateControllerData()
     controller.queryState();
 }
 //-----------------------------------------------------------------------------------------------------
+function addNewWidget()
+{
+  alert('Not implemented!');
+}
+//-----------------------------------------------------------------------------------------------------
 $(document).ready(function(){
 
-lastVisibleContent = $('#welcome');
+lastVisibleContent = null;//$('#WELCOME_MENU_CONTENT');
 
 $('#edit_motor_time').forceNumericOnly();
 $('#edit_t_open').forceNumericOnly();
@@ -380,6 +389,16 @@ controller.queryModules(); // запрашиваем модули у контр�
 
 updateControllerData();
 window.setInterval(updateControllerData,5000); // повторяем опрос состояния каждые 5 секунд
+
+  $('#add_widget_button').button({
+      icons: {
+        primary: "ui-icon-plusthick"
+      }
+    }).off('click').click(function() {
+    
+      addNewWidget();
+    
+    });
 
 
   $( "#toggler_windows, #toggler_light, #toggler_water, #temp_motors_settings" ).button({

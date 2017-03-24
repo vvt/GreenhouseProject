@@ -458,11 +458,21 @@
   </div>
 
   <br clear='left'/>
+  
   <div>
        <div class='ui-widget-header ui-corner-all'>Не выполнять, если сработали правила</div>
         <div id='linked_rules_box' class='padding_around8px' style='max-height:80px;overflow:auto;'>
         </div>
   </div>
+
+  <div>
+       <div class='ui-widget-header ui-corner-all'>Тревожное правило</div>
+       <div class='padding_around8px'>
+        <input type='checkbox' id='is_alarm_rule' value='0'/><label for='is_alarm_rule'>Это правило тревожное (при его срабатывании получите СМС)</label>
+       </div>
+  </div>
+
+  
   <div class='ui-widget-header ui-corner-all'>
         Специальные значения
   </div>

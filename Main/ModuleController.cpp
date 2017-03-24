@@ -2,6 +2,7 @@
 #include "InteropStream.h"
 
 #include "UniversalSensors.h"
+#include "AlertModule.h"
 
 PublishStruct PublishSingleton;
 ModuleController* MainController = NULL;
@@ -170,8 +171,17 @@ CHECK_PUBLISH_CONSISTENCY;
 
  PublishSingleton.Reset(); // очищаем структуру для публикации
  PublishSingleton.Busy = true; // говорим, что структура занята для публикации
- mod->ExecCommand(c,c.GetIncomingStream() != NULL); // выполняем его команду
+ mod->ExecCommand(c,true);//c.GetIncomingStream() != NULL); // выполняем его команду
  
+}
+
+void ModuleController::Alarm(AlertRule* rule)
+{
+  #ifdef USE_ALARM_DISPATCHER
+    alarmDispatcher.Alarm(rule);
+  #else
+    UNUSED(rule);
+  #endif
 }
 
 void ModuleController::UpdateModules(uint16_t dt, CallbackUpdateFunc func)
