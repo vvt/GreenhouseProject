@@ -116,14 +116,14 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
         return answer;
 
      // сохраняем данные
-      uint16_t rh = (bytes[0] << 8) + bytes[1];
-      answer.Humidity = rh/10;
-      answer.HumidityDecimal = rh%10;
+      unsigned long rh = ((bytes[0] << 8) + bytes[1])*10;
+      answer.Humidity = rh/100;
+      answer.HumidityDecimal = rh%100;
 
-     int temp = ((bytes[2] & 0x7F) << 8) + bytes[3];
+     long temp = (((bytes[2] & 0x7F) << 8) + bytes[3])*10;
       
-      answer.Temperature =  temp/10;
-      answer.TemperatureDecimal = temp%10;
+      answer.Temperature =  temp/100;
+      answer.TemperatureDecimal = temp%100;
       
       if(bytes[2] & 0x80) // температура ниже нуля
         answer.Temperature = -answer.Temperature;
