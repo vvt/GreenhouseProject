@@ -483,33 +483,45 @@ if($SAVE_CONTROLLER_STATE)
 {
     // заполняем массив состояний
     $res = $dbengine->query("SELECT state_id, state_name FROM states;");
-    while($arr = $res->fetchArray())
+    if($res !== FALSE)
     {
-      $states[ $arr['state_name'] ] = $arr['state_id'];
+      while($arr = $res->fetchArray())
+      {
+        $states[ $arr['state_name'] ] = $arr['state_id'];
+      }
     }
     
 } // $SAVE_CONTROLLER_STATE
 
 // заполняем массив типов сенсоров
 $res = $dbengine->query("SELECT sensor_type_id, sensor_type FROM sensor_types;");
-while($arr = $res->fetchArray())
+if($res !== FALSE)
 {
-  $sensor_types[ $arr['sensor_type'] ] = $arr['sensor_type_id'];
+  while($arr = $res->fetchArray())
+  {
+    $sensor_types[ $arr['sensor_type'] ] = $arr['sensor_type_id'];
+  }
 }
   
 // заполняем массив типов модулей
 $res = $dbengine->query("SELECT module_id, module_name FROM modules;");
-while($arr = $res->fetchArray())
+if($res !== FALSE)
 {
-  $modules[ $arr['module_name'] ] = $arr['module_id'];
+  while($arr = $res->fetchArray())
+  {
+    $modules[ $arr['module_name'] ] = $arr['module_id'];
+  }
 }
  
 
 // заполняем список зарегистрированных контроллеров
 $res = $dbengine->query("SELECT controller_id, controller_address FROM controllers;");
-while($arr = $res->fetchArray())
+if($res !== FALSE)
 {
-  $controllers[ $arr['controller_id'] ] = $arr['controller_address'];
+  while($arr = $res->fetchArray())
+  {
+    $controllers[ $arr['controller_id'] ] = $arr['controller_address'];
+  }
 }
 
 

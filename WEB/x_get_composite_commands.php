@@ -17,9 +17,12 @@ if($authorized)
     
       // выбираем настройки из базы
       $res = $dbengine->query("SELECT cc.*, cl.list_name FROM composite_commands AS cc LEFT JOIN cc_lists AS cl ON(cl.list_index == cc.list_index) WHERE cc.controller_id=$controller_id ORDER BY cc.list_index, cc.command_action;"); 
-      while($array = $res->fetchArray())
+      if($res !== FALSE)
       {
-       $composite_commands[] = $array;
+        while($array = $res->fetchArray())
+        {
+         $composite_commands[] = $array;
+        }
       }
       
       

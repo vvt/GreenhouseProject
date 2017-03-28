@@ -16,10 +16,13 @@ if($authorized)
     {
     
       // обновляем базу
-      $res = $dbengine->query("SELECT * FROM sensor_names WHERE controller_id=$controller_id;"); 
-      while($array = $res->fetchArray())
-      {
-       $names[] = $array;
+      $res = $dbengine->query("SELECT * FROM sensor_names WHERE controller_id=$controller_id;");
+      if($res !== FALSE)
+      { 
+        while($array = $res->fetchArray())
+        {
+         $names[] = $array;
+        }
       }
       
       

@@ -16,27 +16,30 @@ if($authorized)
     {
     
       // обновляем базу
-      $res = $dbengine->query("SELECT * FROM controllers WHERE controller_id=$controller_id;"); 
-      if($array = $res->fetchArray())
-      {
-        $online = $array['is_online'];
-        $tp = new SocketTransport();
-        if($tp->open($array['controller_address']))
+      $res = $dbengine->query("SELECT * FROM controllers WHERE controller_id=$controller_id;");
+      if($res !== FALSE)
+      { 
+        if($array = $res->fetchArray())
         {
-          $online = 1;
-          $tp->close();
+          $online = $array['is_online'];
+          $tp = new SocketTransport();
+          if($tp->open($array['controller_address']))
+          {
+            $online = 1;
+            $tp->close();
+          }
+          else
+          {
+            $online = 0;
+          }
+          if($online != $array['is_online'])
+          {
+            $dbengine->beginTransaction();
+            $dbengine->exec("UPDATE controllers SET is_online=$online WHERE controller_id=$controller_id;");
+            $dbengine->commitTransaction();
+          }
         }
-        else
-        {
-          $online = 0;
-        }
-        if($online != $array['is_online'])
-        {
-          $dbengine->beginTransaction();
-          $dbengine->exec("UPDATE controllers SET is_online=$online WHERE controller_id=$controller_id;");
-          $dbengine->commitTransaction();
-        }
-      }
+      } // if($res !== FALSE)
       
       
     }

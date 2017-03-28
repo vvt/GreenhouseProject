@@ -25,12 +25,15 @@ $tplEngine->assign('authorized',$authorized);
 $controllers = array();
 
 $res = $dbengine->query("SELECT * FROM controllers;"); 
+
+if($res !== FALSE)
+{
   // В цикле выведем все полученные данные 
   while ($array = $res->fetchArray())  
   { 
     $controllers[] = $array;
   } 
-
+}
 
 $selected_controller = null;
 $selected_controller_id = intval(@$_GET['id']);

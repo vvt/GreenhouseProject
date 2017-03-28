@@ -16,20 +16,23 @@ if($authorized)
     if($controller_id > 0)
     {
     
-      $res = $dbengine->query("SELECT * FROM controllers WHERE controller_id=$controller_id;"); 
-      if($array = $res->fetchArray())
-      {
-        $online = $array['is_online'];
-        if($online)
+      $res = $dbengine->query("SELECT * FROM controllers WHERE controller_id=$controller_id;");
+      if($res !== FALSE)
+      { 
+        if($array = $res->fetchArray())
         {
-             $tp = new SocketTransport();
-            if($tp->open($array['controller_address']))
-            {
-              $query_result = $tp->ctset($query);
-              $tp->close();
-            }
-         
-        }
+          $online = $array['is_online'];
+          if($online)
+          {
+               $tp = new SocketTransport();
+              if($tp->open($array['controller_address']))
+              {
+                $query_result = $tp->ctset($query);
+                $tp->close();
+              }
+           
+          }
+        } // if
       }
       
       

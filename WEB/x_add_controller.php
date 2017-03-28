@@ -22,13 +22,16 @@ if($authorized)
       //$dbengine->exec("UPDATE controllers SET controller_name='$controller_name', controller_address='$c_addr' WHERE controller_id=$controller_id ;");
       $sql = "SELECT MAX(controller_id)+1 AS new_id FROM controllers;";
       $res = $dbengine->query($sql);
-      if($res !== FALSE) {
+      if($res !== FALSE) 
+      {
         $row = $res->fetchArray();
         if($row !== FALSE)
           $new_id = intval($row['new_id']);
          else
           $new_id = 1; // нет записей?
-      } else {
+      } 
+      else 
+      {
         $new_id = 1; // нет записей?
       }
       

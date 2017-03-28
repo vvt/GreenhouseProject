@@ -16,10 +16,13 @@ if($authorized)
     {
     
       // выбираем настройки из базы
-      $res = $dbengine->query("SELECT * FROM sms WHERE controller_id=$controller_id ORDER BY sms_text;"); 
-      while($array = $res->fetchArray())
-      {
-       $sms_list[] = $array;
+      $res = $dbengine->query("SELECT * FROM sms WHERE controller_id=$controller_id ORDER BY sms_text;");
+      if($res !== FALSE)
+      { 
+        while($array = $res->fetchArray())
+        {
+         $sms_list[] = $array;
+        }
       }
       
       

@@ -27,30 +27,33 @@ if($authorized)
       AND cd.record_date BETWEEN datetime($from,'unixepoch') AND datetime($to,'unixepoch')
       ORDER BY cd.sensor_type_id, cd.record_date;";
       
-      $res = $dbengine->query($sql); 
-      while($row = $res->fetchArray())
-      {
-        $sensor_data = intval($row['sensor_data']);
-        $sensorType = $row['sensor_type'];
-        
-        if($sensor_data < 0)
+      $res = $dbengine->query($sql);
+      if($res !== FALSE)
+      { 
+        while($row = $res->fetchArray())
         {
-            if($sensorType == 'LIGHT')
-              continue;
-            else
-            if($sensor_data <= -127)
-              continue;
-        }
-        
-        
-       $data[] = array('t' => $row['sensor_type']
-          , 'd' => $row['type_description']
-          , 'm' => $row['module_name']
-          , 'md' => $row['description']
-          , 'i' => $row['sensor_index']
-          , 'sd' => $row['sensor_data']
-          , 'rd' => intval($row['record_date'])*1000
-       );
+          $sensor_data = intval($row['sensor_data']);
+          $sensorType = $row['sensor_type'];
+          
+          if($sensor_data < 0)
+          {
+              if($sensorType == 'LIGHT')
+                continue;
+              else
+              if($sensor_data <= -127)
+                continue;
+          }
+          
+          
+         $data[] = array('t' => $row['sensor_type']
+            , 'd' => $row['type_description']
+            , 'm' => $row['module_name']
+            , 'md' => $row['description']
+            , 'i' => $row['sensor_index']
+            , 'sd' => $row['sensor_data']
+            , 'rd' => intval($row['record_date'])*1000
+         );
+        } // while
       }
       
       

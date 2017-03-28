@@ -16,10 +16,13 @@ if($authorized)
     {
     
       // выбираем настройки из базы
-      $res = $dbengine->query("SELECT * FROM wifi_settings WHERE controller_id=$controller_id;"); 
-      if($array = $res->fetchArray())
-      {
-       $wifi = $array;
+      $res = $dbengine->query("SELECT * FROM wifi_settings WHERE controller_id=$controller_id;");
+      if($res !== FALSE)
+      { 
+        if($array = $res->fetchArray())
+        {
+         $wifi = $array;
+        }
       }
       
       
