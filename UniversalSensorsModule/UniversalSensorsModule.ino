@@ -61,7 +61,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 // настройки датчиков для модуля, МЕНЯТЬ ЗДЕСЬ!
 const SensorSettings Sensors[3] = {
 
-{mstNone,0},//{mstBH1750,BH1750Address1}, // датчик освещённости BH1750 на шине I2C
+{mstFrequencySoilMoistureMeter,A1},//{mstBH1750,BH1750Address1}, // датчик освещённости BH1750 на шине I2C
 {mstNone,0},//{mstPHMeter,A0}, // датчик pH на пине A0
 {mstDS18B20,A2}//{mstSi7021,0} // датчик температуры и влажности Si7021 на шине I2C
 /* 
@@ -75,6 +75,11 @@ const SensorSettings Sensors[3] = {
   {mstDHT22, 6} - датчик DHT2x на пине 6
   {mstDHT11, 5} - датчик DHT11 на пине 5
   {mstPHMeter,A0} // датчик pH на пине A0
+
+  // Частотные датчики влажности почвы должны на выходе выдавать ШИМ, по заполнению которого рассчитывается влажность почвы !!! Максимальный коэффициент заполнения - 254, минимальный - 1.
+  {mstFrequencySoilMoistureMeter,A5} - частотный датчик влажности почвы на аналоговом пине A5
+  {mstFrequencySoilMoistureMeter,A4} - частотный датчик влажности почвы на аналоговом пине A4
+  {mstFrequencySoilMoistureMeter,A3} - частотный датчик влажности почвы на аналоговом пине A3
   
 
   если в слоте записано
@@ -153,26 +158,6 @@ volatile byte scratchpadNumOfBytesReceived = 0; // сколько байт пр�
 Pin linesPowerDown(LINES_POWER_DOWN_PIN);
 //----------------------------------------------------------------------------------------------------------------
 #define ROM_ADDRESS (void*) 0 // по какому адресу у нас настройки?
-//----------------------------------------------------------------------------------------------------------------
-/*
-byte calcCrc8 (const byte *addr, byte len)
-{
-  byte crc = 0;
-  while (len--) 
-    {
-    byte inbyte = *addr++;
-    for (byte i = 8; i; i--)
-      {
-      byte mix = (crc ^ inbyte) & 0x01;
-      crc >>= 1;
-      if (mix) 
-        crc ^= 0x8C;
-      inbyte >>= 1;
-      }  // end of for
-    }  // end of while
-  return crc;
-}
-*/
 //----------------------------------------------------------------------------------------------------------------
 t_scratchpad scratchpadS, scratchpadToSend;
 volatile char* scratchpad = (char *)&scratchpadS; //что бы обратиться к scratchpad как к линейному массиву
@@ -401,6 +386,7 @@ byte GetSensorType(const SensorSettings& sett)
       return uniHumidity;
 
     case mstChinaSoilMoistureMeter:
+    case mstFrequencySoilMoistureMeter:
       return uniSoilMoisture;
 
     case mstPHMeter:
@@ -422,6 +408,7 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     case mstDS18B20:
     case mstChinaSoilMoistureMeter:
     case mstPHMeter:
+    case mstFrequencySoilMoistureMeter:
     {
       *data = NO_TEMPERATURE_DATA;
     }
@@ -458,6 +445,10 @@ void* InitSensor(const SensorSettings& sett)
     
     case mstDS18B20:
       return InitDS18B20(sett);
+
+    case mstFrequencySoilMoistureMeter:
+        return InitFrequencySoilMoistureMeter(sett);
+    break;
       
     case mstBH1750:
       return InitBH1750(sett);
@@ -591,7 +582,7 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
     
     case mstDS18B20:
     break;
-      
+
     case mstBH1750:
     {
       BH1750Support* bh = (BH1750Support*) sensorDefinedData;
@@ -611,6 +602,14 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
     case mstDHT22:
     break;
 
+    case mstFrequencySoilMoistureMeter:
+    {
+      Pin pin(sett.Pin);
+      pin.inputMode();
+      pin.writeHigh();      
+    }
+    break;
+    
     case mstPHMeter:
     {
       // надо подтянуть пин к питанию
@@ -663,6 +662,12 @@ void* InitSi7021(const SensorSettings& sett) // инициализируем д�
   si->begin();
 
   return si;
+}
+//----------------------------------------------------------------------------------------------------------------
+void* InitFrequencySoilMoistureMeter(const SensorSettings& sett)
+{
+    UNUSED(sett);
+    return NULL;  
 }
 //----------------------------------------------------------------------------------------------------------------
 void* InitBH1750(const SensorSettings& sett) // инициализируем датчик освещённости
@@ -749,6 +754,54 @@ void InitSensors()
   s->data[0] = tc_100/100;
   s->data[1] = tc_100 % 100;
     
+}
+//----------------------------------------------------------------------------------------------------------------
+void ReadFrequencySoilMoistureMeter(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s)
+{
+    UNUSED(sensorDefinedData);
+
+ int highTime = pulseIn(sett.Pin,HIGH);
+ 
+ if(!highTime) // always HIGH ?
+ {
+   s->data[0] = NO_TEMPERATURE_DATA;
+
+  // Serial.println("ALWAYS HIGH,  BUS ERROR!");
+
+   return;
+ }
+ highTime = pulseIn(sett.Pin,HIGH);
+ int lowTime = pulseIn(sett.Pin,LOW);
+
+ //Serial.print("HIGH pulse: ");
+// Serial.println(highTime);
+
+// Serial.print("LOW pulse: ");
+// Serial.println(lowTime);
+
+ if(!lowTime)
+ {
+//  Serial.println("NO LOW PULSE!");
+  return;
+ }
+  int totalTime = lowTime + highTime;
+  // теперь смотрим отношение highTime к общей длине импульсов - это и будет влажность почвы
+  // totalTime = 100%
+  // highTime = x%
+  // x = (highTime*100)/totalTime;
+
+  float moisture = (highTime*100.0)/totalTime;
+
+  int moistureInt = moisture*100;
+
+   s->data[0] = moistureInt/100;
+   s->data[1] = moistureInt%100;
+
+ // Serial.print("Moisture are: ");
+//  Serial.print(s->data[0]);
+//  Serial.print(",");
+//  Serial.print(s->data[1]);
+//  Serial.println();   
 }
 //----------------------------------------------------------------------------------------------------------------
 void ReadBH1750(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика освещённости
@@ -897,6 +950,10 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
     case mstDHT22:
       ReadDHT(sett,sensorDefinedData,s);
     break;
+
+    case mstFrequencySoilMoistureMeter:
+      ReadFrequencySoilMoistureMeter(sett,sensorDefinedData,s);
+    break;
   }
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -989,6 +1046,7 @@ void MeasureSensor(const SensorSettings& sett,void* sensorDefinedData) // зап
     case mstChinaSoilMoistureMeter:
     case mstDHT11:
     case mstDHT22:
+    case mstFrequencySoilMoistureMeter:
     break;
   }  
 }
@@ -1033,6 +1091,7 @@ void UpdateSensor(const SensorSettings& sett,void* sensorDefinedData, unsigned l
     case mstChinaSoilMoistureMeter:
     case mstDHT11:
     case mstDHT22:
+    case mstFrequencySoilMoistureMeter:
     break;
   }  
 }

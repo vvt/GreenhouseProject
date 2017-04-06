@@ -618,16 +618,16 @@ void WiFiModule::Setup()
   WIFI_SERIAL.begin(WIFI_BAUDRATE);
 
   if(&(WIFI_SERIAL) == &Serial) {
-       WORK_STATUS.PinMode(0,INPUT,false);
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(1,OUTPUT,false);
   } else if(&(WIFI_SERIAL) == &Serial1) {
-       WORK_STATUS.PinMode(19,INPUT,false);
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(18,OUTPUT,false);
   } else if(&(WIFI_SERIAL) == &Serial2) {
-       WORK_STATUS.PinMode(17,INPUT,false);
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(16,OUTPUT,false);
   } else if(&(WIFI_SERIAL) == &Serial3) {
-       WORK_STATUS.PinMode(15,INPUT,false);
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(14,OUTPUT,false);
   } 
 

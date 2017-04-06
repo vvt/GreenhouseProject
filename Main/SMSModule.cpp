@@ -221,6 +221,20 @@ void SMSModule::Setup()
   // запускаем наш сериал
   GSM_SERIAL.begin(GSM_BAUDRATE);
 
+  if(&(GSM_SERIAL) == &Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if(&(GSM_SERIAL) == &Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if(&(GSM_SERIAL) == &Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if(&(GSM_SERIAL) == &Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  }  
+
 
   // говорим, что мы от модема не получали ничего
   flags.isAnyAnswerReceived = false;

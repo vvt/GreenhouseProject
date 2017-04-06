@@ -216,6 +216,20 @@ void NextionModule::Setup()
   
   
   NEXTION_SERIAL.begin(NEXTION_BAUD_RATE);
+
+  if(&(NEXTION_SERIAL) == &Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if(&(NEXTION_SERIAL) == &Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if(&(NEXTION_SERIAL) == &Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if(&(NEXTION_SERIAL) == &Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  }  
   
   // подписываемся на события
   NextionSubscribeStruct ss;
