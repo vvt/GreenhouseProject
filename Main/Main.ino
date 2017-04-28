@@ -94,25 +94,6 @@
 #include "IoTModule.h"
 #endif
 
-/*
-// КОМАНДЫ ИНИЦИАЛИЗАЦИИ ПРИ СТАРТЕ
-//const char init_0[] PROGMEM = "CTSET=PIN|13|0";// ВЫКЛЮЧИМ ПРИ СТАРТЕ СВЕТОДИОД
-#ifdef USE_READY_DIODE
-const char init_1[] PROGMEM = "CTSET=LOOP|SD|SET|100|7|PIN|6|T";// помигаем 5 раз диодом для проверки
-#endif
-const char init_STUB[] PROGMEM = ""; // ЗАГЛУШКА, НЕ ТРОГАТЬ!
-
-
-// команды инициализации при старте контроллера
-const char* const  INIT_COMMANDS[] PROGMEM  = 
-{
- //  init_0,
-#ifdef USE_READY_DIODE
-init_1,
-#endif
-  init_STUB // ЗАГЛУШКА, НЕ ТРОГАТЬ!
-};
-*/
 
 // таймер
 unsigned long lastMillis = 0;
@@ -323,41 +304,22 @@ void WIFI_EVENT_FUNC()
 ZeroStreamListener zeroStreamModule;
 AlertModule alertsModule;
 
-/*
-String ReadProgmemString(const char* c)
-{
-  String s;
-  int len = strlen_P(c);
-  
-  for (int i = 0; i < len; i++)
-    s += (char) pgm_read_byte_near(c + i);
 
-  return s;
-}
-// ДОБАВЛЯЕМ КОМАНДЫ ИНИЦИАЛИЗАЦИИ В ОБРАБОТКУ
-void ProcessInitCommands()
-{
-  int curIdx = 0;
-  while(true)
+#ifdef USE_EXTERNAL_WATCHDOG
+  typedef enum
   {
-    const char* c = (const char*) pgm_read_word(&(INIT_COMMANDS[curIdx]));
-    String command = ReadProgmemString(c);
+    WAIT_FOR_HIGH,
+    WAIT_FOR_LOW 
+  } ExternalWatchdogState;
+  
+  typedef struct
+  {
+    uint16_t timer;
+    ExternalWatchdogState state;
+  } ExternalWatchdogSettings;
 
-    if(!command.length())
-      break;
-
-     Command cmd;
-    if(commandParser.ParseCommand(command, cmd))
-    {
-      // КОМАНДЫ ИНИЦИАЛИЗАЦИИ НЕ ДЕЛАЮТ ВЫВОД В СЕРИАЛ
-      //cmd.SetIncomingStream(commandsFromSerial.GetStream());
-      controller.ProcessModuleCommand(cmd);    
-    } // if
-
-    curIdx++;
-  } // while
-}
-*/
+  ExternalWatchdogSettings watchdogSettings;
+#endif
 
 void setup() 
 { 
@@ -365,6 +327,14 @@ void setup()
 
   WORK_STATUS.PinMode(0,INPUT,false);
   WORK_STATUS.PinMode(1,OUTPUT,false);
+
+  #ifdef USE_EXTERNAL_WATCHDOG
+    WORK_STATUS.PinMode(WATCHDOG_REBOOT_PIN,OUTPUT,true);
+    digitalWrite(WATCHDOG_REBOOT_PIN,LOW);
+
+    watchdogSettings.timer = 0;
+    watchdogSettings.state = WAIT_FOR_HIGH;
+  #endif
  
   // настраиваем все железки
   controller.Setup();
@@ -515,6 +485,48 @@ void ModuleUpdateProcessed(AbstractModule* module)
    GSM_EVENT_FUNC();
    #endif     
 }
+
+#ifdef USE_EXTERNAL_WATCHDOG
+void updateExternalWatchdog()
+{
+  static unsigned long watchdogLastMillis = millis();
+  unsigned long watchdogCurMillis = millis();
+
+  uint16_t dt = watchdogCurMillis - watchdogLastMillis;
+  watchdogLastMillis = watchdogCurMillis;
+
+      watchdogSettings.timer += dt;
+      switch(watchdogSettings.state)
+      {
+        case WAIT_FOR_HIGH:
+        {
+          if(watchdogSettings.timer >= WATCHDOG_WORK_INTERVAL)
+          {
+           // Serial.println("set high");
+            watchdogSettings.timer = 0;
+            watchdogSettings.state = WAIT_FOR_LOW;
+            digitalWrite(WATCHDOG_REBOOT_PIN, HIGH);
+          }
+        }
+        break;
+
+        case WAIT_FOR_LOW:
+        {
+          if(watchdogSettings.timer >= WATCHDOG_PULSE_DURATION)
+          {
+          //  Serial.println("set low");
+            watchdogSettings.timer = 0;
+            watchdogSettings.state = WAIT_FOR_HIGH;
+            digitalWrite(WATCHDOG_REBOOT_PIN, LOW);
+          }          
+        }
+        break;
+      }  
+  
+}
+#endif
+
+
 void loop() 
 {
 // отсюда можно добавлять любой сторонний код
@@ -527,6 +539,11 @@ void loop()
     uint16_t dt = curMillis - lastMillis;
     
     lastMillis = curMillis; // сохраняем последнее значение вызова millis()
+
+
+   #ifdef USE_EXTERNAL_WATCHDOG
+     updateExternalWatchdog();
+   #endif // USE_EXTERNAL_WATCHDOG
     
 #ifdef USE_READY_DIODE
 
@@ -600,6 +617,9 @@ void yield()
 
 // до сюда можно добавлять любой сторонний код
 
+   #ifdef USE_EXTERNAL_WATCHDOG
+     updateExternalWatchdog();
+   #endif // USE_EXTERNAL_WATCHDOG
 
    #ifdef USE_WIFI_MODULE
     // модуль Wi-Fi обновляем каждый раз при вызове функции yield

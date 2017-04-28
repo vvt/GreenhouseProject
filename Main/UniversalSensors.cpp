@@ -314,9 +314,9 @@ void UniRS485Gate::Update(uint16_t dt)
         byte bytesReaded = 0; // кол-во прочитанных байт
         // запоминаем время начала чтения
         unsigned long startReadingTime = micros();
-        // вычисляем таймаут как время для чтения трёх байт.
-        // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения трёх байт надо вычитать 30 бит.
-        const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*3; // кол-во микросекунд, необходимое для вычитки трёх байт
+        // вычисляем таймаут как время для чтения десяти байт.
+        // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
+        const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
 
         // начинаем читать данные
         while(1)
@@ -1905,6 +1905,11 @@ bool UniNRFGate::isInOnlineQueue(byte sensorType,byte sensorIndex, byte& result_
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::Setup()
 {
+  #ifdef USE_NRF_REBOOT_PIN
+    WORK_STATUS.PinMode(NRF_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(NRF_REBOOT_PIN,NRF_POWER_ON);
+  #endif
+  
   initNRF();
   memset(&packet,0,sizeof(packet));
   ControllerState st = WORK_STATUS.GetState();
@@ -2159,8 +2164,11 @@ void UniNRFGate::Update(uint16_t dt)
 
       }
       #ifdef NRF_DEBUG
-      else
-        Serial.println(F("Unknown controller"));
+      else 
+      {
+        Serial.print(F("Unknown controller "));
+        Serial.println(nrfScratch.head.controller_id);
+      }
       #endif       
        
       

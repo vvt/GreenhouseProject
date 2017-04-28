@@ -44,6 +44,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 
 // настройки nRF
 #define USE_NRF // закомментировать, если не надо работать через nRF.
+//#define NRF_DEBUG // раскомментировать для отладочного режима nRF (плюётся в Serial)
 /*
  nRF для своей работы занимает следующие пины: 3,9,10,11,12,13. 
  Следите за тем, чтобы номера пинов не пересекались c номерами пинов датчиков, или с RS-485.
@@ -61,7 +62,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 // настройки датчиков для модуля, МЕНЯТЬ ЗДЕСЬ!
 const SensorSettings Sensors[3] = {
 
-{mstFrequencySoilMoistureMeter,A1},//{mstBH1750,BH1750Address1}, // датчик освещённости BH1750 на шине I2C
+{mstNone,0},//{mstFrequencySoilMoistureMeter,A1},//{mstBH1750,BH1750Address1}, // датчик освещённости BH1750 на шине I2C
 {mstNone,0},//{mstPHMeter,A0}, // датчик pH на пине A0
 {mstDS18B20,A2}//{mstSi7021,0} // датчик температуры и влажности Si7021 на шине I2C
 /* 
@@ -157,7 +158,7 @@ volatile byte scratchpadNumOfBytesReceived = 0; // сколько байт пр�
 //-------------------------------------------------------------------------------------------------ы---------------
 Pin linesPowerDown(LINES_POWER_DOWN_PIN);
 //----------------------------------------------------------------------------------------------------------------
-#define ROM_ADDRESS (void*) 0 // по какому адресу у нас настройки?
+#define ROM_ADDRESS (void*) 123 // по какому адресу у нас настройки?
 //----------------------------------------------------------------------------------------------------------------
 t_scratchpad scratchpadS, scratchpadToSend;
 volatile char* scratchpad = (char *)&scratchpadS; //что бы обратиться к scratchpad как к линейному массиву
@@ -202,6 +203,7 @@ bool GotRS485Packet()
 //----------------------------------------------------------------------------------------------------------------
 void ProcessRS485Packet()
 {
+
   // обрабатываем входящий пакет. Тут могут возникнуть проблемы с синхронизацией
   // начала пакета, поэтому мы сначала ищем заголовок и убеждаемся, что он валидный. 
   // если мы нашли заголовок и он не в начале пакета - значит, с синхронизацией проблемы,
@@ -300,9 +302,35 @@ void ProcessRS485Packet()
         sMatch = &(scratchpadS.sensor3);        
      }
 
-     if(!sMatch) // не нашли у нас такого датчика
-      return;
+     if(!sMatch) {// не нашли у нас такого датчика
+/*
+      Serial.print(scratchpadS.sensor1.type);
+      Serial.print(",");
+      Serial.println(scratchpadS.sensor1.index);
 
+      Serial.print(scratchpadS.sensor2.type);
+      Serial.print(",");
+      Serial.println(scratchpadS.sensor2.index);
+
+      Serial.print(scratchpadS.sensor3.type);
+      Serial.print(",");
+      Serial.println(scratchpadS.sensor3.index);
+
+      
+      Serial.print(sensorType);
+      Serial.print(",");
+      Serial.print(sensorIndex);
+      Serial.println(" - NO SENSOR");
+*/
+      return;
+     }
+/*
+      Serial.print(sensorType);
+      Serial.print(",");
+      Serial.print(sensorIndex);
+      Serial.println(" - GOT SENSOR !!!");
+      Serial.println(sizeof(RS485Packet));
+*/
      memcpy(readPtr,sMatch->data,4); // у нас 4 байта на показания, копируем их все
 
      // выставляем нужное направление пакета
@@ -1124,7 +1152,7 @@ const uint64_t writingPipes[5] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0E2LL, 0xF0F0F0F0E3L
 RF24 radio(NRF_CE_PIN,NRF_CSN_PIN);
 bool nRFInited = false;
 //----------------------------------------------------------------------------------------------------------------
-/*
+#ifdef NRF_DEBUG
 int serial_putc( char c, FILE * ) {
   Serial.write( c );
   return c;
@@ -1135,11 +1163,14 @@ void printf_begin(void) {
   Serial.begin(57600);
   Serial.println(F("Init nRF..."));
 }
-*/
+#endif
 //----------------------------------------------------------------------------------------------------------------
 void initNRF()
 {
-  //printf_begin();
+  #ifdef NRF_DEBUG
+  Serial.begin(57600);
+  printf_begin();
+  #endif
   
   // инициализируем nRF
   nRFInited = radio.begin();
@@ -1155,6 +1186,10 @@ void initNRF()
   radio.setCRCLength(RF24_CRC_16);
   radio.setAutoAck(true);
 
+  #ifdef NRF_DEBUG
+    radio.printDetails();
+  #endif
+
   radio.powerDown(); // входим в режим энергосбережения
   
   } // nRFInited
@@ -1163,18 +1198,26 @@ void initNRF()
 //----------------------------------------------------------------------------------------------------------------
 void sendDataViaNRF()
 {
-  if(!nRFInited)
+  if(!nRFInited) {
+ #ifdef NRF_DEBUG
+  Serial.println(F("nRF not inited!"));
+ #endif    
     return;
+  }
     
   if(!((scratchpadS.config & 1) == 1))
   {
-  //  Serial.println(F("Transiever disabled."));
+    #ifdef NRF_DEBUG
+    Serial.println(F("Transiever disabled."));
+    #endif
     return;
   }
   
   radio.powerUp(); // просыпаемся
   
- // Serial.println(F("Send sensors data via nRF..."));
+  #ifdef NRF_DEBUG
+    Serial.println(F("Send sensors data via nRF..."));
+  #endif
   // посылаем данные через nRF
     uint8_t writePipeNum = random(0,5);
 
@@ -1182,10 +1225,17 @@ void sendDataViaNRF()
     scratchpadS.crc8 = OneWireSlave::crc8((const byte*)&scratchpadS,sizeof(scratchpadS)-1);
   //  radio.stopListening(); // останавливаем прослушку
     radio.openWritingPipe(writingPipes[writePipeNum]); // открываем канал для записи
-    radio.write(&scratchpadS,sizeof(scratchpadS)); // пишем в него
+    if(!radio.write(&scratchpadS,sizeof(scratchpadS))) // пишем в него
+    {
+      #ifdef NRF_DEBUG
+        Serial.println(F("No receiving side found!"));
+      #endif
+    }
   //  radio.startListening(); // начинаем прослушку эфира опять  
 
- // Serial.println(F("Sensors data sent."));
+  #ifdef NRF_DEBUG
+    Serial.println(F("Sensors data sent."));
+  #endif
 
  radio.powerDown(); // входим в режим энергосбережения
 

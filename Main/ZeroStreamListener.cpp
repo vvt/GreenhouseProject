@@ -9,9 +9,9 @@
 
 #ifdef USE_UNIVERSAL_SENSORS
 
-  #ifdef UNI_USE_REGISTRATION_LINE
+  #ifdef USE_UNI_REGISTRATION_LINE
     UniRegistrationLine uniRegistrator(UNI_REGISTRATION_PIN);
-  #endif // UNI_USE_REGISTRATION_LINE
+  #endif // USE_UNI_REGISTRATION_LINE
   
   #if UNI_WIRED_MODULES_COUNT > 0
     UniPermanentLine uniWiredModules[UNI_WIRED_MODULES_COUNT] = { UNI_WIRED_MODULES };
@@ -202,7 +202,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           }          
           
         }
-        #if defined(USE_UNIVERSAL_SENSORS) && defined(UNI_USE_REGISTRATION_LINE)
+        #if defined(USE_UNIVERSAL_SENSORS) && defined(USE_UNI_REGISTRATION_LINE)
         else
         if(t == UNI_SEARCH) // поиск универсального модуля на линии регистрации
         {
@@ -232,7 +232,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
             PublishSingleton = UNI_NOT_FOUND;
           } // else
         }
-        #endif // UNI_USE_REGISTRATION_LINE
+        #endif // USE_UNI_REGISTRATION_LINE
         else
         if(t == ID_COMMAND)
         {
@@ -498,7 +498,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
         
        }
-        #if defined(USE_UNIVERSAL_SENSORS) && defined(UNI_USE_REGISTRATION_LINE)
+        #if defined(USE_UNIVERSAL_SENSORS) && defined(USE_UNI_REGISTRATION_LINE)
         else
         if(t == UNI_REGISTER) // зарегистрировать универсальный модуль, висящий на линии
         {
@@ -548,7 +548,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
               
           
         } // UNI_REGISTER
-        #endif // UNI_USE_REGISTRATION_LINE
+        #endif // USE_UNI_REGISTRATION_LINE
        
        else if(t == ID_COMMAND)
        {

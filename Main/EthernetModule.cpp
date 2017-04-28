@@ -14,6 +14,11 @@ EthernetServer lanServer(1975);
 void EthernetModule::Setup()
 {
   // настраиваем всё необходимое добро тут
+  #ifdef USE_W5100_REBOOT_PIN
+    WORK_STATUS.PinMode(W5100_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(W5100_REBOOT_PIN,W5100_POWER_ON);
+  #endif
+  
   bInited = false;
   
 }
