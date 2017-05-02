@@ -183,6 +183,14 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
     // выделяем буфер нужной длины
     outBuffer->reserve(utf8Message.length()+PDU_EXTRA_LENGTH);
     *outBuffer = utf8Message;
+
+    // проверяем - возможно, СМС в одно не вместится, тогда - режем нещадно
+    #define ONE_SMS_MAXLENGTH 70
+    if(utf8Message.length() > ONE_SMS_MAXLENGTH*4)
+    {
+      outBuffer->setCharAt(ONE_SMS_MAXLENGTH*4, '\0');
+      bytesProcessed = ONE_SMS_MAXLENGTH;
+    }
   }
     
   String strBytesProcessed = ToHex(bytesProcessed*2);
