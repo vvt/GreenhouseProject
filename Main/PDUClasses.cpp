@@ -266,7 +266,8 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
     Serial.print(F("completeMessage: ")); Serial.println(*(result.Message));
   #endif   
 
-  result.MessageLength = result.Message->length()/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
+  //result.MessageLength = result.Message->length()/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
+  result.MessageLength = strlen(result.Message->c_str())/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
 
    #ifdef GSM_DEBUG_MODE
     Serial.print(F("hlen: ")); Serial.println(result.MessageLength);
