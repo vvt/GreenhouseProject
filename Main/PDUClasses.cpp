@@ -180,17 +180,18 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
   else {
     // иначе - подсчитываем необходимые нам данные
     bytesProcessed = utf8Message.length()/4; // поскольку каждый символ в UCS2 кодируется 4 байтами - кол-во символов вычисляется легко 
-    // выделяем буфер нужной длины
-    outBuffer->reserve(utf8Message.length()+PDU_EXTRA_LENGTH);
-    *outBuffer = utf8Message;
 
     // проверяем - возможно, СМС в одно не вместится, тогда - режем нещадно
     #define ONE_SMS_MAXLENGTH 70
     if(utf8Message.length() > ONE_SMS_MAXLENGTH*4)
     {
-      outBuffer->setCharAt(ONE_SMS_MAXLENGTH*4, '\0');
       bytesProcessed = ONE_SMS_MAXLENGTH;
     }
+
+    // выделяем буфер нужной длины
+    outBuffer->reserve(bytesProcessed*4+PDU_EXTRA_LENGTH);
+    *outBuffer = utf8Message.c_str();
+    outBuffer->setCharAt(bytesProcessed*4,'\0');
   }
     
   String strBytesProcessed = ToHex(bytesProcessed*2);
