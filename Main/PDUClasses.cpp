@@ -182,16 +182,17 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
     bytesProcessed = utf8Message.length()/4; // поскольку каждый символ в UCS2 кодируется 4 байтами - кол-во символов вычисляется легко 
 
     // проверяем - возможно, СМС в одно не вместится, тогда - режем нещадно
-    #define ONE_SMS_MAXLENGTH 70
+    #define ONE_SMS_MAXLENGTH 50
     if(utf8Message.length() > ONE_SMS_MAXLENGTH*4)
     {
       bytesProcessed = ONE_SMS_MAXLENGTH;
     }
 
     // выделяем буфер нужной длины
-    outBuffer->reserve(bytesProcessed*4+PDU_EXTRA_LENGTH);
+    outBuffer->reserve(utf8Message.length()+PDU_EXTRA_LENGTH);
     *outBuffer = utf8Message.c_str();
-    outBuffer->setCharAt(bytesProcessed*4,'\0');
+    //outBuffer->setCharAt(bytesProcessed*4,'\0');
+    outBuffer->remove(bytesProcessed*4);
   }
     
   String strBytesProcessed = ToHex(bytesProcessed*2);
@@ -267,8 +268,8 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
     Serial.print(F("completeMessage: ")); Serial.println(*(result.Message));
   #endif   
 
-  //result.MessageLength = result.Message->length()/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
-  result.MessageLength = strlen(result.Message->c_str())/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
+  result.MessageLength = result.Message->length()/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
+  //result.MessageLength = strlen(result.Message->c_str())/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
 
    #ifdef GSM_DEBUG_MODE
     Serial.print(F("hlen: ")); Serial.println(result.MessageLength);
