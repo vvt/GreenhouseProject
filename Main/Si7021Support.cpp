@@ -7,11 +7,15 @@ Si7021::Si7021()
 
 void Si7021::begin()
 {
+  /*
   Wire.begin();
   WORK_STATUS.PinMode(SDA,INPUT,false);
   WORK_STATUS.PinMode(SCL,OUTPUT,false);  
   setResolution();
+  */
+  sensor.begin();
 }
+/*
 uint8_t Si7021::read8(uint8_t reg)
 {
   Wire.beginTransmission(Si7021Address);
@@ -37,10 +41,35 @@ void Si7021::setResolution()
   Wire.endTransmission();
 
 }
+*/
 const HumidityAnswer& Si7021::read()
 {
+ 
   dt.IsOK = false;
-  
+  float humidity, temperature;
+  humidity = sensor.readHumidity();
+  temperature = sensor.readTemperature();
+
+  if(((int)humidity) == HTU21D_ERROR || ((int)temperature) == HTU21D_ERROR)
+  {
+    dt.IsOK = false;
+  }
+  else
+  {
+     dt.IsOK = true;
+     
+    int iTmp = humidity*100;
+    
+    dt.Humidity = iTmp/100;
+    dt.HumidityDecimal = iTmp%100;
+    
+    iTmp = temperature*100;
+    
+    dt.Temperature = iTmp/100;
+    dt.TemperatureDecimal = iTmp%100;   
+  }
+
+ /* 
   uint16_t humidity = 0;
   uint16_t temp = 0;
   bool crcOk = false;
@@ -126,6 +155,7 @@ const HumidityAnswer& Si7021::read()
     dt.TemperatureDecimal = iTmp%100;
     
   }
+  */
   
   return dt;
 }

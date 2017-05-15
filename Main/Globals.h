@@ -248,7 +248,7 @@
 // для двух и более датчиков:
 // #define HUMIDITY_SENSORS ADD_HUMIDITY_SENSOR(12,DHT2x), ADD_HUMIDITY_SENSOR(14,DHT11), ADD_HUMIDITY_SENSOR(15,DHT2x)
 // ДЛЯ ПЛАТЫ НОМЕРА ВЫВОДОВ ДЛЯ ДВУХ DHT - A6,A7 !!!
-#define HUMIDITY_SENSORS ADD_HUMIDITY_SENSOR(A7,DHT2x), ADD_HUMIDITY_SENSOR(0,SI7021)
+#define HUMIDITY_SENSORS ADD_HUMIDITY_SENSOR(0,SI7021), ADD_HUMIDITY_SENSOR(A7,DHT2x)
 
 //--------------------------------------------------------------------------------------------------------------------------------
 // настройки модуля управления фрамугами
@@ -344,7 +344,7 @@
 // типы показаний: StateTemperature - температура, StateLuminosity - освещенность, StateHumidity - влажность, StateSoilMoisture - влажность почвы, StatePH - значение pH
 
 // определяем вид экрана ожидания тут
-#define WAIT_SCREEN_SENSORS W_S(StateTemperature,0,"STATE","T внутри") ,W_S(StateHumidity,1,"HUMIDITY","Влажность") ,W_S(StateLuminosity,0,"LIGHT","Освещенность")
+#define WAIT_SCREEN_SENSORS W_S(StateSoilMoisture,0,"SOIL","Почва"), W_S(StateSoilMoisture,1,"SOIL","Почва модуль"), W_S(StateTemperature,0,"STATE","T внутри") ,W_S(StateHumidity,0,"HUMIDITY","Влажность") ,W_S(StateLuminosity,0,"LIGHT","Освещенность")
 
 
 //--------------------------------------------------------------------------------------------------------------------------------
