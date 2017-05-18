@@ -8,6 +8,7 @@
 #include "DHTSupport.h"
 #include "LowLevel.h"
 #include "OneWireSlave.h"
+#include "SHT1x.h"
 //----------------------------------------------------------------------------------------------------------------
 /*
 Прошивка для универсального модуля, предназначена для подключения
@@ -65,29 +66,30 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 // настройки датчиков для модуля, МЕНЯТЬ ЗДЕСЬ!
 const SensorSettings Sensors[3] = {
 
-{mstChinaSoilMoistureMeter,A1}, // китайский датчик влажности почвы на пине A1
-{mstNone,0},//{mstPHMeter,A0}, // датчик pH на пине A0
-{mstDS18B20,A2}//{mstSi7021,0} // датчик температуры и влажности Si7021 на шине I2C
+{mstChinaSoilMoistureMeter,A1,0}, // китайский датчик влажности почвы на пине A1
+{mstNone,0,0}, // ничего нет
+{mstDS18B20,A2,0} // DS18B20 на пине A2
 /* 
  поддерживаемые типы датчиков: 
  
-  {mstSi7021,0} - датчик температуры и влажности Si7021 на шине I2C  
-  {mstBH1750,BH1750Address1} - датчик освещённости BH1750 на шине I2C, его первый адрес I2C
-  {mstBH1750,BH1750Address2} - датчик освещённости BH1750 на шине I2C, его второй адрес I2C
-  {mstDS18B20,A0} - датчик DS18B20 на пине A0
-  {mstChinaSoilMoistureMeter,A7} - китайский датчик влажности почвы на пине A7
-  {mstDHT22, 6} - датчик DHT2x на пине 6
-  {mstDHT11, 5} - датчик DHT11 на пине 5
-  {mstPHMeter,A0} // датчик pH на пине A0
+  {mstSi7021,0,0} - датчик температуры и влажности Si7021 на шине I2C  
+  {mstBH1750,BH1750Address1,0} - датчик освещённости BH1750 на шине I2C, его первый адрес I2C
+  {mstBH1750,BH1750Address2,0} - датчик освещённости BH1750 на шине I2C, его второй адрес I2C
+  {mstDS18B20,A0,0} - датчик DS18B20 на пине A0
+  {mstChinaSoilMoistureMeter,A7,0} - китайский датчик влажности почвы на пине A7
+  {mstDHT22, 6, 0} - датчик DHT2x на пине 6
+  {mstDHT11, 5, 0} - датчик DHT11 на пине 5
+  {mstPHMeter,A0, 0} // датчик pH на пине A0
+  {mstSHT10,10,11} // датчик SHT10 на пине 10 (линия данных) и пине 11 (строб)
 
   // Частотные датчики влажности почвы должны на выходе выдавать ШИМ, по заполнению которого рассчитывается влажность почвы !!! Максимальный коэффициент заполнения - 254, минимальный - 1.
-  {mstFrequencySoilMoistureMeter,A5} - частотный датчик влажности почвы на аналоговом пине A5
-  {mstFrequencySoilMoistureMeter,A4} - частотный датчик влажности почвы на аналоговом пине A4
-  {mstFrequencySoilMoistureMeter,A3} - частотный датчик влажности почвы на аналоговом пине A3
+  {mstFrequencySoilMoistureMeter,A5, 0} - частотный датчик влажности почвы на аналоговом пине A5
+  {mstFrequencySoilMoistureMeter,A4, 0} - частотный датчик влажности почвы на аналоговом пине A4
+  {mstFrequencySoilMoistureMeter,A3, 0} - частотный датчик влажности почвы на аналоговом пине A3
   
 
   если в слоте записано
-    {mstNone,0}
+    {mstNone,0, 0}
   то это значит, что датчика на этом слоте нет   
 
  */
@@ -414,6 +416,7 @@ byte GetSensorType(const SensorSettings& sett)
     case mstSi7021:
     case mstDHT11:
     case mstDHT22:
+    case mstSHT10:
       return uniHumidity;
 
     case mstChinaSoilMoistureMeter:
@@ -455,6 +458,7 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     case mstSi7021:
     case mstDHT11:
     case mstDHT22:
+    case mstSHT10:
     {
     *data = NO_TEMPERATURE_DATA;
     data++; data++;
@@ -494,6 +498,9 @@ void* InitSensor(const SensorSettings& sett)
       return InitDHT(sett,DHT_2x);
 
     case mstChinaSoilMoistureMeter:
+      return NULL;
+
+    case mstSHT10:
       return NULL;
 
     case mstPHMeter: // инициализируем структуру для опроса pH
@@ -639,6 +646,7 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
     case mstChinaSoilMoistureMeter:
     case mstDHT11:
     case mstDHT22:
+    case mstSHT10:
     break;
 
     case mstFrequencySoilMoistureMeter:
@@ -874,6 +882,39 @@ void ReadSi7021(const SensorSettings& sett, void* sensorDefinedData, struct sens
 
 }
 //----------------------------------------------------------------------------------------------------------------
+void ReadSHT10(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика влажности SHT10
+{
+  UNUSED(sett);
+  UNUSED(sensorDefinedData);
+
+  SHT1x sht(sett.Pin,sett.Pin2);
+  float temp = sht.readTemperatureC();
+  float hum = sht.readHumidity();
+
+  HumidityAnswer ha;
+  ha.Temperature = NO_TEMPERATURE_DATA;
+  ha.Humidity =   NO_TEMPERATURE_DATA;
+
+  if(((int)temp) != -40)
+  {
+    // has temperature
+    int conv = temp * 100;
+    ha.Temperature = conv/100;
+    ha.TemperatureDecimal = conv%100;
+  }
+
+  if(!(hum < 0))
+  {
+    // has humidity
+    int conv = hum*100;
+    ha.Humidity = conv/100;
+    ha.HumidityDecimal = conv%100;
+  }
+
+  memcpy(s->data,&ha,sizeof(ha));
+
+}
+//----------------------------------------------------------------------------------------------------------------
 void ReadChinaSoilMoistureMeter(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s)
 {
    UNUSED(sensorDefinedData);
@@ -975,6 +1016,10 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
 
     case mstSi7021:
     ReadSi7021(sett,sensorDefinedData,s);
+    break;
+
+    case mstSHT10:
+    ReadSHT10(sett,sensorDefinedData,s);
     break;
 
     case mstChinaSoilMoistureMeter:
@@ -1086,6 +1131,7 @@ void MeasureSensor(const SensorSettings& sett,void* sensorDefinedData) // зап
     case mstDHT11:
     case mstDHT22:
     case mstFrequencySoilMoistureMeter:
+    case mstSHT10:
     break;
   }  
 }
@@ -1131,6 +1177,7 @@ void UpdateSensor(const SensorSettings& sett,void* sensorDefinedData, unsigned l
     case mstDHT11:
     case mstDHT22:
     case mstFrequencySoilMoistureMeter:
+    case mstSHT10:
     break;
   }  
 }
