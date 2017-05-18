@@ -1,5 +1,6 @@
 #include "HumidityModule.h"
 #include "ModuleController.h"
+#include "SHT1x.h"
 
 #if SUPPORTED_HUMIDITY_SENSORS > 0
 static HumiditySensorRecord HUMIDITY_SENSORS_ARRAY[] = { HUMIDITY_SENSORS };
@@ -20,13 +21,19 @@ void HumidityModule::Setup()
     State.AddState(StateHumidity,i); // поддерживаем и влажность,
     State.AddState(StateTemperature,i); // и температуру
     // запускаем конвертацию с датчиков при старте, через 2 секунды нам вернётся измеренная влажность и температура
-    QuerySensor(HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].type);
+    QuerySensor(i, HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].pin2, HUMIDITY_SENSORS_ARRAY[i].type);
    }
    #endif  
  }
 #if SUPPORTED_HUMIDITY_SENSORS > 0
-const HumidityAnswer& HumidityModule::QuerySensor(uint8_t pin, HumiditySensorType type)
+const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t pin, uint8_t pin2, HumiditySensorType type)
 {
+  UNUSED(sensorNumber);
+  
+  dummyAnswer.IsOK = false;
+  dummyAnswer.Humidity = NO_TEMPERATURE_DATA;
+  dummyAnswer.Temperature = NO_TEMPERATURE_DATA;
+  
   switch(type)
   {
     case DHT11:
@@ -44,6 +51,33 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t pin, HumiditySensorTyp
     case SI7021:
     {
       return si7021.read();
+    }
+    break;
+
+    case SHT10:
+    {
+      SHT1x sht(pin,pin2);
+      float temp = sht.readTemperatureC();
+      float hum = sht.readHumidity();
+
+      if(((int)temp) != -40)
+      {
+        // has temperature
+        int conv = temp * 100;
+        dummyAnswer.Temperature = conv/100;
+        dummyAnswer.TemperatureDecimal = conv%100;
+      }
+
+      if(!(hum < 0))
+      {
+        // has humidity
+        int conv = hum*100;
+        dummyAnswer.Humidity = conv/100;
+        dummyAnswer.HumidityDecimal = conv%100;
+      }
+
+      dummyAnswer.IsOK = (dummyAnswer.Temperature != NO_TEMPERATURE_DATA) && (dummyAnswer.Humidity != NO_TEMPERATURE_DATA);
+      return dummyAnswer;
     }
     break;
   }
@@ -66,7 +100,7 @@ void HumidityModule::Update(uint16_t dt)
    {
       Humidity h;
       Temperature t;
-      HumidityAnswer answer = QuerySensor(HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].type);
+      HumidityAnswer answer = QuerySensor(i, HUMIDITY_SENSORS_ARRAY[i].pin, HUMIDITY_SENSORS_ARRAY[i].pin2, HUMIDITY_SENSORS_ARRAY[i].type);
 
       if(answer.IsOK)
       {
