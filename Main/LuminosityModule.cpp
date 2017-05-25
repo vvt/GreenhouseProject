@@ -100,9 +100,22 @@ void LuminosityModule::Setup()
    // выключаем все реле
     for(uint8_t i=0;i<LAMP_RELAYS_COUNT;i++)
     {
-      WORK_STATUS.PinMode(LAMP_RELAYS[i],OUTPUT);
-      WORK_STATUS.PinWrite(LAMP_RELAYS[i],RELAY_OFF);
-      WORK_STATUS.SaveLightChannelState(i,RELAY_OFF);
+      #if LIGHT_DRIVE_MODE == DRIVE_DIRECT
+        WORK_STATUS.PinMode(LAMP_RELAYS[i],OUTPUT);
+        WORK_STATUS.PinWrite(LAMP_RELAYS[i],LIGHT_RELAY_OFF);
+      #elif LIGHT_DRIVE_MODE == DRIVE_MCP23S17
+        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+          WORK_STATUS.MCP_SPI_PinMode(LIGHT_MCP23S17_ADDRESS,LAMP_RELAYS[i],OUTPUT);
+          WORK_STATUS.MCP_SPI_PinWrite(LIGHT_MCP23S17_ADDRESS,LAMP_RELAYS[i],LIGHT_RELAY_OFF);
+        #endif
+      #elif LIGHT_DRIVE_MODE == DRIVE_MCP23017
+        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+          WORK_STATUS.MCP_I2C_PinMode(LIGHT_MCP23017_ADDRESS,LAMP_RELAYS[i],OUTPUT);
+          WORK_STATUS.MCP_I2C_PinWrite(LIGHT_MCP23017_ADDRESS,LAMP_RELAYS[i],LIGHT_RELAY_OFF);
+        #endif
+      #endif
+     
+      WORK_STATUS.SaveLightChannelState(i,LIGHT_RELAY_OFF);
     } // for
   #endif
     
@@ -123,8 +136,19 @@ void LuminosityModule::Update(uint16_t dt)
     #if LAMP_RELAYS_COUNT > 0
       for(uint8_t i=0;i<LAMP_RELAYS_COUNT;i++)
       {
-        WORK_STATUS.PinWrite(LAMP_RELAYS[i],flags.bRelaysIsOn ? RELAY_ON : RELAY_OFF); // пишем в пин нужное состояние
-        WORK_STATUS.SaveLightChannelState(i,flags.bRelaysIsOn ? RELAY_ON : RELAY_OFF);    
+        #if LIGHT_DRIVE_MODE == DRIVE_DIRECT
+          WORK_STATUS.PinWrite(LAMP_RELAYS[i],flags.bRelaysIsOn ? LIGHT_RELAY_ON : LIGHT_RELAY_OFF); // пишем в пин нужное состояние
+        #elif LIGHT_DRIVE_MODE == DRIVE_MCP23S17
+          #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+            WORK_STATUS.MCP_SPI_PinWrite(LIGHT_MCP23S17_ADDRESS,LAMP_RELAYS[i],flags.bRelaysIsOn ? LIGHT_RELAY_ON : LIGHT_RELAY_OFF); // пишем в пин нужное состояние
+          #endif
+        #elif LIGHT_DRIVE_MODE == DRIVE_MCP23017
+          #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+            WORK_STATUS.MCP_I2C_PinWrite(LIGHT_MCP23017_ADDRESS,LAMP_RELAYS[i],flags.bRelaysIsOn ? LIGHT_RELAY_ON : LIGHT_RELAY_OFF); // пишем в пин нужное состояние
+          #endif
+        #endif
+
+          WORK_STATUS.SaveLightChannelState(i,flags.bRelaysIsOn ? LIGHT_RELAY_ON : LIGHT_RELAY_OFF);            
       } // for
     #endif 
  } // if

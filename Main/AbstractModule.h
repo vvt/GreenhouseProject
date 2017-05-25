@@ -9,6 +9,14 @@ class ModuleController; // forward declaration
 #include "CommandParser.h"
 #include "TinyVector.h"
 
+#ifdef USE_MCP23S17_EXTENDER
+#include "MCP23S17.h"
+#endif
+
+#ifdef USE_MCP23017_EXTENDER
+#include "MCP23017.h"
+#endif
+
 // структура для публикации
 struct PublishStruct
 {
@@ -299,6 +307,19 @@ class WorkStatus
 
   ControllerState State;
 
+#if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+  MCP23S17* mcpSPIExtenders[COUNT_OF_MCP23S17_EXTENDERS];
+  void InitMcpSPIExtenders();
+  MCP23S17* GetMCP_SPI_ByAddress(byte addr);
+#endif  
+
+#if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+  Adafruit_MCP23017* mcpI2CExtenders[COUNT_OF_MCP23017_EXTENDERS];
+  void InitMcpI2CExtenders();
+  Adafruit_MCP23017* GetMCP_I2C_ByAddress(byte addr);
+#endif  
+
+
   public:
   
     void SetStatus(uint8_t bitNum, bool bOn);
@@ -317,6 +338,18 @@ class WorkStatus
   // если последний парааметр равен false - то с пином ничего не делается, просто его режим копируется в карту занятости.
   void PinMode(byte pinNumber,byte mode, bool setMode=true); 
   void PinWrite(byte pin, byte level); // пишет в пин состояние, заодно копируя его в слепок состояния контроллера
+
+  #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+    // запись в каналы MCP23S17
+    void MCP_SPI_PinMode(byte mcpAddress, byte mpcChannel, byte mode);
+    void MCP_SPI_PinWrite(byte mcpAddress, byte mpcChannel, byte level);
+  #endif
+
+  #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+    // запись в каналы MCP23017
+    void MCP_I2C_PinMode(byte mcpAddress, byte mpcChannel, byte mode);
+    void MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level);
+  #endif  
 
   void SaveWindowState(byte channel, byte state);
   void SaveWaterChannelState(byte channel, byte state);

@@ -89,7 +89,100 @@ WorkStatus::WorkStatus()
   memset(lastStatuses,0,sizeof(uint8_t)*STATUSES_BYTES);
   memset(&State,0,sizeof(State));
   memset(&UsedPins,0,sizeof(UsedPins));
+  #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+    InitMcpSPIExtenders();
+  #endif
+  #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+    InitMcpI2CExtenders();
+  #endif
 }
+
+#if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+void WorkStatus::InitMcpI2CExtenders()
+{
+  byte mcp_addresses[] = {MCP23017_ADDRESSES};
+  
+  for(byte i=0;i<COUNT_OF_MCP23017_EXTENDERS;i++)
+  {
+    Adafruit_MCP23017* bank = new Adafruit_MCP23017;
+    bank->begin(mcp_addresses[i]);
+    mcpI2CExtenders[i] = bank;
+  }  
+}
+Adafruit_MCP23017* WorkStatus::GetMCP_I2C_ByAddress(byte addr)
+{
+  for(byte i=0;i<COUNT_OF_MCP23017_EXTENDERS;i++)
+  {
+    Adafruit_MCP23017* bank = mcpI2CExtenders[i];
+    if(bank->getAddress() == addr)
+      return bank;
+  }
+
+  return NULL;  
+}
+void WorkStatus::MCP_I2C_PinMode(byte mcpAddress, byte mpcChannel, byte mode)
+{
+  Adafruit_MCP23017* bank = GetMCP_I2C_ByAddress(mcpAddress);
+  if(!bank)
+    return;
+
+  bank->pinMode(mpcChannel,mode);
+  
+}
+void WorkStatus::MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
+{
+  Adafruit_MCP23017* bank = GetMCP_I2C_ByAddress(mcpAddress);
+  if(!bank)
+    return;  
+
+  bank->digitalWrite(mpcChannel,level);
+}
+
+#endif
+
+#if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+void WorkStatus::InitMcpSPIExtenders()
+{
+  byte mcp_addresses[] = {MCP23S17_ADDRESSES};
+  
+  for(byte i=0;i<COUNT_OF_MCP23S17_EXTENDERS;i++)
+  {
+    MCP23S17* bank = new MCP23S17(&SPI,MCP23S17_CS_PIN,mcp_addresses[i]);
+    bank->begin();
+    mcpSPIExtenders[i] = bank;
+  }
+}
+void WorkStatus::MCP_SPI_PinMode(byte mcpAddress, byte mpcChannel, byte mode)
+{
+  MCP23S17* bank = GetMCP_SPI_ByAddress(mcpAddress);
+  if(!bank)
+    return;
+
+  bank->pinMode(mpcChannel,mode);
+  
+}
+void WorkStatus::MCP_SPI_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
+{
+  MCP23S17* bank = GetMCP_SPI_ByAddress(mcpAddress);
+  if(!bank)
+    return;  
+
+  bank->digitalWrite(mpcChannel,level);
+}
+
+MCP23S17* WorkStatus::GetMCP_SPI_ByAddress(byte addr)
+{
+  for(byte i=0;i<COUNT_OF_MCP23S17_EXTENDERS;i++)
+  {
+    MCP23S17* bank = mcpSPIExtenders[i];
+    if(bank->getAddress() == addr)
+      return bank;
+  }
+
+  return NULL;
+}
+#endif
+
 void WorkStatus::PinMode(byte pinNumber,byte mode, bool setMode)
 {
 
