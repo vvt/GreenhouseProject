@@ -89,23 +89,26 @@ WorkStatus::WorkStatus()
   memset(lastStatuses,0,sizeof(uint8_t)*STATUSES_BYTES);
   memset(&State,0,sizeof(State));
   memset(&UsedPins,0,sizeof(UsedPins));
-  #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-    InitMcpSPIExtenders();
-  #endif
-  #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-    InitMcpI2CExtenders();
-  #endif
 }
 
 #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
 void WorkStatus::InitMcpI2CExtenders()
 {
+  //Serial.println("InitMcpI2CExtenders");
+  
   byte mcp_addresses[] = {MCP23017_ADDRESSES};
   
   for(byte i=0;i<COUNT_OF_MCP23017_EXTENDERS;i++)
   {
     Adafruit_MCP23017* bank = new Adafruit_MCP23017;
+
+    //Serial.print("init MCP ");
+   // Serial.println(mcp_addresses[i]);
+    
     bank->begin(mcp_addresses[i]);
+
+    //Serial.println("MCP inited");
+    
     mcpI2CExtenders[i] = bank;
   }  
 }
@@ -133,8 +136,15 @@ void WorkStatus::MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
 {
   Adafruit_MCP23017* bank = GetMCP_I2C_ByAddress(mcpAddress);
   if(!bank)
-    return;  
-
+    return; 
+ /*    
+  Serial.print("write ");
+  Serial.print(level);
+  Serial.print(" to MCP with address ");
+  Serial.print(mcpAddress);
+  Serial.print(" and channel ");
+  Serial.println(mpcChannel);
+*/
   bank->digitalWrite(mpcChannel,level);
 }
 

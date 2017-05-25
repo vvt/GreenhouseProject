@@ -307,6 +307,8 @@ class WorkStatus
 
   ControllerState State;
 
+public:
+  
 #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
   MCP23S17* mcpSPIExtenders[COUNT_OF_MCP23S17_EXTENDERS];
   void InitMcpSPIExtenders();
@@ -320,7 +322,7 @@ class WorkStatus
 #endif  
 
 
-  public:
+
   
     void SetStatus(uint8_t bitNum, bool bOn);
     void WriteStatus(Stream* pStream, bool bAsTextHex);

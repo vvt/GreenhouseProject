@@ -52,6 +52,13 @@ _rtc.begin();
   WORK_STATUS.PinMode(MISO,INPUT,false);
   WORK_STATUS.PinMode(SCK,OUTPUT,false);
 #endif
+
+  #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+    WORK_STATUS.InitMcpSPIExtenders();
+  #endif
+  #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+    WORK_STATUS.InitMcpI2CExtenders();
+  #endif 
   
 }
 
