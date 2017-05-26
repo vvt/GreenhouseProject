@@ -82,62 +82,11 @@ void BlinkModeInterop::update(uint16_t dt)
   pinState = pinState == LOW ? HIGH : LOW;
   WORK_STATUS.PinWrite(pin,pinState);
   
-/*
-  UNUSED(dt);
-  
-  if(!needUpdate)
-    return;
-
- needUpdate = false;   
- String s;
-  
-#ifdef USE_LOOP_MODULE 
-
-  //s  = loopName;
-  s = F("LOOP|");
-  s += loopName;
-  s += F("|SET|"); 
-  s += lastBlinkInterval;
-  //s += pinCommand;
-  s += F("|0|PIN|");
-  s += String(pin);
-  s += F("|T");
-  
-
-  ModuleInterop.QueryCommand(ctSET,s,false);//,false);
-#endif
-
-#ifdef USE_PIN_MODULE 
-      if(!lastBlinkInterval) // не надо зажигать диод, принудительно гасим его
-      {
-        s = F("PIN|");
-        s += String(pin);
-        s += PARAM_DELIMITER;
-        s += F("0");
-
-        ModuleInterop.QueryCommand(ctSET,s,false);//,false);
- 
-      } // if
- #endif   
-*/
-    
 }
 void BlinkModeInterop::begin(uint8_t p)//, const String& lName)
 {
   pin = p;
   WORK_STATUS.PinMode(pin,OUTPUT);
-  /*
-  loopName = lName;
-  //loopName = F("LOOP|");
- // loopName += lName;
- // loopName += F("|SET|");
-  
- // pinCommand = F("|0|PIN|");
- // pinCommand += String(pin);
- // pinCommand += F("|T");
-
-  lastBlinkInterval = 0xFFFF;
-  */
 }
 void BlinkModeInterop::blink(uint16_t interval)
 {
@@ -146,15 +95,6 @@ void BlinkModeInterop::blink(uint16_t interval)
   
   if(!blinkInterval)
     WORK_STATUS.PinWrite(pin,LOW);
-/*
-
- if(lastBlinkInterval == blinkInterval)
-  // незачем выполнять команду с тем же интервалом
-    return;
-
-  needUpdate = true;
-  lastBlinkInterval = blinkInterval;
-*/  
 
 }
 

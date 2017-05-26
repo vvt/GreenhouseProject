@@ -14,9 +14,6 @@
 #include "PinModule.h"
 #endif
 
-#ifdef USE_LOOP_MODULE
-#include "LoopModule.h"
-#endif
 
 #ifdef USE_STAT_MODULE
 #include "StatModule.h"
@@ -114,10 +111,6 @@ ModuleController controller;
 PinModule pinModule;
 #endif
 
-#ifdef USE_LOOP_MODULE
-// Модуль поддержки периодически повторяемых операций
-LoopModule loopModule;
-#endif
 
 #ifdef USE_STAT_MODULE
 // Модуль вывода статистики
@@ -348,9 +341,6 @@ void setup()
   controller.RegisterModule(&pinModule);
   #endif
   
-  #ifdef USE_LOOP_MODULE
-  controller.RegisterModule(&loopModule);
-  #endif
 
   #ifdef USE_STAT_MODULE
   controller.RegisterModule(&statModule);

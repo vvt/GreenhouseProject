@@ -195,7 +195,7 @@ void UpdateFromControllerState(ControllerState* state)
             {
               // состояние канала полива, в slotLinkedData - номер канала полива
               byte wateringChannel = slotData->slotLinkedData;
-              if(wateringChannel< 8)
+              if(wateringChannel< 16)
               {
                 if(state->WaterChannelsState & (1 << wateringChannel))
                   slotStatus = RELAY_ON; // выставляем в слоте значение 1

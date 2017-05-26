@@ -97,7 +97,7 @@ enum {RS485ControllerStatePacket = 1, RS485SensorDataPacket = 2};
 typedef struct
 {
   unsigned long WindowsState; // состояние каналов окон, 4 байта = 32 бита = 16 окон)
-  byte WaterChannelsState; // состояние каналов полива, 1 байт, (8 каналов)
+  uint16_t WaterChannelsState; // состояние каналов полива, 2 байта, (16 каналов)
   byte LightChannelsState; // состояние каналов досветки, 1 байт (8 каналов)
   byte PinsState[16]; // состояние пинов, 16 байт, 128 пинов
   
@@ -119,7 +119,7 @@ typedef struct
   byte tail2;
   byte crc8;
   
-} RS485Packet; // пакет, гоняющийся по RS-485 туда/сюда (21 байт)
+} RS485Packet; // пакет, гоняющийся по RS-485 туда/сюда (30 байт)
 //----------------------------------------------------------------------------------------------------------------
 typedef struct
 {

@@ -20,7 +20,6 @@ void WateringModule::Setup()
   // настройка модуля тут
   WTR_LOG(F("[WTR] - setup..."));
 
-//  settings = MainController->GetSettings();
 GlobalSettings* settings = MainController->GetSettings();
   
    #ifdef USE_DS3231_REALTIME_CLOCK
@@ -159,8 +158,12 @@ GlobalSettings* settings = MainController->GetSettings();
   } // for
   #endif // #if WATER_RELAYS_COUNT > 0
 
-#ifdef USE_PUMP_RELAY
+#ifdef USE_PUMP_RELAY // использовать насосы
+
   // выключаем реле насоса  
+
+  WTR_LOG(F("[WTR] - Turn OFF pump 1"));
+  
   #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
     WORK_STATUS.PinMode(PUMP_RELAY_PIN,OUTPUT);
     WORK_STATUS.PinWrite(PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
@@ -175,9 +178,32 @@ GlobalSettings* settings = MainController->GetSettings();
       WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
     #endif
   #endif
+
+  #ifdef USE_SECOND_PUMP // второй насос
+
+    WTR_LOG(F("[WTR] - Turn OFF pump 2"));
+  
+    #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
+      WORK_STATUS.PinMode(SECOND_PUMP_RELAY_PIN,OUTPUT);
+      WORK_STATUS.PinWrite(SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
+    #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23S17
+      #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+        WORK_STATUS.MCP_SPI_PinMode(WATER_PUMP_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,OUTPUT);
+        WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
+      #endif
+    #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23017
+      #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+        WORK_STATUS.MCP_I2C_PinMode(WATER_PUMP_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,OUTPUT);
+        WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
+      #endif
+    #endif
+    
+  #endif // USE_SECOND_PUMP
   
   flags.bPumpIsOn = false;
-#endif
+  flags.bPump2IsOn = false;
+  
+#endif // USE_PUMP_RELAY
 
     // настраиваем режим работы перед стартом
     uint8_t currentWateringOption = settings->GetWateringOption();
@@ -344,31 +370,55 @@ void WateringModule::HoldChannelState(int8_t channelIdx, WateringChannel* channe
   
 }
 
-bool WateringModule::IsAnyChannelActive(uint8_t wateringOption)
+bool WateringModule::IsAnyChannelActive(uint8_t wateringOption, bool& shouldTurnOnPump1, bool& shouldTurnOnPump2)
 {  
    if(flags.workMode == wwmManual) // в ручном режиме мы управляем только всеми каналами сразу
-    return dummyAllChannels.IsChannelRelayOn(); // поэтому смотрим состояние реле на всех каналах
-
+   {
+      bool b = dummyAllChannels.IsChannelRelayOn();
+      shouldTurnOnPump1 = b;
+      shouldTurnOnPump2 = b;
+      return b; // поэтому смотрим состояние реле на всех каналах
+   }
     // в автоматическом режиме мы можем рулить как всеми каналами вместе (wateringOption == wateringWeekDays),
     // так и по отдельности (wateringOption == wateringSeparateChannels). В этом случае надо выяснить, состояние каких каналов
     // смотреть, чтобы понять - активен ли кто-то.
 
-    if(wateringOption == wateringWeekDays)
-      return dummyAllChannels.IsChannelRelayOn(); // смотрим состояние реле на всех каналах
+    if(wateringOption == wateringWeekDays) 
+    {
+      bool b = dummyAllChannels.IsChannelRelayOn();
+      shouldTurnOnPump1 = b;
+      shouldTurnOnPump2 = b;
+      return b; // смотрим состояние реле на всех каналах
+    }
+
+    shouldTurnOnPump1 = false;
+    shouldTurnOnPump2 = false;
 
     // тут мы рулим всеми каналами по отдельности, поэтому надо проверить - включено ли реле на каком-нибудь из каналов
     for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
     {
       if(wateringChannels[i].IsChannelRelayOn())
-        return true;
-    }
+      {
+        #ifdef USE_SECOND_PUMP // если используем второй насос, то надо выяснить, какие насосы включить
+          if( i>= SECOND_PUMP_START_CHANNEL) // попадаем на каналы, которыми рулит второй насос
+            shouldTurnOnPump2 = true;
+          else // попадаем на каналы, которыми рулит первый насос
+           shouldTurnOnPump1 = true;
+        #else // иначе - просто включаем первый и выходим
+          shouldTurnOnPump1 = true;
+          return true;
+        #endif
+        
+      }
+    } // for
 
-    return false;
+  return (shouldTurnOnPump1 || shouldTurnOnPump2);
 }
+
 #endif // #if WATER_RELAYS_COUNT > 0
 
 #ifdef USE_PUMP_RELAY
-void WateringModule::HoldPumpState(bool anyChannelActive)
+void WateringModule::HoldPumpState(bool shouldTurnOnPump1, bool shouldTurnOnPump2)
 {
   GlobalSettings* settings = MainController->GetSettings();
   
@@ -377,7 +427,10 @@ void WateringModule::HoldPumpState(bool anyChannelActive)
   {
     if(flags.bPumpIsOn) // если был включен - выключаем
     {
+      WTR_LOG(F("[WTR] - Turn OFF pump 1"));
+      
       flags.bPumpIsOn = false;
+      
       #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
         WORK_STATUS.PinWrite(PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
       #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23S17
@@ -389,12 +442,50 @@ void WateringModule::HoldPumpState(bool anyChannelActive)
           WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
         #endif
       #endif
-    }
+      
+    } // flags.bPumpIsOn
+
+    #ifdef USE_SECOND_PUMP // второй насос
+        
+        if(flags.bPump2IsOn) // если был включен - выключаем
+        {
+          WTR_LOG(F("[WTR] - Turn OFF pump 2"));
+          
+          flags.bPump2IsOn = false;
+          
+          #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
+            WORK_STATUS.PinWrite(SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
+          #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23S17
+            #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+              WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP2_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
+            #endif
+          #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23017
+            #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+              WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP2_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
+            #endif
+          #endif
+          
+        } // flags.bPump2IsOn
+    #endif
+    
     return; // и не будем ничего больше делать
-  }
-    if(((bool)flags.bPumpIsOn) != anyChannelActive) // состояние изменилось, пишем в пин только при смене состояния
+    
+ } // settings->GetTurnOnPump() != 1
+  
+    if(((bool)flags.bPumpIsOn) != shouldTurnOnPump1) // состояние изменилось, пишем в пин только при смене состояния
     {
-      flags.bPumpIsOn = anyChannelActive;
+      flags.bPumpIsOn = shouldTurnOnPump1;
+
+      #ifdef WATER_DEBUG
+        if(shouldTurnOnPump1)
+        {
+           WTR_LOG(F("[WTR] - turn ON pump 1"));
+        }
+        else
+        {
+          WTR_LOG(F("[WTR] - turn OFF pump 1"));
+        }
+      #endif  
 
      // пишем в реле насоса вкл или выкл в зависимости от настройки "включать насос при поливе"
      #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
@@ -408,7 +499,40 @@ void WateringModule::HoldPumpState(bool anyChannelActive)
           WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,PUMP_RELAY_PIN,flags.bPumpIsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
         #endif
      #endif
-    } 
+    }  // if
+
+    #ifdef USE_SECOND_PUMP // второй насос
+    
+      if(((bool)flags.bPump2IsOn) != shouldTurnOnPump2) // состояние изменилось, пишем в пин только при смене состояния
+      {
+        flags.bPump2IsOn = shouldTurnOnPump2;
+
+      #ifdef WATER_DEBUG
+        if(shouldTurnOnPump2)
+        {
+           WTR_LOG(F("[WTR] - turn ON pump 2"));
+        }
+        else
+        {
+          WTR_LOG(F("[WTR] - turn OFF pump 2"));
+        }
+      #endif        
+  
+       // пишем в реле насоса вкл или выкл в зависимости от настройки "включать насос при поливе"
+       #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
+          WORK_STATUS.PinWrite(SECOND_PUMP_RELAY_PIN,flags.bPump2IsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
+       #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23S17
+          #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+            WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,flags.bPump2IsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
+          #endif
+       #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23017
+          #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+            WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,flags.bPump2IsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
+          #endif
+       #endif
+      }  // if
+      
+    #endif // USE_SECOND_PUMP
 }
 #endif
 
@@ -419,18 +543,19 @@ void WateringModule::Update(uint16_t dt)
 #endif
 
 #if WATER_RELAYS_COUNT > 0
-GlobalSettings* settings = MainController->GetSettings();  
-uint8_t wateringOption = settings->GetWateringOption(); // получаем опцию управления поливом
-bool anyChActive = IsAnyChannelActive(wateringOption);
 
-SAVE_STATUS(WATER_STATUS_BIT, anyChActive ? 1 : 0); // сохраняем состояние полива
-SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохраняем режим работы полива
-
-
-#ifdef USE_PUMP_RELAY
-  // держим состояние реле для насоса
-  HoldPumpState(anyChActive);
-#endif
+  GlobalSettings* settings = MainController->GetSettings();  
+  uint8_t wateringOption = settings->GetWateringOption(); // получаем опцию управления поливом
+  bool shouldTurnOnPump1, shouldTurnOnPump2;
+  bool anyChActive = IsAnyChannelActive(wateringOption,shouldTurnOnPump1, shouldTurnOnPump2);
+  
+  SAVE_STATUS(WATER_STATUS_BIT, anyChActive ? 1 : 0); // сохраняем состояние полива
+  SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохраняем режим работы полива
+  
+  #ifdef USE_PUMP_RELAY
+    // держим состояние реле для насоса
+    HoldPumpState(shouldTurnOnPump1, shouldTurnOnPump2);
+  #endif
 
   #ifdef USE_DS3231_REALTIME_CLOCK
 
@@ -503,7 +628,8 @@ SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохр�
       break;
       
     } // switch(wateringOption)
-  }
+    
+  } // if(flags.workMode == wwmAutomatic)
   else
   {
     // ручной режим работы, просто сохраняем переданный нам статус реле, все каналы - одновременно.
@@ -516,7 +642,8 @@ SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохр�
   if(lastAnyChannelActiveFlag < 0)
   {
     // ещё не собирали статус, собираем первый раз
-    lastAnyChannelActiveFlag = IsAnyChannelActive(wateringOption) ? 1 : 0;
+    bool shouldTurnOnPump1, shouldTurnOnPump2;
+    lastAnyChannelActiveFlag = IsAnyChannelActive(wateringOption,shouldTurnOnPump1, shouldTurnOnPump2) ? 1 : 0;
 
     if(lastAnyChannelActiveFlag)
     {
@@ -529,7 +656,8 @@ SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохр�
   else
   {
     // уже собирали, надо проверить с текущим состоянием
-    byte nowAnyChannelActive = IsAnyChannelActive(wateringOption) ? 1 : 0;
+    bool shouldTurnOnPump1, shouldTurnOnPump2;
+    byte nowAnyChannelActive = IsAnyChannelActive(wateringOption,shouldTurnOnPump1, shouldTurnOnPump2) ? 1 : 0;
     
     if(nowAnyChannelActive != lastAnyChannelActiveFlag)
     {
@@ -754,7 +882,8 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
       PublishSingleton.Status = true;
       #if WATER_RELAYS_COUNT > 0
       GlobalSettings* settings = MainController->GetSettings();
-      PublishSingleton = (IsAnyChannelActive(settings->GetWateringOption()) ? STATE_ON : STATE_OFF);
+      bool shouldTurnOnPump1, shouldTurnOnPump2;
+      PublishSingleton = (IsAnyChannelActive(settings->GetWateringOption(),shouldTurnOnPump1, shouldTurnOnPump2) ? STATE_ON : STATE_OFF);
       #else
       PublishSingleton = STATE_OFF;
       #endif

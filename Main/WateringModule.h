@@ -43,9 +43,10 @@ public:
 
 typedef struct
 {
-  uint8_t workMode : 5; // текущий режим работы
+  uint8_t workMode : 4; // текущий режим работы
   bool bIsRTClockPresent : 1; // флаг наличия модуля часов реального времени
   bool bPumpIsOn : 1;
+  bool bPump2IsOn : 1;
   bool internalNeedChange : 1;
   
 } WateringModuleFlags;
@@ -60,14 +61,9 @@ class WateringModule : public AbstractModule // модуль управлени�
   WateringChannel dummyAllChannels; // управляем всеми каналами посредством этой структуры
   void UpdateChannel(int8_t channelIdx, WateringChannel* channel, uint16_t dt); // обновляем состояние канала
   void HoldChannelState(int8_t channelIdx, WateringChannel* channel);  // поддерживаем состояние реле для канала.
-  bool IsAnyChannelActive(uint8_t wateringOption); // возвращает true, если хотя бы один из каналов активен
-
+  bool IsAnyChannelActive(uint8_t wateringOption, bool& shouldTurnOnPump1, bool& shouldTurnOnPump2); // возвращает true, если хотя бы один из каналов активен
 
   #endif
-
-
- // GlobalSettings* settings; // настройки
-
 
   int8_t lastAnyChannelActiveFlag; // флаг последнего состояния активности каналов
 
@@ -84,7 +80,7 @@ class WateringModule : public AbstractModule // модуль управлени�
 
 
 #ifdef USE_PUMP_RELAY   
-   void HoldPumpState(bool anyChannelActive); // поддерживаем состояние реле насоса
+   void HoldPumpState(bool shouldTurnOnPump1, bool shouldTurnOnPump2); // поддерживаем состояние реле насосов
 #endif
 
     

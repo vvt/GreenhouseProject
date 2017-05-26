@@ -241,19 +241,19 @@ void WorkStatus::SaveLightChannelState(byte channel, byte state)
   State.LightChannelsState &= ~(1 << channel);
 
   // теперь, если нам передали не 0 - устанавливаем нужный бит
-  if(state == RELAY_ON)
+  if(state == LIGHT_RELAY_ON)
     State.LightChannelsState |= (1 << channel);  
 }
 void WorkStatus::SaveWaterChannelState(byte channel, byte state)
 {
-  if(channel > 7)
+  if(channel > 15)
     return;
 
   // сперва сбрасываем нужный бит
   State.WaterChannelsState &= ~(1 << channel);
 
   // теперь, если нам передали не 0 - устанавливаем нужный бит
-  if(state == RELAY_ON)
+  if(state == WATER_RELAY_ON)
     State.WaterChannelsState |= (1 << channel);
 }
 void WorkStatus::PinWrite(byte pin, byte level)

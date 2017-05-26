@@ -700,7 +700,7 @@ void UniExecutionModuleClient::Update(UniRawScratchpad* scratchpad, bool isModul
         {
           // состояние канала полива, в slotLinkedData - номер канала полива
           byte wateringChannel = ourScratch->slots[i].slotLinkedData;
-          if(wateringChannel< 8)
+          if(wateringChannel< 16)
           {
             if(state.WaterChannelsState & (1 << wateringChannel))
               slotStatus = 1; // выставляем в слоте значение 1
