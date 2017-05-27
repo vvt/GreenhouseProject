@@ -1,88 +1,104 @@
 #ifndef _WATERING_MODULE_H
 #define _WATERING_MODULE_H
-
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include "AbstractModule.h"
 #include "Globals.h"
 #include "InteropStream.h"
-
-
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   wwmAutomatic, // в автоматическом режиме
   wwmManual // в ручном режиме
   
 } WateringWorkMode; // режим работы полива
-
-
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
+  byte workMode: 2; // текущий режим работы модуля полива
+  bool isPump1On : 1; // включен ли первый насос
+  bool isPump2On : 1; // включен ли второй насос
   
-  bool rel_on : 1; // включено ли реле канала?
-  bool last_rel_on : 1; // последнее состояние реле канала
-  byte pad : 6;
-    
-} WateringChannelState;
-
-class WateringChannel // канал для полива
+} WateringFlags; // структура флагов модуля полива
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+typedef struct
 {
+  bool isON : 1; // включен ли канал ?
+  bool lastIsON: 1; // последнее состояние канала
+  byte index : 6; // индекс канала
+  unsigned long wateringTimer; // таймер полива для канала
+  unsigned long wateringDelta; // дельта дополива    
   
-private:
+} WateringChannelFlags; // структура флагов канала полива
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#if WATER_RELAYS_COUNT > 0
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+class WateringChannel
+{
+  private:
 
-  WateringChannelState state;
+    WateringChannelFlags flags;
 
-public:
+    void SignalToHardware(); // записывает текущее состояние канала в пин управления
 
-  bool IsChannelRelayOn() {return state.rel_on;}
-  void SetRelayOn(bool bOn) { state.last_rel_on = state.rel_on; state.rel_on = bOn; }
-  bool IsChanged() {return state.last_rel_on != state.rel_on; }
+    void DoLoadState(byte addressOffset); // загружает состояние
+    void DoSaveState(byte addressOffset); // сохраняет состояние
   
-  unsigned long WateringTimer; // таймер полива для канала
-  unsigned long WateringDelta; // дельта дополива
+  public:
+    WateringChannel();
+
+    void Setup(byte index); // настраиваемся перед работой
+    void On(); // включаем канал
+    void Off(); // выключаем канал
+
+    void LoadState(); // загружаем состояние из EEPROM
+    void SaveState(); // сохраняем настройки в EEPROM
     
+    bool IsChanged(); // изменилось ли состояние канала после вызова On() или Off() ?
+    bool IsActive(); // активен ли полив на канале ?
+
+    void Update(uint16_t dt,WateringWorkMode currentWorkMode, const DS3231Time& currentTime, int8_t savedDayOfWeek); // обновляет состояние канала
 };
-
-typedef struct
-{
-  uint8_t workMode : 4; // текущий режим работы
-  bool bIsRTClockPresent : 1; // флаг наличия модуля часов реального времени
-  bool bPumpIsOn : 1;
-  bool bPump2IsOn : 1;
-  bool internalNeedChange : 1;
-  
-} WateringModuleFlags;
-
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // WATER_RELAYS_COUNT > 0
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class WateringModule : public AbstractModule // модуль управления поливом
 {
   private:
 
-  #if WATER_RELAYS_COUNT > 0
-  
-  WateringChannel wateringChannels[WATER_RELAYS_COUNT]; // каналы полива
-  WateringChannel dummyAllChannels; // управляем всеми каналами посредством этой структуры
-  void UpdateChannel(int8_t channelIdx, WateringChannel* channel, uint16_t dt); // обновляем состояние канала
-  void HoldChannelState(int8_t channelIdx, WateringChannel* channel);  // поддерживаем состояние реле для канала.
-  bool IsAnyChannelActive(uint8_t wateringOption, bool& shouldTurnOnPump1, bool& shouldTurnOnPump2); // возвращает true, если хотя бы один из каналов активен
-
-  #endif
-
-  int8_t lastAnyChannelActiveFlag; // флаг последнего состояния активности каналов
-
-  WateringModuleFlags flags;
-   
   uint8_t lastDOW; // день недели с момента предыдущего опроса
   uint8_t currentDOW; // текущий день недели
-  uint8_t currentHour; // текущий час
-  
+
+  #if WATER_RELAYS_COUNT > 0
+
+  WateringFlags flags; // флаги состояний
+  WateringChannel wateringChannels[WATER_RELAYS_COUNT]; // каналы полива
+
+  #endif // WATER_RELAYS_COUNT > 0
+
 #ifdef USE_WATERING_MANUAL_MODE_DIODE
   BlinkModeInterop blinker;
 #endif
 
+  void SwitchToAutomaticMode(); // переключаемся в автоматический режим работы
+  void SwitchToManualMode(); // переключаемся в ручной режим работы
 
+  void ResetChannelsState(); // сбрасываем сохранённое состояние для всех каналов в EEPROM
 
-#ifdef USE_PUMP_RELAY   
-   void HoldPumpState(bool shouldTurnOnPump1, bool shouldTurnOnPump2); // поддерживаем состояние реле насосов
-#endif
+  void TurnChannelsOff(); // выключает все каналы
+  void TurnChannelsOn(); // включает все каналы
+  
+  void TurnChannelOff(byte channelIndex); // выключает канал
+  void TurnChannelOn(byte channelIndex); // включает канал
 
+  bool IsAnyChannelActive(); // проверяет, активен ли хоть один канал полива
+
+  #ifdef USE_PUMP_RELAY
+      void SetupPumps();
+      void UpdatePumps();
+      void TurnPump1(bool isOn);
+      void TurnPump2(bool isOn);
+      void GetPumpsState(bool& pump1State, bool& pump2State);
+  #endif
     
   public:
     WateringModule() : AbstractModule("WATER") {}

@@ -1,168 +1,493 @@
 #include "WateringModule.h"
 #include "ModuleController.h"
 #include <EEPROM.h>
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LOG_MODULE
 #include <SD.h> // пробуем записать статус полива не только в EEPROM, но и на SD-карту, если LOG-модуль есть в прошивке
 #endif
-
-#if WATER_RELAYS_COUNT > 0
-static uint8_t WATER_RELAYS[] = { WATER_RELAYS_PINS }; // объявляем массив пинов реле
-#endif
-
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef WATER_DEBUG
-  #define WTR_LOG(s) Serial.println((s))
+  #define WTR_LOG(s) { Serial.print((s)); }
 #else
   #define WTR_LOG(s) (void) 0
 #endif
-
-void WateringModule::Setup()
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#if WATER_RELAYS_COUNT > 0
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+static uint8_t WATER_RELAYS[] = { WATER_RELAYS_PINS }; // объявляем массив пинов реле
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::SignalToHardware()
 {
-  // настройка модуля тут
-  WTR_LOG(F("[WTR] - setup..."));
-
-GlobalSettings* settings = MainController->GetSettings();
+    byte state = flags.isON ? WATER_RELAY_ON : WATER_RELAY_OFF;
   
-   #ifdef USE_DS3231_REALTIME_CLOCK
-    flags.bIsRTClockPresent = true; // есть часы реального времени
-    DS3231Clock watch =  MainController->GetClock();
-    DS3231Time t =   watch.getTime();
-  #else
-    flags.bIsRTClockPresent = false; // нет часов реального времени
-  #endif 
+    WTR_LOG(F("[WTR] - channel "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F(" write to pin #"));
+    WTR_LOG( WATER_RELAYS[flags.index] );
+    WTR_LOG(F(", state = "));
+    WTR_LOG(state);
+    WTR_LOG(F("\r\n"));
 
-#ifdef USE_WATERING_MANUAL_MODE_DIODE
-  blinker.begin(DIODE_WATERING_MANUAL_MODE_PIN);  // настраиваем блинкер на нужный пин
-#endif
-
-  flags.workMode = wwmAutomatic; // автоматический режим работы
-
-  #if WATER_RELAYS_COUNT > 0
-  flags.internalNeedChange = false;
-  dummyAllChannels.WateringTimer = 0; // обнуляем таймер полива для всех каналов
-  dummyAllChannels.WateringDelta = 0;
-  dummyAllChannels.SetRelayOn(false); // все реле выключены
-  #endif
-
-  #ifdef USE_DS3231_REALTIME_CLOCK
-
-  
-    // смотрим, не поливали ли мы на всех каналах сегодня
-    uint8_t today = t.dayOfWeek;
-    unsigned long savedWorkTime = 0xFFFFFFFF;
-    volatile byte* writeAddr = (byte*) &savedWorkTime;
-    uint8_t savedDOW = 0xFF;
-    volatile uint16_t curReadAddr = WATERING_STATUS_EEPROM_ADDR;
-
-    volatile bool needToReadFromEEPROM = true; // считаем, что мы должны читать из EEPROM
-
-    if(needToReadFromEEPROM)
-    {
-      WTR_LOG(F("[WTR] - read from EEPROM..."));
-      
-      savedDOW = EEPROM.read(curReadAddr++);
-  
-      *writeAddr++ = EEPROM.read(curReadAddr++);
-      *writeAddr++ = EEPROM.read(curReadAddr++);
-      *writeAddr++ = EEPROM.read(curReadAddr++);
-      *writeAddr = EEPROM.read(curReadAddr++);
-      
-    } // needToReadFromEEPROM
-
-   
+   #if WATER_DRIVE_MODE == DRIVE_DIRECT
     
-    if(savedDOW != 0xFF && savedWorkTime != 0xFFFFFFFF) // есть сохранённое время работы всех каналов на сегодня
-    {
-      WTR_LOG(F("[WTR] - data is OK..."));
+      WORK_STATUS.PinWrite(WATER_RELAYS[flags.index],state);
       
-      if(savedDOW == today) // поливали на всех каналах сегодня, выставляем таймер канала так, как будто он уже поливался сколько-то времени
-      {
-        #if WATER_RELAYS_COUNT > 0
-        dummyAllChannels.WateringTimer = savedWorkTime + 1;
-        #endif
-      }
-      
-    } // if
-
-  lastDOW = t.dayOfWeek; // запоминаем прошлый день недели
-  currentDOW = t.dayOfWeek; // запоминаем текущий день недели
-  currentHour = t.hour; // запоминаем текущий час
-  
-  #else
-
-  // нет часов реального времени в прошивке
-  lastDOW = 0; // запоминаем прошлый день недели
-  currentDOW = 0; // запоминаем текущий день недели
-  currentHour = 0; // запоминаем текущий час
-    
-  #endif
-
-  lastAnyChannelActiveFlag = -1; // ещё не собирали активность каналов
-    
-  // выключаем все реле
-  #if WATER_RELAYS_COUNT > 0
-
-  WTR_LOG(F("[WTR] - all relays OFF..."));
-
-  for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
-  {
-    #if WATER_DRIVE_MODE == DRIVE_DIRECT
-      WORK_STATUS.PinMode(WATER_RELAYS[i],OUTPUT);
-      WORK_STATUS.PinWrite(WATER_RELAYS[i],WATER_RELAY_OFF);
     #elif WATER_DRIVE_MODE == DRIVE_MCP23S17
         #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-          WORK_STATUS.MCP_SPI_PinMode(WATER_MCP23S17_ADDRESS,WATER_RELAYS[i],OUTPUT);
-          WORK_STATUS.MCP_SPI_PinWrite(WATER_MCP23S17_ADDRESS,WATER_RELAYS[i],WATER_RELAY_OFF);
+        
+          WORK_STATUS.MCP_SPI_PinWrite(WATER_MCP23S17_ADDRESS,WATER_RELAYS[flags.index],state);
+          
         #endif
     #elif WATER_DRIVE_MODE == DRIVE_MCP23017
         #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-          WORK_STATUS.MCP_I2C_PinMode(WATER_MCP23017_ADDRESS,WATER_RELAYS[i],OUTPUT);
-          WORK_STATUS.MCP_I2C_PinWrite(WATER_MCP23017_ADDRESS,WATER_RELAYS[i],WATER_RELAY_OFF);
+        
+          WORK_STATUS.MCP_I2C_PinWrite(WATER_MCP23017_ADDRESS,WATER_RELAYS[flags.index],state);
+          
         #endif
     #endif
 
-    // настраиваем все каналы
-    wateringChannels[i].SetRelayOn(false);
-    wateringChannels[i].WateringTimer = 0;
-    wateringChannels[i].WateringDelta = 0;
-
-    #ifdef USE_DS3231_REALTIME_CLOCK
+  WORK_STATUS.SaveWaterChannelState(flags.index,state); // сохраняем статус канала полива
     
-      // смотрим, не поливался ли уже канал сегодня?
-      savedWorkTime = 0xFFFFFFFF;
-      savedDOW = 0xFF;
-      needToReadFromEEPROM = true;
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+WateringChannel::WateringChannel()
+{
+  flags.isON = flags.lastIsON = false;
+  flags.index = 0;
+  flags.wateringTimer = flags.wateringDelta = 0;
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::Setup(byte index)
+{
+    flags.index = index;
+    flags.isON = flags.lastIsON = false;
+    flags.wateringTimer = flags.wateringDelta = 0;
+  
+    WTR_LOG(F("[WTR] - setup channel "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F("; OFF relay...\r\n"));
 
-      if(needToReadFromEEPROM)
-      {
-        WTR_LOG(F("[WTR] - read channel state from EEPROM..."));
+    #if WATER_DRIVE_MODE == DRIVE_DIRECT
+      WORK_STATUS.PinMode(WATER_RELAYS[flags.index],OUTPUT);
+    #elif WATER_DRIVE_MODE == DRIVE_MCP23S17
+        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+          WORK_STATUS.MCP_SPI_PinMode(WATER_MCP23S17_ADDRESS,WATER_RELAYS[flags.index],OUTPUT);
+        #endif
+    #elif WATER_DRIVE_MODE == DRIVE_MCP23017
+        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+          WORK_STATUS.MCP_I2C_PinMode(WATER_MCP23017_ADDRESS,WATER_RELAYS[flags.index],OUTPUT);
+        #endif
+    #endif    
+
+    SignalToHardware(); // записываем в пины изначально выключенный уровень
+
+    LoadState();
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::LoadState()
+{
+
+    WTR_LOG(F("Load state: channel - "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F("\r\n"));
+  
+    GlobalSettings* settings = MainController->GetSettings();
+    uint8_t currentWateringOption = settings->GetWateringOption();
+
+    byte offset = flags.index + 1; // единичку прибавляем потому, что у нас под нулевым индексом - настройки для всех каналов одновременно
+
+    // смотрим - чего там в опции полива
+    switch(currentWateringOption)
+    {
+      case wateringOFF: // автоматическое управление поливом выключено
+      break;
+
+      case wateringWeekDays: // управление поливом по дням недели, все каналы одновременно
+        offset = 0; // читаем сохранённое время полива для всех каналов одновременно
+      break;
+
+      case wateringSeparateChannels: // раздельное управление каналами по дням недели
+      break;
+    }  
+
+    DoLoadState(offset);
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::SaveState()
+{
+    WTR_LOG(F("Save state: channel - "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F("\r\n"));
+  
+    GlobalSettings* settings = MainController->GetSettings();
+    uint8_t currentWateringOption = settings->GetWateringOption();
+
+    byte offset = flags.index + 1; // единичку прибавляем потому, что у нас под нулевым индексом - настройки для всех каналов одновременно
+
+    // смотрим - чего там в опции полива
+    switch(currentWateringOption)
+    {
+      case wateringOFF: // автоматическое управление поливом выключено
+      break;
+
+      case wateringWeekDays: // управление поливом по дням недели, все каналы одновременно
+        offset = 0; // пишем сохранённое время полива для всех каналов одновременно
+      break;
+
+      case wateringSeparateChannels: // раздельное управление каналами по дням недели
+      break;
+    }  
+
+    DoSaveState(offset);
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::On()
+{
+  flags.lastIsON = flags.isON;
+  flags.isON = true;
+  
+  if(IsChanged()) // состояние изменилось
+  {
+    WTR_LOG(F("[WTR] - state for channel "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F(" changed, relay ON...\r\n"));
         
-          curReadAddr = WATERING_STATUS_EEPROM_ADDR + (i+1)*5;
-          savedDOW = EEPROM.read(curReadAddr++);
-    
-          writeAddr = (byte*) &savedWorkTime;
-         *writeAddr++ = EEPROM.read(curReadAddr++);
-         *writeAddr++ = EEPROM.read(curReadAddr++);
-         *writeAddr++ = EEPROM.read(curReadAddr++);
-         *writeAddr = EEPROM.read(curReadAddr++);
-         
-      } // needToReadFromEEPROM
+    SignalToHardware(); // записываем новое состояние в пин
+  }
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::Off()
+{
+  flags.lastIsON = flags.isON;
+  flags.isON = false;
+  
+  if(IsChanged()) // состояние изменилось
+  {
+    WTR_LOG(F("[WTR] - state for channel "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F(" changed, relay OFF...\r\n"));
+        
+    SignalToHardware(); // записываем новое состояние в пин
+  }
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool WateringChannel::IsChanged()
+{
+  return (flags.lastIsON != flags.isON);
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool WateringChannel::IsActive()
+{
+  return flags.isON;
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, const DS3231Time& currentTime, int8_t savedDayOfWeek)
+{
+  #ifdef USE_DS3231_REALTIME_CLOCK
 
+    // только если модуль часов есть в прошивке - тогда обновляем состояние
+
+    if(currentWorkMode == wwmManual) // в ручном режиме управления, ничего не делаем
+      return;
+
+    GlobalSettings* settings = MainController->GetSettings();
+    uint8_t currentWateringOption = settings->GetWateringOption();
+
+    if(currentWateringOption == wateringOFF) // автоматическое управление каналами выключено, не надо обновлять состояние канала
+      return;
+
+     unsigned long dt = _dt;
+  
+     // теперь получаем настойки полива на канале. Они зависят от currentWateringOption: если там wateringWeekDays - рулим всеми каналами одновременно,
+     // если там wateringSeparateChannels - рулим каналами по отдельности, если там wateringOFF - мы не попадём в эту ветку кода.
      
-      if(savedDOW != 0xFF && savedWorkTime != 0xFFFFFFFF )
+     uint8_t weekDays = currentWateringOption == wateringWeekDays ? settings->GetWateringWeekDays() : settings->GetChannelWateringWeekDays(flags.index);
+     uint8_t startWateringTime = currentWateringOption == wateringWeekDays ? settings->GetStartWateringTime() : settings->GetChannelStartWateringTime(flags.index);
+     unsigned long timeToWatering = currentWateringOption == wateringWeekDays ? settings->GetWateringTime() : settings->GetChannelWateringTime(flags.index); // время полива (в минутах!)
+
+      // переход через день недели мы фиксируем однократно, поэтому нам важно его не пропустить.
+      // можем ли мы работать или нет - неважно, главное - правильно обработать переход через день недели.
+      
+      if(savedDayOfWeek != currentTime.dayOfWeek)  // сначала проверяем, не другой ли день недели уже?
       {
-        WTR_LOG(F("[WTR] - channel data is OK."));
-        if(savedDOW == today) // поливали на канале в этот день недели, выставляем таймер канала так, как будто он уже поливался какое-то время
-          wateringChannels[i].WateringTimer = savedWorkTime + 1;
+        // начался другой день недели. Для одного дня недели у нас установлена
+        // продолжительность полива, поэтому, если мы поливали 28 минут вместо 30, например, во вторник, и перешли на среду,
+        // то в среду надо полить ещё 2 мин. Поэтому таймер полива переводим в нужный режим:
+        // оставляем в нём недополитое время, чтобы учесть, что поливать надо, например, ещё 2 минуты.
+
+         flags.wateringDelta = 0; // обнуляем дельту дополива, т.к. мы в этот день можем и не работать
+
+        if(bitRead(weekDays,currentTime.dayOfWeek-1)) // можем работать в этот день недели, значит, надо скорректировать значение таймера
+        {
+          // вычисляем разницу между полным и отработанным временем
+            unsigned long wateringDelta = ((timeToWatering*60000) - flags.wateringTimer);
+            // запоминаем для канала дополнительную дельту для работы
+            flags.wateringDelta = wateringDelta;
+        }
+
+        flags.wateringTimer = 0; // сбрасываем таймер полива, т.к. начался новый день недели
+        
+      } // if(savedDayOfWeek != currentTime.dayOfWeek)      
+
+
+    // проверяем, установлен ли у нас день недели для полива, и настал ли час, с которого можно поливать
+    bool canWork = bitRead(weekDays,currentTime.dayOfWeek-1) && (currentTime.hour >= startWateringTime);
+  
+    if(!canWork)
+     { 
+       Off(); // выключаем реле
+     }
+     else
+     {
+      // можем работать, смотрим, не вышли ли мы за пределы установленного интервала
+
+      flags.wateringTimer += dt; // прибавляем время работы
+  
+      // проверяем, можем ли мы ещё работать
+      // если полив уже отработал, и юзер прибавит минуту - мы должны поливать ещё минуту,
+      // вне зависимости от показания таймера. Поэтому мы при срабатывании условия окончания полива
+      // просто отнимаем дельту времени из таймера, таким образом оставляя его застывшим по времени
+      // окончания полива
+  
+      if(flags.wateringTimer > ((timeToWatering*60000) + flags.wateringDelta + dt)) // приплыли, надо выключать полив
+      {
+        flags.wateringTimer -= (dt + flags.wateringDelta);// оставляем таймер застывшим на окончании полива, плюс маленькая дельта
+        flags.wateringDelta = 0; // сбросили дельту дополива
+
+        if(IsActive()) // если канал был включён, значит, он будет выключен, и мы однократно запишем в EEPROM нужное значение
+        {
+         SaveState();
+        } // if(IsActive())
+
+        Off(); // выключаем реле
+      
       }
+      else
+        On(); // ещё можем работать, продолжаем поливать
+        
+     } // else can work
+     
+
+  #endif // USE_DS3231_REALTIME_CLOCK
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::DoLoadState(byte addressOffset)
+{
+   // сперва сбрасываем настройки времени полива и дополива
+   flags.wateringTimer = flags.wateringDelta = 0;
+  
+#ifdef USE_DS3231_REALTIME_CLOCK
+
+  // читать время полива на канале имеет смысл только, когда модуль часов реального времени есть в прошивке
+    DS3231Clock watch =  MainController->GetClock();
+    DS3231Time t =   watch.getTime();
+    uint8_t today = t.dayOfWeek; // текущий день недели
+  
+    WTR_LOG(F("[WTR] - load state for channel "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F(" from EEPROM...\r\n"));
+
+    unsigned long savedWorkTime = 0xFFFFFFFF;
+    volatile byte* writeAddr = (byte*) &savedWorkTime;
+    uint8_t savedDOW = 0xFF;
+
+    // мы читаем 5 байт на канал, поэтому вычисляем адрес очень просто - по смещению addressOffset, в котором находится индекс канала
+    volatile uint16_t curReadAddr = WATERING_STATUS_EEPROM_ADDR + addressOffset*5;
+
+    savedDOW = EEPROM.read(curReadAddr++);
+
+    *writeAddr++ = EEPROM.read(curReadAddr++);
+    *writeAddr++ = EEPROM.read(curReadAddr++);
+    *writeAddr++ = EEPROM.read(curReadAddr++);
+    *writeAddr = EEPROM.read(curReadAddr++);
+
+    if(savedDOW != 0xFF && savedWorkTime != 0xFFFFFFFF) // есть сохранённое время работы канала на сегодня
+    {
+      WTR_LOG(F("[WTR] - data is OK...\r\n"));
+      
+      if(savedDOW == today) // поливали на этом канале сегодня, выставляем таймер канала так, как будто он уже поливался сколько-то времени
+      {
+        flags.wateringTimer = savedWorkTime + 1;
+      }
+      
+    } // if    
+ #else
+    WTR_LOG(F("[WTR] - NO state for channel - no realtime clock!\r\n"));
+ #endif // USE_DS3231_REALTIME_CLOCK
+
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringChannel::DoSaveState(byte addressOffset)
+{  
+#ifdef USE_DS3231_REALTIME_CLOCK
+
+  // писать время полива на канале имеет смысл только, когда модуль часов реального времени есть в прошивке
+    DS3231Clock watch =  MainController->GetClock();
+    DS3231Time t =   watch.getTime();
+    uint8_t today = t.dayOfWeek; // текущий день недели 
+    
+    WTR_LOG(F("[WTR] - save state for channel "));
+    WTR_LOG(flags.index);
+    WTR_LOG(F(" to EEPROM...\r\n"));
+
+     GlobalSettings* settings = MainController->GetSettings();
+
+    // получаем время полива на канале. Логика простая: если addressOffset == 0 - у нас опция полива по дням недели, все каналы одновременно,
+    // иначе - раздельное управление каналами по дням недели. Соответственно, мы либо получаем время полива для всех каналов, либо - для нужного.
+    unsigned long timeToWatering = addressOffset == 0 ? settings->GetWateringTime() : settings->GetChannelWateringTime(flags.index); // время полива (в минутах!)
+
+     //Тут сохранение в EEPROM статуса, что мы на сегодня уже полили сколько-то времени на канале
+    uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR + addressOffset*5; // адрес записи
+    
+    // сохраняем в EEPROM день недели, для которого запомнили значение таймера
+    EEPROM.write(wrAddr++,today);
+    
+    // сохраняем в EEPROM значение таймера канала
+    unsigned long ttw = timeToWatering*60000; // запишем полное время полива на сегодня
+    byte* readAddr = (byte*) &ttw;
+    for(int i=0;i<4;i++)
+      EEPROM.write(wrAddr++,*readAddr++);
+    
+ #else
+    WTR_LOG(F("[WTR] - NO state for channel - no realtime clock!\r\n"));
+ #endif // USE_DS3231_REALTIME_CLOCK
+
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // WATER_RELAYS_COUNT > 0
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_PUMP_RELAY
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::GetPumpsState(bool& pump1State, bool& pump2State)
+{
+  pump1State = false;
+  pump2State = false;
+
+  GlobalSettings* settings = MainController->GetSettings();
+  if(settings->GetTurnOnPump() != 1)
+  {
+    // не надо включать насосы при поливе на любом из каналов
+    return;
+  }
+  
+  #if WATER_RELAYS_COUNT > 0
+    for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+    {
+        if(wateringChannels[i].IsActive())
+        {
+          // канал активен, смотрим, к какому насосу он относится
+          #ifdef USE_SECOND_PUMP
+            // два насоса в прошивке
+             if(i < SECOND_PUMP_START_CHANNEL)
+             {
+                // канал относится к первому насосу
+                pump1State = true;
+             }
+             else
+             {
+              // канал относится ко второму насосу
+              pump2State = true;
+             }
+          #else
+           // один насос в прошивке, включаем по-любому
+           pump1State = true;
+           return;
+          #endif // #ifdef USE_SECOND_PUMP
+        }
+    } // for
+  #endif // WATER_RELAYS_COUNT > 0
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::UpdatePumps()
+{
+  bool anyChannelActive = IsAnyChannelActive();
+  if(!anyChannelActive)
+  {
+    // нет полива ни на одном из каналов, выключаем насосы
+    TurnPump1(false);
+
+    #ifdef USE_SECOND_PUMP // второй насос
+      TurnPump2(false);
     #endif
-  } // for
-  #endif // #if WATER_RELAYS_COUNT > 0
+    
+    return;
+  }
 
-#ifdef USE_PUMP_RELAY // использовать насосы
+  // здесь проверяем, какой насос включить. Для этого узнаём, есть ли активные каналы для первого и второго насоса
+  bool shouldTurnPump1,shouldTurnPump2;
 
-  // выключаем реле насоса  
+  // проверяем статус, который надо выставить для насосов
+  GetPumpsState(shouldTurnPump1,shouldTurnPump2);
 
-  WTR_LOG(F("[WTR] - Turn OFF pump 1"));
+  TurnPump1(shouldTurnPump1);
+  
+  #ifdef USE_SECOND_PUMP
+    TurnPump2(shouldTurnPump2);
+  #endif
+  
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::TurnPump1(bool isOn)
+{
+  if(flags.isPump1On == isOn) // состояние не изменилось
+    return;
+
+  // сохраняем состояние
+  flags.isPump1On = isOn;
+
+  WTR_LOG(F("Turn pump #1 to state: "));
+  WTR_LOG(isOn ? F("ON\r\n") : F("OFF\r\n"));
+  
+  byte state = isOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF;
+  
+  #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
+    WORK_STATUS.PinWrite(PUMP_RELAY_PIN,state);
+  #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23S17
+    #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+      WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,PUMP_RELAY_PIN,state);
+    #endif
+  #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23017
+    #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+      WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,PUMP_RELAY_PIN,state);
+    #endif
+  #endif  
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_SECOND_PUMP
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::TurnPump2(bool isOn)
+{
+  if(flags.isPump2On == isOn) // состояние не изменилось
+    return;
+
+  // сохраняем состояние
+  flags.isPump2On = isOn;
+
+  WTR_LOG(F("Turn pump #2 to state: "));
+  WTR_LOG(isOn ? F("ON\r\n") : F("OFF\r\n"));
+  
+  byte state = isOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF;
+  
+    #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
+      WORK_STATUS.PinWrite(SECOND_PUMP_RELAY_PIN,state);
+    #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23S17
+      #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+        WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,state);
+      #endif
+    #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23017
+      #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+        WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,state);
+      #endif
+    #endif
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_SECOND_PUMP
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::SetupPumps()
+{
+    WTR_LOG(F("[WTR] = setup pumps\r\n"));
+
+    WTR_LOG(F("[WTR] - Turn OFF pump 1\r\n"));
   
   #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
     WORK_STATUS.PinMode(PUMP_RELAY_PIN,OUTPUT);
@@ -181,7 +506,7 @@ GlobalSettings* settings = MainController->GetSettings();
 
   #ifdef USE_SECOND_PUMP // второй насос
 
-    WTR_LOG(F("[WTR] - Turn OFF pump 2"));
+    WTR_LOG(F("[WTR] - Turn OFF pump 2\r\n"));
   
     #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
       WORK_STATUS.PinMode(SECOND_PUMP_RELAY_PIN,OUTPUT);
@@ -198,486 +523,234 @@ GlobalSettings* settings = MainController->GetSettings();
       #endif
     #endif
     
-  #endif // USE_SECOND_PUMP
-  
-  flags.bPumpIsOn = false;
-  flags.bPump2IsOn = false;
-  
+  #endif // USE_SECOND_PUMP      
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_PUMP_RELAY
-
-    // настраиваем режим работы перед стартом
-    uint8_t currentWateringOption = settings->GetWateringOption();
-    
-    if(currentWateringOption == wateringOFF) // если выключено автоуправление поливом
-    {
-      flags.workMode = wwmManual; // переходим в ручной режим работы
-      #ifdef USE_WATERING_MANUAL_MODE_DIODE
-      blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
-      #endif
-    }
-    else
-    {
-      flags.workMode = wwmAutomatic; // иначе переходим в автоматический режим работы
-      #ifdef USE_WATERING_MANUAL_MODE_DIODE
-      blinker.blink(); // гасим диод
-      #endif
-    }
-      
-
-}
-#if WATER_RELAYS_COUNT > 0
-void WateringModule::UpdateChannel(int8_t channelIdx, WateringChannel* channel, uint16_t _dt)
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::Setup()
 {
-  unsigned long dt = _dt;
+  // настройка модуля тут
+  WTR_LOG(F("[WTR] - setup...\r\n"));
+
+ // GlobalSettings* settings = MainController->GetSettings();
+
+  flags.workMode = wwmAutomatic; // автоматический режим работы
+  flags.isPump1On = false;
+  flags.isPump2On = false;
+
+  // настраиваем насосы
+  #ifdef USE_PUMP_RELAY
+    SetupPumps();
+  #endif
   
-   if(!flags.bIsRTClockPresent)
-   {
-     // в системе нет модуля часов, в таких условиях мы можем работать только в ручном режиме.
-     // поэтому в этой ситуации мы ничего не предпринимаем, поскольку автоматически деградируем
-     // в ручной режим работы.
-     return;
-   }
+  #if WATER_RELAYS_COUNT > 0
 
-     GlobalSettings* settings = MainController->GetSettings();
-    
-     uint8_t weekDays = channelIdx == -1 ? settings->GetWateringWeekDays() : settings->GetChannelWateringWeekDays(channelIdx);
-     uint8_t startWateringTime = channelIdx == -1 ? settings->GetStartWateringTime() : settings->GetChannelStartWateringTime(channelIdx);
-     unsigned long timeToWatering = channelIdx == -1 ? settings->GetWateringTime() : settings->GetChannelWateringTime(channelIdx); // время полива (в минутах!)
-
-
-      // переход через день недели мы фиксируем однократно, поэтому нам важно его не пропустить.
-      // можем ли мы работать или нет - неважно, главное - правильно обработать переход через день недели.
-      
-      if(lastDOW != currentDOW)  // сначала проверяем, не другой ли день недели уже?
-      {
-        // начался другой день недели. Для одного дня недели у нас установлена
-        // продолжительность полива, поэтому, если мы поливали 28 минут вместо 30, например, во вторник, и перешли на среду,
-        // то в среду надо полить ещё 2 мин. Поэтому таймер полива переводим в нужный режим:
-        // оставляем в нём недополитое время, чтобы учесть, что поливать надо, например, ещё 2 минуты.
-
-         channel->WateringDelta = 0; // обнуляем дельту дополива, т.к. мы в этот день можем и не работать
-
-        if(bitRead(weekDays,currentDOW-1)) // можем работать в этот день недели, значит, надо скорректировать значение таймера
-        {
-          // вычисляем разницу между полным и отработанным временем
-            unsigned long wateringDelta = ((timeToWatering*60000) - channel->WateringTimer);
-            // запоминаем для канала дополнительную дельту для работы
-            channel->WateringDelta = wateringDelta;
-        }
-
-        channel->WateringTimer = 0; // сбрасываем таймер полива, т.к. начался новый день недели
-        
-      } // if(lastDOW != currentDOW)      
-
-
-    // проверяем, установлен ли у нас день недели для полива, и настал ли час, с которого можно поливать
-    bool canWork = bitRead(weekDays,currentDOW-1) && (currentHour >= startWateringTime);
-  
-    if(!canWork)
-     { 
-       channel->SetRelayOn(false); // выключаем реле
-     }
-     else
-     {
-      // можем работать, смотрим, не вышли ли мы за пределы установленного интервала
-
-      channel->WateringTimer += dt; // прибавляем время работы
-  
-      // проверяем, можем ли мы ещё работать
-      // если полив уже отработал, и юзер прибавит минуту - мы должны поливать ещё минуту,
-      // вне зависимости от показания таймера. Поэтому мы при срабатывании условия окончания полива
-      // просто отнимаем дельту времени из таймера, таким образом оставляя его застывшим по времени
-      // окончания полива
-  
-      if(channel->WateringTimer > ((timeToWatering*60000) + channel->WateringDelta + dt)) // приплыли, надо выключать полив
-      {
-        channel->WateringTimer -= (dt + channel->WateringDelta);// оставляем таймер застывшим на окончании полива, плюс маленькая дельта
-        channel->WateringDelta = 0; // сбросили дельту дополива
-
-        if(channel->IsChannelRelayOn()) // если канал был включён, значит, он будет выключен, и мы однократно запишем в EEPROM нужное значение
-        {
-          
-          //Тут сохранение в EEPROM статуса, что мы на сегодня уже полили сколько-то времени
-          uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR + (channelIdx+1)*5; // channelIdx == -1 для всех каналов, поэтому прибавляем единичку
-          // сохраняем в EEPROM день недели, для которого запомнили значение таймера
-          EEPROM.write(wrAddr++,currentDOW);
-          
-          // сохраняем в EEPROM значение таймера канала
-          unsigned long ttw = timeToWatering*60000; // запишем полное время полива на сегодня
-          byte* readAddr = (byte*) &ttw;
-          for(int i=0;i<4;i++)
-            EEPROM.write(wrAddr++,*readAddr++);
-
-            
-        } // if(channel->IsChannelRelayOn())
-
-        channel->SetRelayOn(false); // выключаем реле
-      
-      }
-      else
-        channel->SetRelayOn(true); // ещё можем работать, продолжаем поливать
-     } // else
-     
-}
-void WateringModule::HoldChannelState(int8_t channelIdx, WateringChannel* channel)
-{
-    uint8_t state = channel->IsChannelRelayOn() ? WATER_RELAY_ON : WATER_RELAY_OFF;
-
-
-    if(channelIdx == -1) // работаем со всеми каналами, пишем в пин только тогда, когда состояние реле поменялось
-    {
-      if(channel->IsChanged() || flags.internalNeedChange)
-        for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
-        {
-          #if WATER_DRIVE_MODE == DRIVE_DIRECT
-            WORK_STATUS.PinWrite(WATER_RELAYS[i],state);  // сохраняем статус пинов
-            WORK_STATUS.SaveWaterChannelState(i,state); // сохраняем статус каналов полива     
-          #elif WATER_DRIVE_MODE == DRIVE_MCP23S17
-            #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-              WORK_STATUS.MCP_SPI_PinWrite(WATER_MCP23S17_ADDRESS,WATER_RELAYS[i],state);  // сохраняем статус пинов
-              WORK_STATUS.SaveWaterChannelState(i,state); // сохраняем статус каналов полива     
-            #endif
-          #elif WATER_DRIVE_MODE == DRIVE_MCP23017
-            #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-              WORK_STATUS.MCP_I2C_PinWrite(WATER_MCP23017_ADDRESS,WATER_RELAYS[i],state);  // сохраняем статус пинов
-              WORK_STATUS.SaveWaterChannelState(i,state); // сохраняем статус каналов полива     
-            #endif
-          #endif
-        } // for
-        
-      return;
-    } // if
-
-    // работаем с одним каналом, пишем в пин только тогда, когда состояние реле поменялось
-    
-    if(channel->IsChanged() || flags.internalNeedChange)
-    {
-      #if WATER_DRIVE_MODE == DRIVE_DIRECT
-        WORK_STATUS.PinWrite(WATER_RELAYS[channelIdx],state); // сохраняем статус пина
-        WORK_STATUS.SaveWaterChannelState(channelIdx,state); // сохраняем статус канала полива
-      #elif WATER_DRIVE_MODE == DRIVE_MCP23S17
-        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-          WORK_STATUS.MCP_SPI_PinWrite(WATER_MCP23S17_ADDRESS,WATER_RELAYS[channelIdx],state); // сохраняем статус пина
-          WORK_STATUS.SaveWaterChannelState(channelIdx,state); // сохраняем статус канала полива
-        #endif
-      #elif WATER_DRIVE_MODE == DRIVE_MCP23017
-        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-          WORK_STATUS.MCP_I2C_PinWrite(WATER_MCP23017_ADDRESS,WATER_RELAYS[channelIdx],state); // сохраняем статус пина
-          WORK_STATUS.SaveWaterChannelState(channelIdx,state); // сохраняем статус канала полива
-        #endif
-      #endif
-    }
-  
-}
-
-bool WateringModule::IsAnyChannelActive(uint8_t wateringOption, bool& shouldTurnOnPump1, bool& shouldTurnOnPump2)
-{  
-   if(flags.workMode == wwmManual) // в ручном режиме мы управляем только всеми каналами сразу
-   {
-      bool b = dummyAllChannels.IsChannelRelayOn();
-      shouldTurnOnPump1 = b;
-      shouldTurnOnPump2 = b;
-      return b; // поэтому смотрим состояние реле на всех каналах
-   }
-    // в автоматическом режиме мы можем рулить как всеми каналами вместе (wateringOption == wateringWeekDays),
-    // так и по отдельности (wateringOption == wateringSeparateChannels). В этом случае надо выяснить, состояние каких каналов
-    // смотреть, чтобы понять - активен ли кто-то.
-
-    if(wateringOption == wateringWeekDays) 
-    {
-      bool b = dummyAllChannels.IsChannelRelayOn();
-      shouldTurnOnPump1 = b;
-      shouldTurnOnPump2 = b;
-      return b; // смотрим состояние реле на всех каналах
-    }
-
-    shouldTurnOnPump1 = false;
-    shouldTurnOnPump2 = false;
-
-    // тут мы рулим всеми каналами по отдельности, поэтому надо проверить - включено ли реле на каком-нибудь из каналов
+    // настраиваем каналы
     for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
     {
-      if(wateringChannels[i].IsChannelRelayOn())
-      {
-        #ifdef USE_SECOND_PUMP // если используем второй насос, то надо выяснить, какие насосы включить
-          if( i>= SECOND_PUMP_START_CHANNEL) // попадаем на каналы, которыми рулит второй насос
-            shouldTurnOnPump2 = true;
-          else // попадаем на каналы, которыми рулит первый насос
-           shouldTurnOnPump1 = true;
-        #else // иначе - просто включаем первый и выходим
-          shouldTurnOnPump1 = true;
-          return true;
-        #endif
-        
-      }
+        // просим канал настроиться, она загрузит свои настройки и выключит реле
+        wateringChannels[i].Setup(i);
     } // for
-
-  return (shouldTurnOnPump1 || shouldTurnOnPump2);
-}
-
-#endif // #if WATER_RELAYS_COUNT > 0
-
-#ifdef USE_PUMP_RELAY
-void WateringModule::HoldPumpState(bool shouldTurnOnPump1, bool shouldTurnOnPump2)
-{
-  GlobalSettings* settings = MainController->GetSettings();
   
-  // поддерживаем состояние реле насоса
-  if(settings->GetTurnOnPump() != 1) // не надо включать насос
-  {
-    if(flags.bPumpIsOn) // если был включен - выключаем
-    {
-      WTR_LOG(F("[WTR] - Turn OFF pump 1"));
-      
-      flags.bPumpIsOn = false;
-      
-      #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
-        WORK_STATUS.PinWrite(PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
-      #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23S17
-        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-          WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
-        #endif
-      #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23017
-        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-          WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
-        #endif
-      #endif
-      
-    } // flags.bPumpIsOn
+  #endif // WATER_RELAYS_COUNT > 0
 
-    #ifdef USE_SECOND_PUMP // второй насос
-        
-        if(flags.bPump2IsOn) // если был включен - выключаем
-        {
-          WTR_LOG(F("[WTR] - Turn OFF pump 2"));
-          
-          flags.bPump2IsOn = false;
-          
-          #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
-            WORK_STATUS.PinWrite(SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
-          #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23S17
-            #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-              WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP2_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
-            #endif
-          #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23017
-            #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-              WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP2_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,WATER_PUMP_RELAY_OFF);
-            #endif
-          #endif
-          
-        } // flags.bPump2IsOn
-    #endif
-    
-    return; // и не будем ничего больше делать
-    
- } // settings->GetTurnOnPump() != 1
-  
-    if(((bool)flags.bPumpIsOn) != shouldTurnOnPump1) // состояние изменилось, пишем в пин только при смене состояния
-    {
-      flags.bPumpIsOn = shouldTurnOnPump1;
+  // если указано - использовать диод индикации ручного режима работы - настраиваем его
+  #ifdef USE_WATERING_MANUAL_MODE_DIODE
+    blinker.begin(DIODE_WATERING_MANUAL_MODE_PIN);  // настраиваем блинкер на нужный пин
+    blinker.blink(); // и гасим его по умолчанию
+  #endif  
 
-      #ifdef WATER_DEBUG
-        if(shouldTurnOnPump1)
-        {
-           WTR_LOG(F("[WTR] - turn ON pump 1"));
-        }
-        else
-        {
-          WTR_LOG(F("[WTR] - turn OFF pump 1"));
-        }
-      #endif  
-
-     // пишем в реле насоса вкл или выкл в зависимости от настройки "включать насос при поливе"
-     #if WATER_PUMP_DRIVE_MODE == DRIVE_DIRECT
-        WORK_STATUS.PinWrite(PUMP_RELAY_PIN,flags.bPumpIsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
-     #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23S17
-        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-          WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,PUMP_RELAY_PIN,flags.bPumpIsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
-        #endif
-     #elif WATER_PUMP_DRIVE_MODE == DRIVE_MCP23017
-        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-          WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,PUMP_RELAY_PIN,flags.bPumpIsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
-        #endif
-     #endif
-    }  // if
-
-    #ifdef USE_SECOND_PUMP // второй насос
-    
-      if(((bool)flags.bPump2IsOn) != shouldTurnOnPump2) // состояние изменилось, пишем в пин только при смене состояния
-      {
-        flags.bPump2IsOn = shouldTurnOnPump2;
-
-      #ifdef WATER_DEBUG
-        if(shouldTurnOnPump2)
-        {
-           WTR_LOG(F("[WTR] - turn ON pump 2"));
-        }
-        else
-        {
-          WTR_LOG(F("[WTR] - turn OFF pump 2"));
-        }
-      #endif        
-  
-       // пишем в реле насоса вкл или выкл в зависимости от настройки "включать насос при поливе"
-       #if WATER_PUMP2_DRIVE_MODE == DRIVE_DIRECT
-          WORK_STATUS.PinWrite(SECOND_PUMP_RELAY_PIN,flags.bPump2IsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
-       #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23S17
-          #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-            WORK_STATUS.MCP_SPI_PinWrite(WATER_PUMP_MCP23S17_ADDRESS,SECOND_PUMP_RELAY_PIN,flags.bPump2IsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
-          #endif
-       #elif WATER_PUMP2_DRIVE_MODE == DRIVE_MCP23017
-          #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-            WORK_STATUS.MCP_I2C_PinWrite(WATER_PUMP_MCP23017_ADDRESS,SECOND_PUMP_RELAY_PIN,flags.bPump2IsOn ? WATER_PUMP_RELAY_ON : WATER_PUMP_RELAY_OFF);
-          #endif
-       #endif
-      }  // if
-      
-    #endif // USE_SECOND_PUMP
-}
-#endif
-
-void WateringModule::Update(uint16_t dt)
-{ 
-#ifdef USE_WATERING_MANUAL_MODE_DIODE
-   blinker.update(dt);
-#endif
-
-#if WATER_RELAYS_COUNT > 0
-
-  GlobalSettings* settings = MainController->GetSettings();  
-  uint8_t wateringOption = settings->GetWateringOption(); // получаем опцию управления поливом
-  bool shouldTurnOnPump1, shouldTurnOnPump2;
-  bool anyChActive = IsAnyChannelActive(wateringOption,shouldTurnOnPump1, shouldTurnOnPump2);
-  
-  SAVE_STATUS(WATER_STATUS_BIT, anyChActive ? 1 : 0); // сохраняем состояние полива
-  SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохраняем режим работы полива
-  
-  #ifdef USE_PUMP_RELAY
-    // держим состояние реле для насоса
-    HoldPumpState(shouldTurnOnPump1, shouldTurnOnPump2);
-  #endif
 
   #ifdef USE_DS3231_REALTIME_CLOCK
 
-    // обновляем состояние часов
     DS3231Clock watch =  MainController->GetClock();
     DS3231Time t =   watch.getTime();
 
+    lastDOW = t.dayOfWeek; // запоминаем прошлый день недели
+    currentDOW = t.dayOfWeek; // запоминаем текущий день недели
+  
+  #else
+  
+    lastDOW = 0; // день недели с момента предыдущего опроса
+    currentDOW = 0; // текущий день недели
+    
+  #endif // USE_DS3231_REALTIME_CLOCK
+
+  // тут всё настроили, перешли в автоматический режим работы, выключили реле на всех каналах, запомнили текущий час и день недели.
+  // можно начинать работать
+
+ 
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::SwitchToAutomaticMode()
+{
+  if(flags.workMode == wwmAutomatic) // уже в автоматическом режиме
+    return;
+
+  WTR_LOG(F("[WTR] - switch to automatic mode\r\n"));
+
+    flags.workMode = wwmAutomatic;
+
+  // гасим блинкер, если он используется в прошивке
+  #ifdef USE_WATERING_MANUAL_MODE_DIODE
+     blinker.blink();
+  #endif    
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::SwitchToManualMode()
+{
+  if(flags.workMode == wwmManual) // уже в ручном режиме
+    return;
+
+  WTR_LOG(F("[WTR] - switch to manual mode\r\n"));
+
+    flags.workMode = wwmManual;
+
+  // зажигаем блинкер, если он используется в прошивке
+  #ifdef USE_WATERING_MANUAL_MODE_DIODE
+     blinker.blink(WORK_MODE_BLINK_INTERVAL);
+  #endif    
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::ResetChannelsState()
+{
+  WTR_LOG(F("[WTR] - reset channels state\r\n"));
+  //Тут затирание в EEPROM предыдущего сохранённого значения о статусе полива на всех каналах
+  uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR;
+  uint8_t bytes_to_write = 5 + WATER_RELAYS_COUNT*5;
+  
+  for(uint8_t i=0;i<bytes_to_write;i++)
+    EEPROM.write(wrAddr++,0); // для каждого канала по отдельности  
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::TurnChannelsOff() // выключает все каналы
+{
+  WTR_LOG(F("[WTR] - turn all channels OFF\r\n"));
+  
+  #if WATER_RELAYS_COUNT > 0
+    for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+    {
+      wateringChannels[i].Off();
+    }
+  #endif // WATER_RELAYS_COUNT > 0
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::TurnChannelsOn() // включает все каналы
+{
+  WTR_LOG(F("[WTR] - turn all channels ON\r\n"));
+  
+  #if WATER_RELAYS_COUNT > 0
+    for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+    {
+      wateringChannels[i].On();
+    }
+  #endif // WATER_RELAYS_COUNT > 0  
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::TurnChannelOff(byte channelIndex) // выключает канал
+{
+  WTR_LOG(F("[WTR] - turn channel "));
+  WTR_LOG(channelIndex);
+  WTR_LOG(F(" OFF\r\n"));
+  
+  #if WATER_RELAYS_COUNT > 0
+    if(channelIndex < WATER_RELAYS_COUNT)
+    {
+      wateringChannels[channelIndex].Off();
+    }
+  #endif // WATER_RELAYS_COUNT > 0  
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::TurnChannelOn(byte channelIndex) // включает канал
+{
+  WTR_LOG(F("[WTR] - turn channel "));
+  WTR_LOG(channelIndex);
+  WTR_LOG(F(" ON\r\n"));
+    
+  #if WATER_RELAYS_COUNT > 0
+    if(channelIndex < WATER_RELAYS_COUNT)
+    {
+      wateringChannels[channelIndex].On();
+    }
+  #endif // WATER_RELAYS_COUNT > 0
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool WateringModule::IsAnyChannelActive() // проверяет, активен ли хоть один канал полива
+{
+  #if WATER_RELAYS_COUNT > 0
+    for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+    {
+      if(wateringChannels[i].IsActive())
+        return true;
+    }
+  #endif // WATER_RELAYS_COUNT > 0    
+
+  return false;
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void WateringModule::Update(uint16_t dt)
+{ 
+  
+  // обновляем блинкер, если он используется в прошивке
+  #ifdef USE_WATERING_MANUAL_MODE_DIODE
+     blinker.update(dt);
+  #endif
+
+  #if WATER_RELAYS_COUNT > 0
+
+    bool anyChannelActive = IsAnyChannelActive(); // проверяем, включен ли хотя бы один канал
+     // теперь сохраняем статус полива
+    SAVE_STATUS(WATER_STATUS_BIT, anyChannelActive ? 1 : 0); // сохраняем состояние полива
+    SAVE_STATUS(WATER_MODE_BIT,flags.workMode == wwmAutomatic ? 1 : 0); // сохраняем режим работы полива
+
+    DS3231Time t;
+    
+    #ifdef USE_DS3231_REALTIME_CLOCK
+
+      // обновлять каналы имеет смысл только при наличии часов реального времени
+      DS3231Clock watch =  MainController->GetClock();
+      t =  watch.getTime(); // получаем текущее время
 
     if(currentDOW != t.dayOfWeek)
     {
       // начался новый день недели, принудительно переходим в автоматический режим работы
       // даже если до этого был включен полив командой от пользователя
-      flags.workMode = wwmAutomatic;
+      SwitchToAutomaticMode();
+
+      // здесь надо принудительно гасить полив на всех каналах, поскольку у нас может быть выключено автоуправление каналами.
+      // в этом случае, если полив был включен пользователем и настали новые сутки - полив не выключится сам,
+      // т.к. канал не обновляет своё состояние при выключенном автоуправлении каналами.
+      TurnChannelsOff();
 
       //Тут затирание в EEPROM предыдущего сохранённого значения о статусе полива на всех каналах
-      uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR;
-      uint8_t bytes_to_write = 5 + WATER_RELAYS_COUNT*5;
-      for(uint8_t i=0;i<bytes_to_write;i++)
-        EEPROM.write(wrAddr++,0); // для каждого канала по отдельности
+      ResetChannelsState();
+      
     }
 
     currentDOW = t.dayOfWeek; // сохраняем текущий день недели
-    currentHour = t.hour; // сохраняем текущий час
-       
-  #else
 
-    // модуль часов реального времени не включен в компиляцию, деградируем до ручного режима работы
-    settings->SetWateringOption(wateringOFF); // отключим автоматический контроль полива
-    flags.workMode = wwmManual; // переходим на ручное управление
-    #ifdef USE_WATERING_MANUAL_MODE_DIODE
-    blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
+    #endif // USE_DS3231_REALTIME_CLOCK
+
+    // теперь обновляем все каналы
+    for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
+    {
+        wateringChannels[i].Update(dt,(WateringWorkMode) flags.workMode,t,lastDOW);
+    } // for
+
+    #ifdef USE_PUMP_RELAY
+      UpdatePumps();
     #endif
- 
-  #endif
+
+   // обновили все каналы, теперь можно сбросить флаг перехода через день недели
+    lastDOW = currentDOW; // сделаем вид, что мы ничего не знаем о переходе на новый день недели.
+    // таким образом, код перехода на новый день недели выполнится всего один раз при каждом переходе
+    // через день недели.    
   
-  if(flags.workMode == wwmAutomatic)
-  {
-    // автоматический режим работы
- 
-    // проверяем текущий режим управления каналами полива
-    switch(wateringOption)
-    {
-      case wateringOFF: // автоматическое управление поливом выключено, значит, мы должны перейти в ручной режим работы
-          flags.workMode = wwmManual; // переходим в ручной режим работы
-          #ifdef USE_WATERING_MANUAL_MODE_DIODE
-          blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
-          #endif
-      break;
+  #else
+    UNUSED(dt);
+  #endif // WATER_RELAYS_COUNT > 0
 
-      case wateringWeekDays: // // управление поливом по дням недели (все каналы одновременно)
-      {
-          // обновляем состояние всех каналов - канал станет активным или неактивным после этой проверки
-           UpdateChannel(-1,&dummyAllChannels,dt);
-           
-           // теперь держим текущее состояние реле на всех каналах
-           HoldChannelState(-1,&dummyAllChannels);
-      }
-      break;
-
-      case wateringSeparateChannels: // рулим всеми каналами по отдельности
-      {
-        dummyAllChannels.SetRelayOn(false); // выключаем реле на всех каналах
-        
-        for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
-        {
-          UpdateChannel(i,&(wateringChannels[i]),dt); // обновляем канал
-          HoldChannelState(i,&(wateringChannels[i]));  // держим его состояние
-        } // for
-      }
-      break;
-      
-    } // switch(wateringOption)
-    
-  } // if(flags.workMode == wwmAutomatic)
-  else
-  {
-    // ручной режим работы, просто сохраняем переданный нам статус реле, все каналы - одновременно.
-    // обновлять состояние канала не надо, потому что мы в ручном режиме работы.
-      HoldChannelState(-1,&dummyAllChannels);
-          
-  } // else
-
-  // проверяем, есть ли изменения с момента последнего вызова
-  if(lastAnyChannelActiveFlag < 0)
-  {
-    // ещё не собирали статус, собираем первый раз
-    bool shouldTurnOnPump1, shouldTurnOnPump2;
-    lastAnyChannelActiveFlag = IsAnyChannelActive(wateringOption,shouldTurnOnPump1, shouldTurnOnPump2) ? 1 : 0;
-
-    if(lastAnyChannelActiveFlag)
-    {
-      // если любой канал активен - значит, полив включили, а по умолчанию он выключен.
-      // значит, надо записать в лог
-      String mess = lastAnyChannelActiveFlag? STATE_ON : STATE_OFF;
-      MainController->Log(this,mess);
-    }
-  }
-  else
-  {
-    // уже собирали, надо проверить с текущим состоянием
-    bool shouldTurnOnPump1, shouldTurnOnPump2;
-    byte nowAnyChannelActive = IsAnyChannelActive(wateringOption,shouldTurnOnPump1, shouldTurnOnPump2) ? 1 : 0;
-    
-    if(nowAnyChannelActive != lastAnyChannelActiveFlag)
-    {
-      lastAnyChannelActiveFlag = nowAnyChannelActive; // сохраняем последний статус, чтобы не дёргать запись в лог лишний раз
-      // состояние каналов изменилось, пишем в лог
-      String mess = lastAnyChannelActiveFlag ? STATE_ON : STATE_OFF;
-      MainController->Log(this,mess);
-    }
-  } // else
-
-  // обновили все каналы, теперь можно сбросить флаг перехода через день недели
-  lastDOW = currentDOW; // сделаем вид, что мы ничего не знаем о переходе на новый день недели.
-  // таким образом, код перехода на новый день недели выполнится всего один раз при каждом переходе
-  // через день недели.
-
-  flags.internalNeedChange = false;
-
-#else
-UNUSED(dt);
-#endif
   
 }
 bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
@@ -710,6 +783,8 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               uint8_t turnOnPump = (uint8_t) atoi(command.GetArg(5));
 
               GlobalSettings* settings = MainController->GetSettings();
+
+              byte oldWateringOption = settings->GetWateringOption();
               
               // пишем в настройки
               settings->SetWateringOption(wateringOption);
@@ -721,25 +796,27 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               // сохраняем настройки
               settings->Save();
 
-              if(wateringOption == wateringOFF) // если выключено автоуправление поливом
+              if(oldWateringOption != wateringOption)
               {
-                flags.workMode = wwmManual; // переходим в ручной режим работы
-                #if WATER_RELAYS_COUNT > 0
-                dummyAllChannels.SetRelayOn(false); // принудительно гасим полив на всех каналах
-                #endif
-                
-                #ifdef USE_WATERING_MANUAL_MODE_DIODE
-                blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
-                #endif
+                 // состояние управления поливом изменилось, мы должны перезагрузить для всех каналов настройки из EEPROM
+                 #if WATER_RELAYS_COUNT > 0
+
+                  for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+                  {
+                      wateringChannels[i].LoadState();
+                  } // for
+                 
+                 #endif // WATER_RELAYS_COUNT > 0
               }
-              else
-              {
-                flags.workMode = wwmAutomatic; // иначе переходим в автоматический режим работы
-                #ifdef USE_WATERING_MANUAL_MODE_DIODE
-                blinker.blink(); // гасим диод
-                #endif
-              }
-      
+
+              // Поскольку пришла команда от юзера, и там среди параметров присутствует опция
+              // управления поливом, то мы ВРОДЕ КАК должны переключиться в автоматический режим работы.
+              // Если придёт команда из правил - мы выключим автоуправление поливом, и всё.
+              // Если автоуправление поливом выключено - то мы в этой точке не вправе гасить
+              // полив на всех каналах, т.к. юзер может вручную до этого включить канал полива.
+              // Исходя из вышеизложенного - при изменении опции управления поливом делать ничего
+              // не надо, кроме как вычитать состояние каналов из EEPROM, т.к. режим работы
+              // может быть как ручным, так и автоматическим.              
               
               PublishSingleton.Status = true;
               PublishSingleton = WATER_SETTINGS_COMMAND; 
@@ -784,7 +861,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                 }
              #else
               PublishSingleton = UNKNOWN_COMMAND;
-             #endif
+             #endif // WATER_RELAYS_COUNT > 0
            }
            else
            {
@@ -800,19 +877,13 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
            
            if(param == WM_AUTOMATIC)
            {
-             flags.workMode = wwmAutomatic; // переходим в автоматический режим работы
-             flags.internalNeedChange = true; // говорим, что надо перезаписать в пины реле
-             
-             #ifdef USE_WATERING_MANUAL_MODE_DIODE
-             blinker.blink(); // гасим диод
-             #endif
+            // переходим в автоматический режим работы
+            SwitchToAutomaticMode();
            }
            else
            {
-            flags.workMode = wwmManual; // переходим на ручной режим работы
-            #ifdef USE_WATERING_MANUAL_MODE_DIODE
-            blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
-            #endif
+            // переходим на ручной режим работы
+             SwitchToManualMode();
            }
 
               PublishSingleton.Status = true;
@@ -823,53 +894,98 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         
         } // WORK_MODE
         else 
-        if(which == STATE_ON) // попросили включить полив, CTSET=WATER|ON
+        if(which == STATE_ON) // попросили включить полив на всех каналах, CTSET=WATER|ON, или на одном из каналов: CTSET=WATER|ON|2
         {
-          if(!command.IsInternal()) // если команда от юзера, то
-          {
-            flags.workMode = wwmManual; // переходим в ручной режим работы
-            #ifdef USE_WATERING_MANUAL_MODE_DIODE
-            blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
-            #endif
-          }
-          // если команда не от юзера, а от модуля ALERT, например, то
-          // просто выставляя статус реле для всех каналов - мы ничего не добьёмся - 
-          // команда проигнорируется, т.к. мы сами обновляем статус каналов.
-          // в этом случае - надо переходить на ручное управление, мне кажется.
-          // Хотя это - неправильно, должна быть возможность в автоматическом
-          // режиме включать/выключать полив из модуля ALERT, без мигания диодом.
+           // Здесь ситуация интересная: мы можем быть в автоматическом режиме работы или в ручном.
+           // если мы в ручном режиме работы и команда пришла не от юзера (а, например, из правил) - то нам надо выключить
+           // автоуправление поливом и перейти в автоматический режим работы.
+           // если же мы в автоматическом режиме и команда пришла не от юзера - также выключаем автоуправление поливом.
+           // если команда пришла от юзера - переходим в ручной режим работы
 
-          #if WATER_RELAYS_COUNT > 0
-          dummyAllChannels.SetRelayOn(true); // включаем реле на всех каналах
-          #endif
+           if(argsCount < 2) // для всех каналов запросили
+              TurnChannelsOn(); // включаем все каналы
+           else
+           {
+             // запросили для одного канала
+             byte channelIndex = (byte) atoi(command.GetArg(1));
+             #if WATER_RELAYS_COUNT > 0
+              if(channelIndex < WATER_RELAYS_COUNT)
+                TurnChannelOn(channelIndex); // включаем полив на канале
+             #endif // WATER_RELAYS_COUNT > 0
+           }
 
+           // потом смотрим - откуда команда
+           if(command.IsInternal())
+           {
+             // внутренняя команда
+             GlobalSettings* settings = MainController->GetSettings();
+             // выключаем автоуправление поливом
+             settings->SetWateringOption(wateringOFF);
+
+             if(flags.workMode == wwmManual)
+             {
+               // мы в ручном режиме работы, пришла внутренняя команда - надо переключиться в автоматический режим работы
+               SwitchToAutomaticMode();
+             }
+            
+           } // internal command
+           else
+           {
+            // команда от пользователя
+              SwitchToManualMode(); // переключаемся в ручной режим работы
+           } // command from user
+        
           PublishSingleton.Status = true;
           PublishSingleton = STATE_ON;
+          if(argsCount > 1)
+          {
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << command.GetArg(1);
+          }
         } // STATE_ON
         else 
-        if(which == STATE_OFF) // попросили выключить полив, CTSET=WATER|OFF
-        {
-          if(!command.IsInternal()) // если команда от юзера, то
-          {
-            flags.workMode = wwmManual; // переходим в ручной режим работы
-            #ifdef USE_WATERING_MANUAL_MODE_DIODE
-            blinker.blink(WORK_MODE_BLINK_INTERVAL); // зажигаем диод
-            #endif
-          }
-          // если команда не от юзера, а от модуля ALERT, например, то
-          // просто выставляя статус реле для всех каналов - мы ничего не добьёмся - 
-          // команда проигнорируется, т.к. мы сами обновляем статус каналов.
-          // в этом случае - надо переходить на ручное управление, мне кажется.
-          // Хотя это - неправильно, должна быть возможность в автоматическом
-          // режиме включать/выключать полив из модуля ALERT, без мигания диодом.
-          
-          #if WATER_RELAYS_COUNT > 0
-          dummyAllChannels.SetRelayOn(false); // выключаем реле на всех каналах
-          #endif
+        if(which == STATE_OFF) // попросили выключить полив на всех каналах, CTSET=WATER|OFF, или для одного канала: CTSET=WATER|OFF|3
+        { 
+           if(argsCount < 2)
+            TurnChannelsOff(); // выключаем все каналы
+           else
+           {
+             // запросили для одного канала
+             byte channelIndex = (byte) atoi(command.GetArg(1));
+             #if WATER_RELAYS_COUNT > 0
+              if(channelIndex < WATER_RELAYS_COUNT)
+                TurnChannelOff(channelIndex); // выключаем полив на канале
+             #endif // WATER_RELAYS_COUNT > 0
+           }            
+
+           // потом смотрим - откуда команда
+           if(command.IsInternal())
+           {
+             // внутренняя команда
+             GlobalSettings* settings = MainController->GetSettings();
+             // выключаем автоуправление поливом
+             settings->SetWateringOption(wateringOFF);
+
+             if(flags.workMode == wwmManual)
+             {
+               // мы в ручном режиме работы, пришла внутренняя команда - надо переключиться в автоматический режим работы
+               SwitchToAutomaticMode();
+             }
+            
+           } // internal command
+           else
+           {
+            // команда от пользователя
+              SwitchToManualMode(); // переключаемся в ручной режим работы
+           } // command from user 
 
           PublishSingleton.Status = true;
           PublishSingleton = STATE_OFF;
-          
+          if(argsCount > 1)
+          {
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << command.GetArg(1);
+          }         
         } // STATE_OFF        
 
       } // else
@@ -881,12 +997,13 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
     {
       PublishSingleton.Status = true;
       #if WATER_RELAYS_COUNT > 0
-      GlobalSettings* settings = MainController->GetSettings();
-      bool shouldTurnOnPump1, shouldTurnOnPump2;
-      PublishSingleton = (IsAnyChannelActive(settings->GetWateringOption(),shouldTurnOnPump1, shouldTurnOnPump2) ? STATE_ON : STATE_OFF);
+      
+        PublishSingleton = (IsAnyChannelActive() ? STATE_ON : STATE_OFF);
+        
       #else
-      PublishSingleton = STATE_OFF;
-      #endif
+        PublishSingleton = STATE_OFF;
+      #endif //  WATER_RELAYS_COUNT > 0
+      
       PublishSingleton << PARAM_DELIMITER << (flags.workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
     }
     else
@@ -922,6 +1039,32 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << PARAM_DELIMITER << (flags.workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
         }
         else
+        if(t == F("STATEMASK")) // запросили маску состояния каналов
+        {
+          PublishSingleton.Status = true;
+          PublishSingleton = F("STATEMASK");
+          PublishSingleton << PARAM_DELIMITER << WATER_RELAYS_COUNT;
+          
+          #if WATER_RELAYS_COUNT > 0
+          
+              PublishSingleton << PARAM_DELIMITER;
+              ControllerState state = WORK_STATUS.GetState();
+
+              for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+              {
+                if(state.WaterChannelsState & (1 << i)) // канал включен
+                {
+                  PublishSingleton << F("1");
+                }
+                else // канал выключен
+                {
+                  PublishSingleton << F("0");
+                }
+              } // for
+              
+          #endif // WATER_RELAYS_COUNT > 0
+        } // STATEMASK
+        else
         {
            // команда с аргументами
            if(argsCount > 1)
@@ -953,7 +1096,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   }
                   #else
                     PublishSingleton = UNKNOWN_COMMAND;
-                  #endif
+                  #endif // WATER_RELAYS_COUNT > 0
                           
                 } // if
            } // if
