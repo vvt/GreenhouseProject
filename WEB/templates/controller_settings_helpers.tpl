@@ -740,7 +740,8 @@ function editWateringChannel(channel, row)
           elem.checked = (channel.WateringDays & dayMask) == dayMask;
       } // for
       
-      $('#watering_start_hour').val(channel.StartTime); 
+      $('#watering_start_hour').val(parseInt(channel.StartTime/60)); 
+      $('#watering_start_minute').val(parseInt(channel.StartTime%60)); 
       $('#watering_time').val(channel.WateringTime); 
 
 
@@ -751,13 +752,17 @@ function editWateringChannel(channel, row)
       
       var watering_start_hour = parseInt($('#watering_start_hour').val());
       if(isNaN(watering_start_hour))
-        watering_start_hour = channel.StartTime;
+        watering_start_hour = parseInt(channel.StartTime/60);
+
+      var watering_start_minute = parseInt($('#watering_start_minute').val());
+      if(isNaN(watering_start_minute))
+        watering_start_minute = parseInt(channel.StartTime%60);
       
       watering_start_hour = Math.abs(watering_start_hour);
       if(watering_start_hour > 23)
         watering_start_hour = 23;
         
-      channel.StartTime = watering_start_hour;
+      channel.StartTime = watering_start_hour*60 + watering_start_minute;
       
       
       var watering_time = parseInt($('#watering_time').val());
@@ -782,13 +787,34 @@ function editWateringChannel(channel, row)
         } // for 
 
       row.find('#water_channel_days').html(channel.getWateringDaysString(true));
-      row.find('#water_channel_start').html(channel.StartTime + ' ч');
+      row.find('#water_channel_start').html(formatWateringStartTime(channel.StartTime));
       row.find('#water_channel_time').html(channel.WateringTime + ' мин');
   
   } }
   
   , {text: "Отмена", click: function(){$(this).dialog("close");} }
   ] });
+}
+//-----------------------------------------------------------------------------------------------------
+function formatWateringStartTime(tm)
+{
+  var hour = parseInt(tm/60);
+  var minute = parseInt(tm%60);
+  
+  var res = '';
+  if(hour < 10)
+    res += '0';
+    
+  res += hour;
+  
+  res += ':';
+  
+  if(minute < 10)
+    res += '0';
+    
+   res += minute;
+   
+   return res;
 }
 //-----------------------------------------------------------------------------------------------------
 // добавляет строку в таблицу настроек каналов
@@ -810,7 +836,7 @@ function addWaterChannelRow(parentElement, channel, num)
     var row = $('<div/>',{'class': 'row', id: 'water_channel_' + num});
     $('<div/>',{'class': 'row_item', id: 'water_channel_index'}).html(num + 1).appendTo(row);
     $('<div/>',{'class': 'row_item', id: 'water_channel_days'}).html(channel.getWateringDaysString(true)).appendTo(row);
-    $('<div/>',{'class': 'row_item', id: 'water_channel_start'}).html(channel.StartTime + ' ч').appendTo(row);
+    $('<div/>',{'class': 'row_item', id: 'water_channel_start'}).html(formatWateringStartTime(channel.StartTime)).appendTo(row);
     $('<div/>',{'class': 'row_item', id: 'water_channel_time'}).html(channel.WateringTime + ' мин').appendTo(row);
     
     var actions = $('<div/>',{'class': 'row_item actions', id: 'actions'}).appendTo(row);
@@ -1529,6 +1555,17 @@ function saveAllChannelsWateringOptions(watering_option)
         $('#all_watering_time').val(wateringSettings.WateringTime);
         
       var wStart = parseInt($('#all_watering_start_hour').val());
+      var wStartMinute = parseInt($('#all_watering_start_minute').val());
+      
+      if(isNaN(wStartMinute))
+        wStartMinute = 0;
+        
+        wStartMinute = Math.abs(wStartMinute);
+        if(wStartMinute > 59)
+          wStartMinute = 59;
+          
+       $('#all_watering_start_minute').val(wStartMinute);
+      
       if(!isNaN(wStart))
       {
         wStart = Math.abs(wStart);
@@ -1536,11 +1573,13 @@ function saveAllChannelsWateringOptions(watering_option)
           wStart = 23;
           
           $('#all_watering_start_hour').val(wStart);
-          wateringSettings.StartTime = wStart;
+          wateringSettings.StartTime = wStart*60 + wStartMinute;
           
       } // if(!isNaN(wStart))
       else
-        $('#all_watering_start_hour').val(wateringSettings.StartTime);
+      {
+        $('#all_watering_start_hour').val(parseInt(wateringSettings.StartTime/60));
+      }
       
 
       // теперь сохраняем дни недели
@@ -2126,7 +2165,9 @@ controller.OnGetModulesList = function(obj)
               
                   wateringSettings = new WateringSettings(answer.Params[2],answer.Params[3],answer.Params[4],answer.Params[5],answer.Params[6]);
                   
-                  $('#all_watering_start_hour').val(wateringSettings.StartTime);
+                  $('#all_watering_start_hour').val(parseInt(wateringSettings.StartTime/60));
+                  $('#all_watering_start_minute').val(parseInt(wateringSettings.StartTime%60));
+                  
                   $('#all_watering_time').val(wateringSettings.WateringTime);
                   
                   var lst = $('#all_watering_channels_days').find('div #all_watering_channels_day');
@@ -2869,8 +2910,8 @@ $(document).ready(function(){
     
     $('#iot_interval, #cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
-    $('#all_watering_start_hour, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature, #phTarget, #phHisteresis, #phMixPumpTime, #phReagentPumpTime').forceNumericOnly();
-    $('#watering_start_hour, #watering_time').forceNumericOnly(); 
+    $('#all_watering_start_hour, #all_watering_start_minute, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature, #phTarget, #phHisteresis, #phMixPumpTime, #phReagentPumpTime').forceNumericOnly();
+    $('#watering_start_hour, #watering_start_minute, #watering_time').forceNumericOnly(); 
 
     $('#rule_work_time_input, #rule_start_time_input, #rule_sensor_value_input').forceNumericOnly();
     

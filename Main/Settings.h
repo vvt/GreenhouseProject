@@ -18,7 +18,7 @@ typedef struct
 {
   uint8_t wateringWeekDays; // в какие дни недели управляем поливом на этом канале?
   uint16_t wateringTime; // время полива на этом канале
-  uint8_t startWateringTime; // время начала полива для этого канала
+  uint16_t startWateringTime; // время начала полива для этого канала (в минутах от начала суток)
   
 } WateringChannelOptions; // настройки для отдельного канала полива
 
@@ -87,7 +87,7 @@ class GlobalSettings
   uint8_t wateringOption; // какая опция управления выбрана?
   uint8_t wateringWeekDays; // в какие дни недели управляем поливом на всех каналах?
   uint16_t wateringTime; // время полива на всех каналах
-  uint8_t startWateringTime; // время начала полива для всех каналов
+  uint16_t startWateringTime; // время начала полива для всех каналов, в минутах от начала суток
   uint8_t turnOnPump; // включать ли определённый канал реле при включенном поливе на любом из каналов (может использоваться для насоса)?
 
   WateringChannelOptions wateringChannelsOptions[WATER_RELAYS_COUNT]; // настройки каналов полива
@@ -135,8 +135,8 @@ class GlobalSettings
      uint16_t GetChannelWateringTime(uint8_t idx) {return wateringChannelsOptions[idx].wateringTime;}
      void SetChannelWateringTime(uint8_t idx,uint16_t val) {wateringChannelsOptions[idx].wateringTime = val;}
 
-     uint8_t GetChannelStartWateringTime(uint8_t idx) {return wateringChannelsOptions[idx].startWateringTime;}
-     void SetChannelStartWateringTime(uint8_t idx,uint8_t val) {wateringChannelsOptions[idx].startWateringTime = val;}
+     uint16_t GetChannelStartWateringTime(uint8_t idx) {return wateringChannelsOptions[idx].startWateringTime;}
+     void SetChannelStartWateringTime(uint8_t idx,uint16_t val) {wateringChannelsOptions[idx].startWateringTime = val;}
 
      uint8_t GetWateringWeekDays() {return wateringWeekDays; }
      void SetWateringWeekDays(uint8_t val) {wateringWeekDays = val;}
@@ -144,8 +144,8 @@ class GlobalSettings
      uint16_t GetWateringTime() {return wateringTime;}
      void SetWateringTime(uint16_t val) {wateringTime = val;}
 
-     uint8_t GetStartWateringTime() {return startWateringTime;}
-     void SetStartWateringTime(uint8_t val) {startWateringTime = val;}
+     uint16_t GetStartWateringTime() {return startWateringTime;}
+     void SetStartWateringTime(uint16_t val) {startWateringTime = val;}
 
     uint8_t GetTurnOnPump() {return turnOnPump;}
     void SetTurnOnPump(uint8_t val) {turnOnPump = val;}

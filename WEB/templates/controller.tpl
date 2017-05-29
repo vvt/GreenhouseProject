@@ -263,14 +263,34 @@
                                        
                     <div class='ui-widget-header ui-corner-all padding_around8px'>Полив</div> 
                     <div class='ui-widget-content ui-corner-all padding_around8px'>
+                    
+                    <table border='0' width='100%' cellspacing='0' cellpadding='0'>
+                       <tr>
+                      
+                            <td valign='top'>
 
-                       <div class='padding_around8px'>
-                          Статус: <span class='bold' id='water_state'></span><br/>
-                          Режим: <span class='bold' id='water_mode'></span>
-                       </div>
+                             <div class='padding_around8px'>
+                                Статус: <span class='bold' id='water_state'></span><br/>
+                                Режим: <span class='bold' id='water_mode'></span>
+                             </div>
+                              
+                              <button id='toggler_water' onclick='controller.toggleWater();updateWaterState();'></button>
+                              <button id='toggler_water_mode' onclick='controller.toggleWaterMode();updateWaterState();'></button>
+                              
+                            </td>
+                            
+                            <td valign='top' align='right'>
+                              <div class='padding_around8px'>
+                                <div id='waterChannelsState' class='hdn' style='overflow-y:scroll;max-height:100px;'>
+                                 
+                                </div>
+                                
+                              </div>
+                            </td>
+                         
+                         </tr>
+                         </table>                                 
                         
-                        <button id='toggler_water' onclick='controller.toggleWater();updateWaterState();'></button>
-                        <button id='toggler_water_mode' onclick='controller.toggleWaterMode();updateWaterState();'></button>
                     </div>
                     
                     <br/><br/>

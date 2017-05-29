@@ -503,8 +503,9 @@
   </div>
 
     <div>
-      Час начала работы:<br/>
-      <input type='text' maxlength='2' id='watering_start_hour' style='width:100%;'/>
+      Начало работы (чч:мм):<br/>
+      <input type='text' maxlength='2' id='watering_start_hour' style='width:45%;'/> : 
+      <input type='text' maxlength='2' id='watering_start_minute' style='width:45%;'/>
     </div>
 
     <div>
@@ -820,8 +821,9 @@
                                   <div class='ui-widget-header ui-corner-all'>Настройки</div>
                                   <div class='ui-widget-content padding_around8px left_align'>
                                     <div>
-                                      Час начала работы:<br/>
-                                      <input type='text' maxlength='2' id='all_watering_start_hour' style='width:100%;'/>
+                                      Начало работы (чч:мм):<br/>
+                                      <input type='text' maxlength='2' id='all_watering_start_hour' style='width:45%;'/> : 
+                                      <input type='text' maxlength='2' id='all_watering_start_minute' style='width:45%;'/>
                                     </div>
                                     
                                     <div>

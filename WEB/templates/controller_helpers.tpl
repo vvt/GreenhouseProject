@@ -90,6 +90,21 @@ function promptMessage(message, yesFunc, cancelFunc)
   ] });     
 }
 //-----------------------------------------------------------------------------------------------------
+function setWaterChannelButtonState(button, channelNumber, channelEnabled)
+{
+  //button.removeAttr('disabled').removeClass('water-intermediate');
+
+  var buttonCaption = "Канал #" + channelNumber;
+  buttonCaption += channelEnabled ? " включен. Выключить!" : " выключен. Включить!";
+  if(channelEnabled)
+    button.addClass('water-on').removeClass('water-off');
+  else
+    button.addClass('water-off').removeClass('water-on');
+    
+   button.html(buttonCaption);
+
+}
+//-----------------------------------------------------------------------------------------------------
 var lastIsOnline = controller.IsOnline();
 // обработчик онлайн-статуса контроллера
 controller.OnStatus = function(obj)
@@ -128,6 +143,80 @@ controller.OnStatus = function(obj)
     $('#offline_block').show();
     $('#online_block').hide();
   }
+  
+  controller.queryCommand(true,'WATER|STATEMASK',function(obj,answer){
+  
+     var list = $('#waterChannelsState');
+  
+     if(!answer.IsOK || answer.Params.length < 4)
+     {
+      list.toggle(false);
+      return;
+     }
+     
+      list.toggle(true);
+      
+      var channelsCount = parseInt(answer.Params[2]);
+      
+      var statemask = answer.Params[3];
+      
+      var buttons = list.children('button');
+      var countButtons = buttons.length;
+      
+      if(countButtons > channelsCount)
+      {
+        list.empty();
+        countButtons = 0;
+      }
+      
+      while(countButtons < channelsCount)
+      {
+        var button = $("<button/>",{'data-channel-id' : countButtons, 'class' : 'water-channel-button'});
+        button.appendTo(list);
+        countButtons++;
+      }
+      
+      // теперь назначаем кнопкам надписи
+      for(var i=0;i<channelsCount;i++)
+      {
+        var button = list.find("[data-channel-id=" + i + "]");
+        button.button();
+        //button.removeAttr('disabled').removeClass('water-intermediate');
+
+        var channelEnabled = statemask.substring(i,i+1) == '1' ? true : false;        
+        button.attr('data-channel-enabled', channelEnabled ? 1 : 0);
+        setWaterChannelButtonState(button,(i+1),channelEnabled);
+              
+        button.off('click').click(function(){
+        
+          var btn = $(this);
+          var channelId = parseInt(btn.attr('data-channel-id'));
+          var isEnabled = parseInt(btn.attr('data-channel-enabled')) == 1;
+          
+          //btn.attr('disabled','disabled'); 
+          //btn.removeClass('water-on').removeClass('water-off').addClass('water-intermediate');
+          
+          btn.attr('data-channel-enabled', !isEnabled ? 1 : 0);
+          
+          setWaterChannelButtonState(btn,(channelId+1),!isEnabled);
+          
+          var command = "WATER|";
+          if(isEnabled)
+            command += "OFF|";
+          else
+            command += "ON|";
+            
+            command += channelId;
+            
+            controller.queryCommand(false,command,function(obj,answer){});
+        
+        });
+        
+      } // for
+      
+
+  });
+  
   
   controller.queryCommand(true,'STATE|WINDOW|STATEMASK',function(obj,answer){
     
@@ -175,7 +264,7 @@ controller.OnStatus = function(obj)
                     // получаем старший бит
                     var bHigh = BitIsSet(bState, (bitPos+1));
 
-                    var wCapt = "Окно номер #" + windowIndex + ': ';
+                    var wCapt = "Окно номер #" + (windowIndex+1) + ': ';
                     var ws = "<нет данных>";
                     
                     var optionClass = '';

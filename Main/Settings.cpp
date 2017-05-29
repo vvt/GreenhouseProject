@@ -171,7 +171,7 @@ void GlobalSettings::ResetToDefault()
   wateringOption = wateringOFF;
   wateringWeekDays = 0;
   wateringTime = 0;
-  startWateringTime = 12;
+  startWateringTime = 0;
   wifiState = 0x01; // первый бит устанавливаем, говорим, что мы коннектимся к роутеру
   controllerID = 0; // по умолчанию 0 как ID контроллера
   gsmProvider = MTS;
@@ -251,11 +251,23 @@ void GlobalSettings::Load()
   }
 
   // читаем время начала полива
-  bOpt = EEPROM.read(readPtr++);
+  //bOpt = EEPROM.read(readPtr++);
+  uint16_t stwtime = 0;
+  wrAddr = (byte*) &stwtime;
+
+  *wrAddr++ = EEPROM.read(readPtr++);
+  *wrAddr = EEPROM.read(readPtr++);
+
+  if(stwtime != 0xFFFF) // есть время начала полива
+  {
+    startWateringTime = stwtime;
+  }
+  /*
   if(bOpt != 0xFF) // есть время начала полива
   {
     startWateringTime = bOpt;
   } // if
+  */
   
  // читаем , включать ли насос во время полива?
   bOpt = EEPROM.read(readPtr++);
@@ -275,7 +287,7 @@ void GlobalSettings::Load()
     // есть сохранённое кол-во каналов, читаем каналы
     if(bOpt > WATER_RELAYS_COUNT) // только сначала убедимся, что мы не вылезем за границы массива
     {
-      addToAddr = (bOpt - WATER_RELAYS_COUNT)*4; // 4 байта в каждой структуре настроек
+      addToAddr = (bOpt - WATER_RELAYS_COUNT)*sizeof(WateringChannelOptions); // 5 байт в каждой структуре настроек
       bOpt = WATER_RELAYS_COUNT;
     }
 
@@ -290,8 +302,17 @@ void GlobalSettings::Load()
       *wrAddr++ = EEPROM.read(readPtr++);
       *wrAddr = EEPROM.read(readPtr++);
       wateringChannelsOptions[i].wateringTime = wTimeHelper;
-      
-      wateringChannelsOptions[i].startWateringTime = EEPROM.read(readPtr++);
+
+      // читаем время начала полива на канале
+      wrAddr = (byte*) &wTimeHelper;
+      *wrAddr++ = EEPROM.read(readPtr++);
+      *wrAddr = EEPROM.read(readPtr++);
+      if(wTimeHelper != 0xFFFF)
+        wateringChannelsOptions[i].startWateringTime = wTimeHelper;    
+      else
+        wateringChannelsOptions[i].startWateringTime = 0;
+        
+     // wateringChannelsOptions[i].startWateringTime = EEPROM.read(readPtr++);
     } // for
     
   } // if(bOpt != 0xFF)
@@ -400,7 +421,10 @@ void GlobalSettings::Save()
   EEPROM.write(addr++,*readAddr);
 
   // сохраняем время начала полива
-   EEPROM.write(addr++,startWateringTime);
+  // EEPROM.write(addr++,startWateringTime);
+  readAddr = (const byte*) &startWateringTime;
+  EEPROM.write(addr++,*readAddr++);
+  EEPROM.write(addr++,*readAddr);
  
   // сохраняем опцию включения насоса при поливе
    EEPROM.write(addr++,turnOnPump);
@@ -416,7 +440,12 @@ void GlobalSettings::Save()
       readAddr = (const byte*) &(wateringChannelsOptions[i].wateringTime);
       EEPROM.write(addr++,*readAddr++);
       EEPROM.write(addr++,*readAddr);
-      EEPROM.write(addr++,wateringChannelsOptions[i].startWateringTime);
+
+      // пишем время начала полива
+//      EEPROM.write(addr++,wateringChannelsOptions[i].startWateringTime);
+      readAddr = (const byte*) &(wateringChannelsOptions[i].startWateringTime);
+      EEPROM.write(addr++,*readAddr++);
+      EEPROM.write(addr++,*readAddr);
    } // for
    #endif
 

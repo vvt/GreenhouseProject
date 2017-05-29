@@ -27,6 +27,27 @@ LABEL {
   margin-top:6px;
 }
 
+.water-channel-button 
+{
+  display: block !important;
+  padding:4px !important;
+  margin-bottom:2px !important;
+}
+
+.water-on
+{
+  color:#00D000 !important;
+}
+.water-off
+{
+  color:coral !important;
+}
+
+.water-intermediate
+{
+  color:lightgray !important;
+}
+
 .popup_sensor_data {
   margin-top:6px;
   font-weight:bold;

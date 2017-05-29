@@ -202,7 +202,8 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
      // если там wateringSeparateChannels - рулим каналами по отдельности, если там wateringOFF - мы не попадём в эту ветку кода.
      
      uint8_t weekDays = currentWateringOption == wateringWeekDays ? settings->GetWateringWeekDays() : settings->GetChannelWateringWeekDays(flags.index);
-     uint8_t startWateringTime = currentWateringOption == wateringWeekDays ? settings->GetStartWateringTime() : settings->GetChannelStartWateringTime(flags.index);
+     // получаем время начала полива, в минутах от начала суток
+     uint16_t startWateringTime = currentWateringOption == wateringWeekDays ? settings->GetStartWateringTime() : settings->GetChannelStartWateringTime(flags.index);
      unsigned long timeToWatering = currentWateringOption == wateringWeekDays ? settings->GetWateringTime() : settings->GetChannelWateringTime(flags.index); // время полива (в минутах!)
 
       // переход через день недели мы фиксируем однократно, поэтому нам важно его не пропустить.
@@ -230,8 +231,9 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
       } // if(savedDayOfWeek != currentTime.dayOfWeek)      
 
 
-    // проверяем, установлен ли у нас день недели для полива, и настал ли час, с которого можно поливать
-    bool canWork = bitRead(weekDays,currentTime.dayOfWeek-1) && (currentTime.hour >= startWateringTime);
+    // проверяем, установлен ли у нас день недели для полива, и настала ли минута, с которого можно поливать
+    uint16_t currentTimeInMinutes = currentTime.hour*60 + currentTime.minute;
+    bool canWork = bitRead(weekDays,currentTime.dayOfWeek-1) && (currentTimeInMinutes >= startWateringTime);
   
     if(!canWork)
      { 
@@ -779,7 +781,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               uint8_t wateringOption = (uint8_t) atoi(command.GetArg(1)); 
               uint8_t wateringWeekDays = (uint8_t) atoi(command.GetArg(2)); 
               uint16_t wateringTime = (uint16_t) atoi(command.GetArg(3)); 
-              uint8_t startWateringTime = (uint8_t) atoi(command.GetArg(4)); 
+              uint16_t startWateringTime = (uint16_t) atoi(command.GetArg(4)); 
               uint8_t turnOnPump = (uint8_t) atoi(command.GetArg(5));
 
               GlobalSettings* settings = MainController->GetSettings();
@@ -841,7 +843,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   // нормальный индекс
                   uint8_t wDays = (uint8_t) atoi(command.GetArg(2));
                   uint16_t wTime =(uint16_t) atoi(command.GetArg(3));
-                  uint8_t sTime = (uint8_t) atoi(command.GetArg(4));
+                  uint16_t sTime = (uint16_t) atoi(command.GetArg(4));
 
                   GlobalSettings* settings = MainController->GetSettings();
                   
