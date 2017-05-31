@@ -844,7 +844,7 @@ Controller.prototype.parseControllerState = function(answer)
               }
 
               // получили показания с датчика, надо их сохранить в список
-              this.PHList.Add(sensorIdx, moduleName, ph, haveSensorData,phMV);
+              this.PHList.Add(sensorIdx, moduleName, ph, haveSensorData,phVoltage);
               
 
            } // for
