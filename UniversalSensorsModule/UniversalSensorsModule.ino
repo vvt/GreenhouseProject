@@ -977,8 +977,17 @@ void ReadPHValue(const SensorSettings& sett, void* sensorDefinedData, struct sen
   float voltage = avgSample*5.0/1024;
         
   // теперь получаем значение pH
-  unsigned long phValue = voltage*350 + calibration;
-    
+  //unsigned long phValue = voltage*350 + calibration;
+  float coeff = 700000/PH_MV_PER_7_PH;
+  unsigned long phValue = voltage*coeff + calibration;
+  
+  #ifdef PH_REVERSIVE_MEASURE
+    // считаем значение pH в условиях реверсивных измерений
+    int16_t rev = phValue - 700; // поскольку у нас 7 pH - это средняя точка, то в условии реверсивных изменений от
+    // средней точки pH (7.0) надо отнять разницу между значением 7 pH и полученным значением, что мы и делаем
+    phValue = 700 - rev;
+   #endif
+             
     if(avgSample > 1000)
     {
       // не прочитали из порта ничего, потому что у нас включена подтяжка к питанию

@@ -141,12 +141,13 @@ SensorMnemonics.prototype.getMnemonicObject = function(sensor)
 //-----------------------------------------------------------------------------------------------------
 // класс для показаний с датчика
 //-----------------------------------------------------------------------------------------------------
-var Sensor = function(idx,module,data,hasData)
+var Sensor = function(idx,module,data,hasData, additionalData)
 {
   this.Index = idx; // индекс датчика
   this.ModuleName = module; // имя модуля, в котором датчик
   this.Data = data; // данные с датчика
   this.HasData = hasData; // флаг, что данные есть
+  this.AdditionalData = additionalData; // дополнительные показания, например, вольтаж с датчика pH
   
   return this;
 }
@@ -178,7 +179,7 @@ SensorsList.prototype.find = function(sensorIdx, moduleName)
   return null;
 }
 //-----------------------------------------------------------------------------------------------------
-SensorsList.prototype.Add = function(sensorIdx, moduleName, data, hasData)
+SensorsList.prototype.Add = function(sensorIdx, moduleName, data, hasData, additionalData)
 {
   var canAdd = true;
   for(var i=0;i<this.List.length;i++)
@@ -189,12 +190,13 @@ SensorsList.prototype.Add = function(sensorIdx, moduleName, data, hasData)
       canAdd = false;
       t.Data = data;
       t.HasData = hasData;
+      t.AdditionalData = additionalData;
       break;
     }
   } // for
   if(canAdd)
   {
-    var t = new Sensor(sensorIdx,moduleName, data, hasData);
+    var t = new Sensor(sensorIdx,moduleName, data, hasData, additionalData);
     this.List.push(t);
   }
 }
@@ -818,11 +820,17 @@ Controller.prototype.parseControllerState = function(answer)
               // затем два байта - его показания
               var val = line.substring(2, 4);
               var fract = line.substring(4, 6);
-              line = line.substring(6);
+              
+              // затем 2 байта - вольтаж в порту
+              var phMV = line.substring(6,10);
+              
+              line = line.substring(10);
 
               // теперь смотрим, есть ли показания с датчика
               var haveSensorData = !(val == "FF" && fract == "FF");
               var ph = "";
+              var phVoltage = "";
+              
               if (haveSensorData)
               {
                   // имеем показания, надо сконвертировать
@@ -831,10 +839,12 @@ Controller.prototype.parseControllerState = function(answer)
                   if (fractVal < 10)
                       ph += "0";
                   ph += '' + fractVal;
+                  
+                  phVoltage = '' + parseInt("0x" + phMV);
               }
 
               // получили показания с датчика, надо их сохранить в список
-              this.PHList.Add(sensorIdx, moduleName, ph, haveSensorData);
+              this.PHList.Add(sensorIdx, moduleName, ph, haveSensorData,phMV);
               
 
            } // for

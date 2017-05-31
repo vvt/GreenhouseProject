@@ -756,12 +756,44 @@ uint8_t OneState::GetRawData(byte* outBuffer)
     case StateTemperature:
     case StateHumidity:
     case StateSoilMoisture:
-    case StatePH:
     {
         Temperature* t = (Temperature*) Data;
         *outBuffer++ = t->Fract;
         *outBuffer = t->Value;
       return 2;
+    }
+
+    case StatePH: // для датчика pH мы теперь возвращаем ещё и подсчитанный вольтах во вторых двух байтах
+    {
+        Temperature* t = (Temperature*) Data;
+        *outBuffer++ = t->Fract;
+        *outBuffer++ = t->Value;
+
+        uint16_t phMV = 0;
+        unsigned long curPH = 0;
+
+        if(HasData())
+        {
+          // есть данные
+          #ifdef PH_REVERSIVE_MEASURE
+            // реверсивное измерение pH
+            curPH  = t->Value*100 + t->Fract;
+            int16_t diff = (700 - curPH);
+            curPH = 700 + diff;
+          #else
+            // прямое измерение pH 
+            curPH  = t->Value*100 + t->Fract;
+          #endif
+          
+          phMV = (PH_MV_PER_7_PH*curPH)/700; // получаем милливольты          
+        }
+
+        // пишем во вторые два байта значение вольтажа
+        byte* rdPtr = (byte*) &phMV;
+        *outBuffer++ = *rdPtr++;
+        *outBuffer = *rdPtr;
+         
+      return 4;
     }
 
     // для освещённости пишем два байта в сырые данные

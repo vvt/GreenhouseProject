@@ -422,7 +422,11 @@ function requestControllerData($controller_id,$address)
                   // затем два байта - его показания
                   $val = substr($line,2, 2);
                   $fract = substr($line,4, 2);
-                  $line = substr($line,6);
+                  // затем два байта - вольтаж, мы его просто игнорируем
+                  $phMV = substr($line,6,4);
+                  
+                  // переходим на следующий датчик
+                  $line = substr($line,10);
 
                   // теперь смотрим, есть ли показания с датчика
                   // теперь смотрим, есть ли показания с датчика

@@ -179,7 +179,13 @@ void PhModule::ApplyCalculation(Temperature* temp)
   curPHVoltage *= 100;
   curPHVoltage += temp->Fract + calibration; // прибавляем сотые доли показаний, плюс сотые доли поправочного числа
   curPHVoltage *= 100;
-  curPHVoltage /= 35; // например, 7,00 pH  сконвертируется в 2000 милливольт
+
+ // у нас есть PH_MV_PER_7_PH 2000 - кол-во милливольт, при  которых датчик показывает 7 pH
+ // следовательно, в этом месте мы должны получить коэффициент 35 (например), который справедлив для значения 2000 mV при 7 pH
+ // путём нехитрой формулы получаем, что коэффициент здесь будет равен 70000/PH_MV_PER_7_PH
+ float coeff = 70000/PH_MV_PER_7_PH;
+  
+  curPHVoltage /= coeff; // например, 7,00 pH  сконвертируется в 2000 милливольт, при значении  PH_MV_PER_7_PH == 2000
 
   #ifdef PH_DEBUG
     PH_DEBUG_OUT(F("curPHVoltage: "), curPHVoltage);
@@ -200,8 +206,12 @@ void PhModule::ApplyCalculation(Temperature* temp)
 
   phDiff = ph7Voltage;
   phDiff -= curPHVoltage;
-  
-  float calibratedPH = 7.0 + phDiff/sensitivity;
+
+  #ifdef PH_REVERSIVE_MEASURE
+  float calibratedPH = 7.0 - phDiff/sensitivity; // реверсивное изменение вольтажа при нарастании pH
+  #else
+  float calibratedPH = 7.0 + phDiff/sensitivity; // прямое изменение вольтажа при нарастании pH
+  #endif
 
   #ifdef PH_DEBUG
     PH_DEBUG_OUT(F("calibratedPH: "), calibratedPH);
@@ -454,11 +464,28 @@ void PhModule::Update(uint16_t dt)
          // теперь преобразуем полученное значение в среднее
          float avgSample = (dataArray*1.0)/samplesDone;
 
-         // теперь считаем вольтаж
-         float voltage = avgSample*5.0/1024;
+          // считаем вольтаж
+          float voltage = avgSample*5.0/1024;
+
   
          // теперь получаем значение pH
-         unsigned long phValue = voltage*350;
+         //unsigned long phValue = voltage*350;
+         // у нас есть PH_MV_PER_7_PH 2000 - кол-во милливольт, при  которых датчик показывает 7 pH
+         // следовательно, в этом месте мы должны получить коэффициент 350 (например), который справедлив для значения 2000 mV при 7 pH
+         // путём нехитрой формулы получаем, что коэффициент здесь будет равен 700000/PH_MV_PER_7_PH
+         float coeff = 700000/PH_MV_PER_7_PH;
+         // и применяем этот коэффициент
+         unsigned long phValue = voltage*coeff;
+         // вышеприведённые подсчёты pH справедливы для случая "больше вольтаж - больше pH",
+         // однако нам надо учесть и реверсивный случай, когда "больше вольтаж - меньше pH".
+        #ifdef PH_REVERSIVE_MEASURE
+          // считаем значение pH в условиях реверсивных измерений
+          int16_t rev = phValue - 700; // поскольку у нас 7 pH - это средняя точка, то в условии реверсивных изменений от
+          // средней точки pH (7.0) надо отнять разницу между значением 7 pH и полученным значением, что мы и делаем
+          phValue = 700 - rev;
+         #endif
+                  
+         
          Humidity h;         
 
          if(avgSample > 1000)
@@ -875,10 +902,40 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
              if(stateHumidity)
              {
                 HumidityPair hp = *stateHumidity;
+
+                // конвертируем текущее значение pH в милливольты
+                // в PH_MV_PER_7_PH - mV при 7.00 pH
+                // в Х - mV при current hH
+                // X = (PH_MV_PER_7_PH*7.00)/current pH
+                // или, в целых числах
+                // X = (PH_MV_PER_7_PH*700)/current pH
+
+                unsigned long curPH = 0;
+                uint16_t phMV = 0;
+
+                if(stateHumidity->HasData())
+                {
+
+                  // надо правильно подсчитать милливольты, в зависимости от типа направления измерений
+                  // (растёт ли вольтаж при увеличении pH или убывает)
+
+                  #ifdef PH_REVERSIVE_MEASURE
+                    // реверсивное измерение pH
+                    curPH  = hp.Current.Value*100 + hp.Current.Fract;
+                    int16_t diff = (700 - curPH);
+                    curPH = 700 + diff;
+                  #else
+                    // прямое измерение pH 
+                    curPH  = hp.Current.Value*100 + hp.Current.Fract;
+                  #endif
+                  
+                  phMV = (PH_MV_PER_7_PH*curPH)/700; // получаем милливольты
+                    
+                }
               
                 if(wantAnswer) 
                 {
-                  PublishSingleton << PARAM_DELIMITER << (hp.Current);
+                  PublishSingleton << PARAM_DELIMITER << (hp.Current) << PARAM_DELIMITER << phMV;
                 }
              } // if
           } // for        
@@ -937,10 +994,38 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
              {
                 PublishSingleton.Status = true;
                 HumidityPair hp = *stateHumidity;
-                
+
+                // конвертируем текущее значение pH в милливольты
+                // в PH_MV_PER_7_PH - mV при 7.00 pH
+                // в Х - mV при current hH
+                // X = (PH_MV_PER_7_PH*7.00)/current pH
+                // или, в целых числах
+                // X = (PH_MV_PER_7_PH*700)/current pH
+
+                unsigned long curPH = 0;
+                uint16_t phMV = 0;
+
+                if(stateHumidity->HasData())
+                {
+                  // надо правильно подсчитать милливольты, в зависимости от типа направления измерений
+                  // (растёт ли вольтаж при увеличении pH или убывает)
+
+                  #ifdef PH_REVERSIVE_MEASURE
+                    // реверсивное измерение pH
+                    curPH  = hp.Current.Value*100 + hp.Current.Fract;
+                    int16_t diff = (700 - curPH);
+                    curPH = 700 + diff;
+                  #else
+                    // прямое измерение pH 
+                    curPH  = hp.Current.Value*100 + hp.Current.Fract;
+                  #endif
+                  
+                  phMV = (PH_MV_PER_7_PH*curPH)/700; // получаем милливольты
+                  
+                }
                 if(wantAnswer)
                 {
-                  PublishSingleton << PARAM_DELIMITER << (hp.Current);
+                  PublishSingleton << PARAM_DELIMITER << (hp.Current) << PARAM_DELIMITER << phMV;
                 }
              } // if
             

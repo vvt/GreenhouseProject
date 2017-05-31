@@ -69,7 +69,7 @@ View.prototype.fillSensorsList = function(parentElement, list, add, pattern)
             var customData = NO_DATA;
             
             if(sensor.HasData)
-              customData = pattern.customColumn(sensor.Data);
+              customData = pattern.customColumn(sensor.Data, sensor.AdditionalData);
         
             var dt = $('<div/>',{'class': 'row_item sensor_data', id: 'data_col2'}).appendTo(row);
             var dataDiv = $('<div/>',{'class': 'sensor_data_float', id : 'data2'}).appendTo(dt);
@@ -120,7 +120,7 @@ View.prototype.fillSensorsList = function(parentElement, list, add, pattern)
             var customData = NO_DATA;
             
             if(sensor.HasData)
-              customData = pattern.customColumn(sensor.Data);
+              customData = pattern.customColumn(sensor.Data, sensor.AdditionalData);
         
             dataCol2.children('#data2').html(customData);
         
@@ -165,12 +165,15 @@ View.prototype.fillSoilMoistureList = function(parentElement)
 //-----------------------------------------------------------------------------------------------------
 View.prototype.fillPHList = function(parentElement)
 {
-  this.fillSensorsList(parentElement,this.Controller.PHList, ' pH', {index : true, module: false, data: true, customColumn : function(data)
+  this.fillSensorsList(parentElement,this.Controller.PHList, ' pH', {index : true, module: false, data: true, customColumn : function(data, additionalData)
   {
+    /*
       var normalizedData = parseFloat(data.replace(/[,]+/g,'.'));
       normalizedData = parseInt((normalizedData * 10000)/35);
       
       return normalizedData + " mV";
+    */
+    return additionalData +  " mV";
   }
   
   });
