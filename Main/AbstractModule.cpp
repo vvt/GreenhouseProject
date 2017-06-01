@@ -763,11 +763,9 @@ uint8_t OneState::GetRawData(byte* outBuffer)
       return 2;
     }
 
-    case StatePH: // для датчика pH мы теперь возвращаем ещё и подсчитанный вольтах во вторых двух байтах
+    case StatePH: // для датчика pH мы теперь возвращаем ещё и подсчитанный вольтаж во вторых двух байтах
     {
         Temperature* t = (Temperature*) Data;
-        *outBuffer++ = t->Fract;
-        *outBuffer++ = t->Value;
 
         uint16_t phMV = 0;
         unsigned long curPH = 0;
@@ -788,10 +786,14 @@ uint8_t OneState::GetRawData(byte* outBuffer)
           phMV = (PH_MV_PER_7_PH*curPH)/700; // получаем милливольты          
         }
 
-        // пишем во вторые два байта значение вольтажа
+        // пишем в первые два байта значение вольтажа, поскольку у нас сырой массив - пишем в обратной последовательности всё
         byte* rdPtr = (byte*) &phMV;
         *outBuffer++ = *rdPtr++;
-        *outBuffer = *rdPtr;
+        *outBuffer++ = *rdPtr;
+
+        // потом пишем показания датчика
+        *outBuffer++ = t->Fract;
+        *outBuffer++ = t->Value;
          
       return 4;
     }
