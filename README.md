@@ -80,6 +80,10 @@
 <img src="screen9.png" hspace='10'/>
 <img src="screen10.png" hspace='10'/>
 <img src="screen11.png" hspace='10'/>
+<img src="screen12.png" hspace='10'/>
+<img src="screen13.png" hspace='10'/>
+<img src="screen14.png" hspace='10'/>
+<img src="screen15.png" hspace='10'/>
 
 </details>
 
