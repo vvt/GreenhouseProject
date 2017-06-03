@@ -213,12 +213,17 @@ function requestControllerData($controller_id,$address)
                           $temp .= "0";
                       $temp .= '' . $fractVal;
                   }
-                  // получили показания с датчика, надо их сохранить в БД
-                  $sql = "INSERT INTO controller_data(controller_id,sensor_type_id,module_id,sensor_index,sensor_data) VALUES($controller_id,$sensor_type_id,$module_id,$sensorIdx,$temp);";
-                  if($SIMULATION)
-                    echo "$sql\n";
-                  else
-                    $dbengine->exec($sql);
+                  
+                  if($moduleName != "0") // игнорируем температуру прибора
+                  {
+                    // получили показания с датчика, надо их сохранить в БД
+                    $sql = "INSERT INTO controller_data(controller_id,sensor_type_id,module_id,sensor_index,sensor_data) VALUES($controller_id,$sensor_type_id,$module_id,$sensorIdx,$temp);";
+                    if($SIMULATION)
+                      echo "$sql\n";
+                    else
+                      $dbengine->exec($sql);
+                      
+                  } // if
                   
               } // for
           } // if($tempPresent)
