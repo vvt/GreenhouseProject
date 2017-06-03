@@ -48,13 +48,6 @@ function addController(id,name,address) {
   controllers.push(newC);
   return newC;
 }
-
-  for(var i=0;i<controllers.length;i++)
-  {
-    var c = controllers[i];
-    setupController(c);
-
-  }
   
  $(document).ready(function(){
  
@@ -77,6 +70,15 @@ function addController(id,name,address) {
 {foreach key=k item=controller from=$controllers}
 addController({$controller.controller_id},'{$controller.controller_name}','{$controller.controller_address}');
 {/foreach}
+
+{literal}
+  for(var i=0;i<controllers.length;i++)
+  {
+    var c = controllers[i];
+    setupController(c);
+
+  }
+{/literal}
 
 </script>
 

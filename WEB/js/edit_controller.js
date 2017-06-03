@@ -165,7 +165,7 @@ function editController(controller_id)
     var old_id = controller.getId();
     var cat_name = $("#controller_name").val();
     var c_addr =  $("#controller_address").val();
-    //var new_id =  $("#edit_controller_id").val();
+    var new_id = old_id;// $("#edit_controller_id").val();
     
     if(cat_name != '' && c_addr != '')
     {

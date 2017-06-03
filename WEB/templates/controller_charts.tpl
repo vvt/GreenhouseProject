@@ -14,7 +14,7 @@
 
 <div class='ui-widget ui-widget-content ui-corner-all padding_around8px' style='margin-bottom:8px;text-align:right;'>
  Показать графики за:
-  <select id='interval_select' onchange="doRequest(this);">
+  <select id='interval_select' onchange="doRequest(this,false);">
     <option value="0">Последний час</option>
     <option value="1" selected>Текущий день</option>
     <option value="2">Последние сутки</option>
@@ -59,7 +59,7 @@ var controller = new Controller({$selected_controller.controller_id},'{$selected
 
 {literal}
 
-function doRequest(obj)
+function doRequest(obj, silentMode)
 {
   var val = parseInt($(obj).val());
   
@@ -91,7 +91,7 @@ function doRequest(obj)
     break;
   }
   
-  requestStatsData(from,to);
+  requestStatsData(from,to,silentMode);
 }
 
 function getTickSize()
@@ -340,12 +340,18 @@ function togglePlot(seriesIdx, checkbox)
 
 var __tabsInited = false;
 
-function requestStatsData(fromDate,toDate)
-{
+function requestStatsData(fromDate,toDate, silentMode)
+{    
+
+  if(silentMode == undefined)
+    silentMode = false;
+    
   var f = parseInt(fromDate.getTime()/1000);
   var t = parseInt(toDate.getTime()/1000);
 
-  $("#data_requested_dialog" ).dialog({
+  if(!silentMode)
+  {
+    $("#data_requested_dialog" ).dialog({
                 dialogClass: "no-close",
                 modal: true,
                 closeOnEscape: false,
@@ -353,10 +359,12 @@ function requestStatsData(fromDate,toDate)
                 resizable: false,
                 buttons: []
               });
+   }
 
   controller.queryServerScript('/x_query_stats.php',{from: f, to: t},function(c,queryResult) {
       
-    $("#data_requested_dialog" ).dialog('close');  
+    if(!silentMode)
+      $("#data_requested_dialog" ).dialog('close');  
       
     $('#series_buttons').show();
     $('#no_data').toggle(!queryResult.data.length);
@@ -369,6 +377,7 @@ function requestStatsData(fromDate,toDate)
     
     plots = new Array();
     datasets = new Object();
+
 
     // теперь назначаем имена датчикам, если они есть в системе
     for(var i=0;i<queryResult.data.length;i++)
@@ -503,9 +512,18 @@ function requestStatsData(fromDate,toDate)
   });
 }
 
+function doPeriodicRequest()
+{
+  // периодическое обновление данных
+  doRequest('#interval_select',true);
+}
+
 controller.OnGetSensorNames = function(c)
 {
   $('#interval_select').trigger('change');
+  
+  // тут можем периодически опрашивать новые данные, раз в минуту
+   window.setInterval(doPeriodicRequest,60000);
 
 };
 

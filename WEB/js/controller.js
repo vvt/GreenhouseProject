@@ -409,7 +409,6 @@ Controller.prototype.updateStatus = function()
         
       }
 
-
       if(obj.OnStatus != null)
         obj.OnStatus(obj);
     }
