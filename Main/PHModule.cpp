@@ -1,6 +1,6 @@
 #include "PHModule.h"
 #include "ModuleController.h"
-#include <EEPROM.h>
+#include "Memory.h"
 #include <Wire.h>
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #define PH_DEBUG_OUT(which, value) {Serial.print((which)); Serial.println((value));}
@@ -299,70 +299,100 @@ void PhModule::SaveSettings()
 {
   uint16_t addr = PH_SETTINGS_EEPROM_ADDR;
 
-  EEPROM.write(addr++,SETT_HEADER1);
-  EEPROM.write(addr++,SETT_HEADER2);
+  MemWrite(addr++,SETT_HEADER1);
+  MemWrite(addr++,SETT_HEADER2);
 
-  EEPROM.write(addr++,phSensorPin);
+  MemWrite(addr++,phSensorPin);
 
   // пишем калибровку
   byte cal[2];
   memcpy(cal,&calibration,2);
-  EEPROM.write(addr++,cal[0]);
-  EEPROM.write(addr++,cal[1]);
+  MemWrite(addr++,cal[0]);
+  MemWrite(addr++,cal[1]);
 
   // пишем вольтаж раствора 4 pH
-  EEPROM.put(addr,ph4Voltage);
-  addr += sizeof(int16_t);   
+  byte* pB = (byte*) &ph4Voltage;
+  for(size_t i=0;i<sizeof(ph4Voltage);i++)
+    MemWrite(addr++,*pB++);
+    
+  //EEPROM.put(addr,ph4Voltage);
+  //addr += sizeof(int16_t);   
 
   // пишем вольтаж раствора 7 pH
-  EEPROM.put(addr,ph7Voltage);
-  addr += sizeof(int16_t);   
+  pB = (byte*) &ph7Voltage;
+  for(size_t i=0;i<sizeof(ph7Voltage);i++)
+    MemWrite(addr++,*pB++);
+    
+  //EEPROM.put(addr,ph7Voltage);
+  //addr += sizeof(int16_t);   
 
   // пишем вольтаж раствора 10 pH
-  EEPROM.put(addr,ph10Voltage);
-  addr += sizeof(int16_t);
+  pB = (byte*) &ph10Voltage;
+  for(size_t i=0;i<sizeof(ph10Voltage);i++)
+    MemWrite(addr++,*pB++);
+      
+  //EEPROM.put(addr,ph10Voltage);
+  //addr += sizeof(int16_t);
 
   // пишем индекс датчика температуры
-  EEPROM.write(addr++,phTemperatureSensorIndex);
+  MemWrite(addr++,phTemperatureSensorIndex);
 
   // пишем показания температуры при калибровке
   cal[0] = phSamplesTemperature.Value;
   cal[1] = phSamplesTemperature.Fract;
 
-  EEPROM.put(addr,cal);
-  addr += 2;
+  //EEPROM.put(addr,cal);
+  //addr += 2;
+  MemWrite(addr++,cal[0]);
+  MemWrite(addr++,cal[1]);
+
+  pB = (byte*) &phTarget;
+  for(size_t i=0;i<sizeof(phTarget);i++)
+    MemWrite(addr++,*pB++);
+    
+//  EEPROM.put(addr,phTarget);
+//  addr += sizeof(phTarget);
+
+  pB = (byte*) &phHisteresis;
+  for(size_t i=0;i<sizeof(phHisteresis);i++)
+    MemWrite(addr++,*pB++);
+
+ // EEPROM.put(addr,phHisteresis);
+//  addr += sizeof(phHisteresis);
+
+  pB = (byte*) &phMixPumpTime;
+  for(size_t i=0;i<sizeof(phMixPumpTime);i++)
+    MemWrite(addr++,*pB++);
+
+ // EEPROM.put(addr,phMixPumpTime);
+ // addr += sizeof(phMixPumpTime);
+
+  pB = (byte*) &phReagentPumpTime;
+  for(size_t i=0;i<sizeof(phReagentPumpTime);i++)
+    MemWrite(addr++,*pB++);
 
 
-  EEPROM.put(addr,phTarget);
-  addr += sizeof(phTarget);
-
-  EEPROM.put(addr,phHisteresis);
-  addr += sizeof(phHisteresis);
-
-  EEPROM.put(addr,phMixPumpTime);
-  addr += sizeof(phMixPumpTime);
-
-  EEPROM.put(addr,phReagentPumpTime);
-  addr += sizeof(phReagentPumpTime);
+//  EEPROM.put(addr,phReagentPumpTime);
+ // addr += sizeof(phReagentPumpTime);
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void PhModule::ReadSettings()
 {
   uint16_t addr = PH_SETTINGS_EEPROM_ADDR;
-  if(EEPROM.read(addr++) != SETT_HEADER1)
+  if(MemRead(addr++) != SETT_HEADER1)
     return;
 
-  if(EEPROM.read(addr++) != SETT_HEADER2)
+  if(MemRead(addr++) != SETT_HEADER2)
     return;
 
-  phSensorPin =  EEPROM.read(addr++); 
+  phSensorPin =  MemRead(addr++); 
   if(phSensorPin == 0xFF)
     phSensorPin = PH_SENSOR_PIN;
 
   byte cal[2];
-  cal[0] = EEPROM.read(addr++);
-  cal[1] = EEPROM.read(addr++);
+  cal[0] = MemRead(addr++);
+  cal[1] = MemRead(addr++);
 
   if(cal[0] == 0xFF && cal[1] == 0xFF) // нет калибровки
     calibration = PH_DEFAULT_CALIBRATION;
@@ -370,23 +400,42 @@ void PhModule::ReadSettings()
     memcpy(&calibration,cal,2); // иначе копируем сохранённую калибровку
 
  // читаем вольтаж раствора 4 pH
-  EEPROM.get(addr,ph4Voltage);
-  addr += sizeof(int16_t);   
+ byte* pB = (byte*) &ph4Voltage;
+ for(size_t i=0;i<sizeof(ph4Voltage);i++)
+ {
+    *pB = MemRead(addr++);
+     pB++;
+ }
+ // EEPROM.get(addr,ph4Voltage);
+//  addr += sizeof(int16_t);   
 
  // читаем вольтаж раствора 7 pH
-  EEPROM.get(addr,ph7Voltage);
-  addr += sizeof(int16_t);   
+  pB = (byte*) &ph7Voltage;
+ for(size_t i=0;i<sizeof(ph7Voltage);i++)
+ {
+    *pB = MemRead(addr++);
+     pB++;
+ }
+
+//  EEPROM.get(addr,ph7Voltage);
+//  addr += sizeof(int16_t);   
 
  // читаем вольтаж раствора 10 pH
-  EEPROM.get(addr,ph10Voltage);
-  addr += sizeof(int16_t);
+  pB = (byte*) &ph10Voltage;
+ for(size_t i=0;i<sizeof(ph10Voltage);i++)
+ {
+    *pB = MemRead(addr++);
+     pB++;
+ }
+ // EEPROM.get(addr,ph10Voltage);
+ // addr += sizeof(int16_t);
 
   // читаем индекс датчика температуры
-  phTemperatureSensorIndex = EEPROM.read(addr++);
+  phTemperatureSensorIndex = MemRead(addr++);
 
   // читаем значение температуры калибровки
-  cal[0] = EEPROM.read(addr++);
-  cal[1] = EEPROM.read(addr++);
+  cal[0] = MemRead(addr++);
+  cal[1] = MemRead(addr++);
 
   // теперь проверяем корректность всех настроек
   if(0xFFFF == (uint16_t) ph4Voltage)
@@ -411,26 +460,57 @@ void PhModule::ReadSettings()
   else
     phSamplesTemperature.Fract = cal[1];
 
-  EEPROM.get(addr,phTarget);
-  addr += sizeof(phTarget);
+
+    pB = (byte*) &phTarget;
+    for(size_t i=0;i<sizeof(phTarget);i++)
+    {
+      *pB = MemRead(addr++);
+       pB++;
+    }
+ 
+ // EEPROM.get(addr,phTarget);
+ // addr += sizeof(phTarget);
   
   if(phTarget == 0xFFFF)
     phTarget = PH_DEFAULT_TARGET;   
 
-  EEPROM.get(addr,phHisteresis);
-  addr += sizeof(phHisteresis);
+    pB = (byte*) &phHisteresis;
+    for(size_t i=0;i<sizeof(phHisteresis);i++)
+    {
+      *pB = MemRead(addr++);
+       pB++;
+    }
+
+//  EEPROM.get(addr,phHisteresis);
+//  addr += sizeof(phHisteresis);
   
   if(phHisteresis == 0xFFFF)
     phHisteresis = PH_DEFAULT_HISTERESIS;   
 
-  EEPROM.get(addr,phMixPumpTime);
-  addr += sizeof(phMixPumpTime);
+    pB = (byte*) &phMixPumpTime;
+    for(size_t i=0;i<sizeof(phMixPumpTime);i++)
+    {
+      *pB = MemRead(addr++);
+       pB++;
+    }
+
+
+//  EEPROM.get(addr,phMixPumpTime);
+//  addr += sizeof(phMixPumpTime);
   
   if(phMixPumpTime == 0xFFFF)
     phMixPumpTime = PH_DEFAULT_MIX_PUMP_TIME;   
 
-  EEPROM.get(addr,phReagentPumpTime);
-  addr += sizeof(phReagentPumpTime);
+    pB = (byte*) &phReagentPumpTime;
+    for(size_t i=0;i<sizeof(phReagentPumpTime);i++)
+    {
+      *pB = MemRead(addr++);
+       pB++;
+    }
+
+
+ // EEPROM.get(addr,phReagentPumpTime);
+ // addr += sizeof(phReagentPumpTime);
   
   if(phReagentPumpTime == 0xFFFF)
     phReagentPumpTime = PH_DEFAULT_REAGENT_PUMP_TIME;   

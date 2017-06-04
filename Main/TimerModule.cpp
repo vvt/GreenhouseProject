@@ -1,6 +1,6 @@
 #include "TimerModule.h"
 #include "ModuleController.h"
-#include <EEPROM.h>
+#include "Memory.h"
 //--------------------------------------------------------------------------------------------------------------------------------
 // PeriodicTimer
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -112,30 +112,41 @@ void PeriodicTimer::Update(uint16_t dt)
 void TimerModule::LoadTimers()
 {
   uint16_t addr = TIMERS_EEPROM_ADDR;
-  if(EEPROM.read(addr++) != SETT_HEADER1)
+  if(MemRead(addr++) != SETT_HEADER1)
     return;
 
-  if(EEPROM.read(addr++) != SETT_HEADER2)
+  if(MemRead(addr++) != SETT_HEADER2)
     return;
 
   // читаем настройки таймеров  
  for(byte i=0;i<NUM_TIMERS;i++)
    {
-       EEPROM.get(addr,timers[i].Settings);
-      addr += sizeof(PeriodicTimerSettings);   
+       byte* pB = (byte*) &(timers[i].Settings);
+       for(size_t k=0;k<sizeof(PeriodicTimerSettings);k++)
+       {
+        *pB = MemRead(addr++);
+        pB++;
+       }
+       //EEPROM.get(addr,timers[i].Settings);
+      //addr += sizeof(PeriodicTimerSettings);   
    } // for  
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void TimerModule::SaveTimers()
 {
   uint16_t addr = TIMERS_EEPROM_ADDR;
-  EEPROM.write(addr++,SETT_HEADER1);
-  EEPROM.write(addr++,SETT_HEADER2);
+  MemWrite(addr++,SETT_HEADER1);
+  MemWrite(addr++,SETT_HEADER2);
 
    for(byte i=0;i<NUM_TIMERS;i++)
    {
-       EEPROM.put(addr,timers[i].Settings);
-      addr += sizeof(PeriodicTimerSettings);   
+       byte* pB = (byte*) &(timers[i].Settings);
+       for(size_t k=0;k<sizeof(PeriodicTimerSettings);k++)
+       {
+        MemWrite(addr++,*pB++);
+       }
+      // EEPROM.put(addr,timers[i].Settings);
+     // addr += sizeof(PeriodicTimerSettings);   
    } // for
 }
 //--------------------------------------------------------------------------------------------------------------------------------

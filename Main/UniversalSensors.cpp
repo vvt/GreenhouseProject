@@ -1,6 +1,6 @@
 #include "UniversalSensors.h"
 #include <OneWire.h>
-#include <EEPROM.h>
+#include "Memory.h"
 #include "InteropStream.h"
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 UniRegDispatcher UniDispatcher;
@@ -1485,27 +1485,27 @@ void UniRegDispatcher::ReadState()
 {
   //Тут читаем последнее запомненное состояние по индексам сенсоров
   uint16_t addr = UNI_SENSOR_INDICIES_EEPROM_ADDR;
-  uint8_t val = EEPROM.read(addr++);
+  uint8_t val = MemRead(addr++);
   if(val != 0xFF)
     currentTemperatureCount = val;
 
-  val = EEPROM.read(addr++);
+  val = MemRead(addr++);
   if(val != 0xFF)
     currentHumidityCount = val;
 
-  val = EEPROM.read(addr++);
+  val = MemRead(addr++);
   if(val != 0xFF)
     currentLuminosityCount = val;
 
-  val = EEPROM.read(addr++);
+  val = MemRead(addr++);
   if(val != 0xFF)
     currentSoilMoistureCount = val;
 
-  val = EEPROM.read(addr++);
+  val = MemRead(addr++);
   if(val != 0xFF)
     rfChannel = val;
 
-  val = EEPROM.read(addr++);
+  val = MemRead(addr++);
   if(val != 0xFF)
     currentPHCount = val;
    
@@ -1588,12 +1588,12 @@ void UniRegDispatcher::SaveState()
 {
   //Тут сохранение текущего состояния в EEPROM
   uint16_t addr = UNI_SENSOR_INDICIES_EEPROM_ADDR;  
-  EEPROM.write(addr++,currentTemperatureCount);
-  EEPROM.write(addr++,currentHumidityCount);
-  EEPROM.write(addr++,currentLuminosityCount);
-  EEPROM.write(addr++,currentSoilMoistureCount);
-  EEPROM.write(addr++,rfChannel);
-  EEPROM.write(addr++,currentPHCount);
+  MemWrite(addr++,currentTemperatureCount);
+  MemWrite(addr++,currentHumidityCount);
+  MemWrite(addr++,currentLuminosityCount);
+  MemWrite(addr++,currentSoilMoistureCount);
+  MemWrite(addr++,rfChannel);
+  MemWrite(addr++,currentPHCount);
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool UniRegDispatcher::GetRegisteredStates(UniSensorType type, uint8_t sensorIndex, UniSensorState& resultStates)

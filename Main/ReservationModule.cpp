@@ -1,6 +1,6 @@
 #include "ReservationModule.h"
 #include "ModuleController.h"
-#include <EEPROM.h>
+#include "Memory.h"
 
 void ReservationModule::Setup()
 {
@@ -16,26 +16,26 @@ void ReservationModule::LoadReservations()
   uint16_t addr = RESERVATION_ADDR;
   
   uint8_t header1, header2;
-  header1 = EEPROM.read(addr++);
-  header2 = EEPROM.read(addr++);
+  header1 = MemRead(addr++);
+  header2 = MemRead(addr++);
 
   if(!(header1 == SETT_HEADER1 && header2 == SETT_HEADER2)) // ничего не сохранено
     return;
 
   // читаем кол-во записей
-  uint8_t cnt = EEPROM.read(addr++);
+  uint8_t cnt = MemRead(addr++);
 
   // теперь читаем все записи
   for(uint8_t i=0;i<cnt;i++)
   {
       ReservationRecord* rec = new ReservationRecord;
-      rec->Type = EEPROM.read(addr++);
-      uint8_t sensorsCount = EEPROM.read(addr++);
+      rec->Type = MemRead(addr++);
+      uint8_t sensorsCount = MemRead(addr++);
 
       for(uint8_t j=0;j<sensorsCount;j++)
       {
         ReservationItem ri;
-        uint8_t raw = EEPROM.read(addr++);
+        uint8_t raw = MemRead(addr++);
         memcpy(&ri,&raw,sizeof(uint8_t));
         
         rec->Items.push_back(ri);
@@ -63,12 +63,12 @@ void ReservationModule::SaveReservations()
   uint16_t addr = RESERVATION_ADDR;
 
   // пишем заголовок
-  EEPROM.write(addr++,SETT_HEADER1);
-  EEPROM.write(addr++,SETT_HEADER2);
+  MemWrite(addr++,SETT_HEADER1);
+  MemWrite(addr++,SETT_HEADER2);
 
   // пишем кол-во записей
   uint8_t cnt = records.size();
-  EEPROM.write(addr++,cnt);
+  MemWrite(addr++,cnt);
 
   // теперь пишем записи
   for(uint8_t i=0;i<cnt;i++)
@@ -76,11 +76,11 @@ void ReservationModule::SaveReservations()
     ReservationRecord* rec = records[i];
 
     // пишем тип записи
-    EEPROM.write(addr++,rec->Type);
+    MemWrite(addr++,rec->Type);
 
     // пишем кол-во датчиков, входящих в список резервирования
     uint8_t sensorsCnt = rec->Items.size();
-    EEPROM.write(addr++,sensorsCnt);
+    MemWrite(addr++,sensorsCnt);
 
     // пишем все датчики
     for(uint8_t j=0;j<sensorsCnt;j++)
@@ -88,7 +88,7 @@ void ReservationModule::SaveReservations()
       ReservationItem it = rec->Items[j];
       uint8_t raw;
       memcpy(&raw,&it,sizeof(uint8_t));
-      EEPROM.write(addr++,raw);
+      MemWrite(addr++,raw);
     } // for
   } // for
   

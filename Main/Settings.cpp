@@ -1,6 +1,6 @@
 #include "Settings.h"
 #include "Globals.h"
-#include <EEPROM.h> 
+#include "Memory.h" 
 
 //  ГЛОБАЛЬНЫЕ НАСТРОЙКИ
 GlobalSettings::GlobalSettings()
@@ -15,8 +15,8 @@ void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, Delt
   uint16_t writeAddr = DELTA_SETTINGS_EEPROM_ADDR;
 
   // записываем заголовок
-  EEPROM.write(writeAddr++,SETT_HEADER1);
-  EEPROM.write(writeAddr++,SETT_HEADER2);
+  MemWrite(writeAddr++,SETT_HEADER1);
+  MemWrite(writeAddr++,SETT_HEADER2);
   
 
   uint8_t deltaCount = 0;
@@ -25,7 +25,7 @@ void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, Delt
   OnDeltaGetCount(deltaCount);
 
   // записываем кол-во дельт
-  EEPROM.write(writeAddr++,deltaCount);
+  MemWrite(writeAddr++,deltaCount);
 
   //теперь пишем дельты
   for(uint8_t i=0;i<deltaCount;i++)
@@ -49,32 +49,32 @@ void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, Delt
   // 1 байт - индекс датчика модуля 1
 
     // пишем тип датчика
-     EEPROM.write(writeAddr++,sensorType);
+     MemWrite(writeAddr++,sensorType);
 
      // пишем длину имени модуля 1
      uint8_t nameLen = name1.length();
-     EEPROM.write(writeAddr++,nameLen);
+     MemWrite(writeAddr++,nameLen);
 
      // пишем имя модуля 1
      const char* namePtr = name1.c_str();
      for(uint8_t idx=0;idx<nameLen; idx++)
-      EEPROM.write(writeAddr++,*namePtr++);
+      MemWrite(writeAddr++,*namePtr++);
 
      // пишем индекс датчика 1
-     EEPROM.write(writeAddr++,sensorIdx1);
+     MemWrite(writeAddr++,sensorIdx1);
 
 
      // пишем длину имени модуля 2
      nameLen = name2.length();
-     EEPROM.write(writeAddr++,nameLen);
+     MemWrite(writeAddr++,nameLen);
 
      // пишем имя модуля 2
      namePtr = name2.c_str();
      for(uint8_t idx=0;idx<nameLen; idx++)
-      EEPROM.write(writeAddr++,*namePtr++);
+      MemWrite(writeAddr++,*namePtr++);
 
      // пишем индекс датчика 2
-     EEPROM.write(writeAddr++,sensorIdx2);
+     MemWrite(writeAddr++,sensorIdx2);
      
     
   } // for
@@ -91,8 +91,8 @@ void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, Delta
   uint16_t readAddr = DELTA_SETTINGS_EEPROM_ADDR;
   uint8_t h1,h2;
   
-  h1 = EEPROM.read(readAddr++);
-  h2 = EEPROM.read(readAddr++);
+  h1 = MemRead(readAddr++);
+  h2 = MemRead(readAddr++);
 
   uint8_t deltaCount = 0;
 
@@ -104,7 +104,7 @@ void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, Delta
   }
 
   // читаем кол-во настроек
-  deltaCount = EEPROM.read(readAddr++);
+  deltaCount = MemRead(readAddr++);
   if(deltaCount == 0xFF) // ничего нет
     deltaCount = 0; // сбрасываем в ноль
     
@@ -126,33 +126,33 @@ void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, Delta
   for(uint8_t i=0;i<deltaCount;i++)
   {
     // читаем тип датчика
-    uint8_t sensorType = EEPROM.read(readAddr++);
+    uint8_t sensorType = MemRead(readAddr++);
 
     // читаем длину имени модуля 1
-    uint8_t nameLen = EEPROM.read(readAddr++);
+    uint8_t nameLen = MemRead(readAddr++);
     
     // резервируем память
     String name1; name1.reserve(nameLen + 1);
     
     // читаем имя модуля 1
     for(uint8_t idx = 0; idx < nameLen; idx++)
-      name1 += (char) EEPROM.read(readAddr++);
+      name1 += (char) MemRead(readAddr++);
 
     // читаем индекс датчика модуля 1
-    uint8_t sensorIdx1 = EEPROM.read(readAddr++);
+    uint8_t sensorIdx1 = MemRead(readAddr++);
 
     // читаем длину имени модуля 2 
-    nameLen = EEPROM.read(readAddr++);
+    nameLen = MemRead(readAddr++);
     
     // резервируем память
     String name2; name2.reserve(nameLen + 1);
 
     // читаем имя модуля 2
     for(uint8_t idx = 0; idx < nameLen; idx++)
-      name2 += (char) EEPROM.read(readAddr++);
+      name2 += (char) MemRead(readAddr++);
 
     // читаем индекс датчика модуля 2
-    uint8_t sensorIdx2 = EEPROM.read(readAddr++);
+    uint8_t sensorIdx2 = MemRead(readAddr++);
 
     // всё прочитали - можем вызывать функцию, нам переданную
     OnDeltaRead(sensorType,name1,sensorIdx1,name2,sensorIdx2);
@@ -181,21 +181,21 @@ void GlobalSettings::ResetToDefault()
 void GlobalSettings::SetControllerID(uint8_t val)
 {
   controllerID = val;
-  EEPROM.write(CONTROLLER_ID_EEPROM_ADDR,controllerID);
+  MemWrite(CONTROLLER_ID_EEPROM_ADDR,controllerID);
 }
 void GlobalSettings::Load()
 {  
   uint16_t readPtr = 0; // сбрасываем указатель чтения на начало памяти
 
   // читаем ID контроллера
-  uint8_t cid = EEPROM.read(CONTROLLER_ID_EEPROM_ADDR);
+  uint8_t cid = MemRead(CONTROLLER_ID_EEPROM_ADDR);
   if(cid != 0xFF)
     controllerID = cid;
 
   // читаем заголовок
   uint8_t h1,h2;
-  h1 = EEPROM.read(readPtr++);
-  h2 = EEPROM.read(readPtr++);
+  h1 = MemRead(readPtr++);
+  h2 = MemRead(readPtr++);
 
   if(!(h1 == SETT_HEADER1 && h2 == SETT_HEADER2)) // ничего нет в памяти
   {
@@ -205,49 +205,49 @@ void GlobalSettings::Load()
   }
   
   // читаем температуру открытия
-  tempOpen = EEPROM.read(readPtr++);
+  tempOpen = MemRead(readPtr++);
 
   // читаем температуру закрытия
-  tempClose = EEPROM.read(readPtr++);
+  tempClose = MemRead(readPtr++);
 
   // читаем интервал работы окон
    byte* wrAddr = (byte*) &openInterval;
   
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr = EEPROM.read(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr = MemRead(readPtr++);
 
   // читаем номер телефона для управления по СМС
-  uint8_t smsnumlen = EEPROM.read(readPtr++);
+  uint8_t smsnumlen = MemRead(readPtr++);
   if(smsnumlen != 0xFF) // есть номер телефона
   {
     for(uint8_t i=0;i<smsnumlen;i++)
-      smsPhoneNumber += (char) EEPROM.read(readPtr++);
+      smsPhoneNumber += (char) MemRead(readPtr++);
   }
 
   // читаем установку контроля за поливом
-  uint8_t bOpt = EEPROM.read(readPtr++);
+  uint8_t bOpt = MemRead(readPtr++);
   if(bOpt != 0xFF) // есть настройка контроля за поливом
   {
     wateringOption = bOpt;
   } // if
   
  // читаем установку дней недели полива
-  bOpt = EEPROM.read(readPtr++);
+  bOpt = MemRead(readPtr++);
   if(bOpt != 0xFF) // есть настройка дней недели
   {
     wateringWeekDays = bOpt;
   } // if
 
   // читаем время полива
-  bOpt = EEPROM.read(readPtr);
+  bOpt = MemRead(readPtr);
   if(bOpt != 0xFF) // есть настройка длительности полива
   {
     // читаем длительность полива
     wrAddr = (byte*) &wateringTime;
-    *wrAddr++ = EEPROM.read(readPtr++);
-    *wrAddr = EEPROM.read(readPtr++);
+    *wrAddr++ = MemRead(readPtr++);
+    *wrAddr = MemRead(readPtr++);
   }
 
   // читаем время начала полива
@@ -255,8 +255,8 @@ void GlobalSettings::Load()
   uint16_t stwtime = 0;
   wrAddr = (byte*) &stwtime;
 
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr = EEPROM.read(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr = MemRead(readPtr++);
 
   if(stwtime != 0xFFFF) // есть время начала полива
   {
@@ -270,14 +270,14 @@ void GlobalSettings::Load()
   */
   
  // читаем , включать ли насос во время полива?
-  bOpt = EEPROM.read(readPtr++);
+  bOpt = MemRead(readPtr++);
   if(bOpt != 0xFF) // есть настройка включение насоса
   {
     turnOnPump = bOpt;
   } // if
 
   // читаем сохранённое кол-во настроек каналов полива
-  bOpt = EEPROM.read(readPtr++);
+  bOpt = MemRead(readPtr++);
   uint8_t addToAddr = 0; // сколько пропустить при чтении каналов, чтобы нормально прочитать следующую настройку.
   // нужно, если сначала скомпилировали с 8 каналами, сохранили настройки из конфигуратора, а потом - перекомпилировали
   // в 2 канала. Нам надо вычитать первые два, а остальные 6 - пропустить, чтобы не покалечить настройки.
@@ -296,17 +296,17 @@ void GlobalSettings::Load()
     
     for(uint8_t i=0;i<bOpt;i++)
     {
-      wateringChannelsOptions[i].wateringWeekDays = EEPROM.read(readPtr++);
+      wateringChannelsOptions[i].wateringWeekDays = MemRead(readPtr++);
       
       wrAddr = (byte*) &wTimeHelper;
-      *wrAddr++ = EEPROM.read(readPtr++);
-      *wrAddr = EEPROM.read(readPtr++);
+      *wrAddr++ = MemRead(readPtr++);
+      *wrAddr = MemRead(readPtr++);
       wateringChannelsOptions[i].wateringTime = wTimeHelper;
 
       // читаем время начала полива на канале
       wrAddr = (byte*) &wTimeHelper;
-      *wrAddr++ = EEPROM.read(readPtr++);
-      *wrAddr = EEPROM.read(readPtr++);
+      *wrAddr++ = MemRead(readPtr++);
+      *wrAddr = MemRead(readPtr++);
       if(wTimeHelper != 0xFFFF)
         wateringChannelsOptions[i].startWateringTime = wTimeHelper;    
       else
@@ -320,32 +320,32 @@ void GlobalSettings::Load()
     // переходим на следующую настройку
      readPtr += addToAddr;
 
-   wifiState = EEPROM.read(readPtr++);
+   wifiState = MemRead(readPtr++);
    if(wifiState != 0xFF) // есть сохраненные настройки Wi-Fi
    {
         // читаем ID точки доступа
         routerID = F("");
-         uint8_t str_len = EEPROM.read(readPtr++);
+         uint8_t str_len = MemRead(readPtr++);
           for(uint8_t i=0;i<str_len;i++)
-            routerID += (char) EEPROM.read(readPtr++);
+            routerID += (char) MemRead(readPtr++);
 
         // читаем пароль к точке доступа
         routerPassword = F("");
-         str_len = EEPROM.read(readPtr++);
+         str_len = MemRead(readPtr++);
           for(uint8_t i=0;i<str_len;i++)
-            routerPassword += (char) EEPROM.read(readPtr++);
+            routerPassword += (char) MemRead(readPtr++);
 
         // читаем название нашей точки доступа
         stationID = F("");
-         str_len = EEPROM.read(readPtr++);
+         str_len = MemRead(readPtr++);
           for(uint8_t i=0;i<str_len;i++)
-            stationID += (char) EEPROM.read(readPtr++);
+            stationID += (char) MemRead(readPtr++);
 
         // читаем пароль к нашей точке доступа
         stationPassword = F("");
-         str_len = EEPROM.read(readPtr++);
+         str_len = MemRead(readPtr++);
           for(uint8_t i=0;i<str_len;i++)
-            stationPassword += (char) EEPROM.read(readPtr++);
+            stationPassword += (char) MemRead(readPtr++);
   }
    else
    {
@@ -360,15 +360,22 @@ void GlobalSettings::Load()
         wifiState = 0; 
    }
 
-   EEPROM.get(readPtr,iotSettings);
-   readPtr += sizeof(iotSettings);
+   byte* pB = (byte*) &iotSettings;
+   for(size_t k=0;k<sizeof(iotSettings);k++)
+   {
+      *pB = MemRead(readPtr++);
+      pB++;
+   }
+
+ //  EEPROM.get(readPtr,iotSettings);
+ //  readPtr += sizeof(iotSettings);
 
    if(!(iotSettings.Header1 == SETT_HEADER1 && iotSettings.Header2 == SETT_HEADER2))
   {
     memset(&iotSettings,0,sizeof(iotSettings));
   }
 
-  gsmProvider = EEPROM.read(readPtr++);
+  gsmProvider = MemRead(readPtr++);
   if(gsmProvider >= Dummy_Last_Op)
     gsmProvider = MTS;
 
@@ -383,116 +390,122 @@ void GlobalSettings::Save()
   uint16_t addr = 0;
 
   // пишем наш заголовок, который будет сигнализировать о наличии сохранённых настроек
-  EEPROM.write(addr++,SETT_HEADER1);
-  EEPROM.write(addr++,SETT_HEADER2);
+  MemWrite(addr++,SETT_HEADER1);
+  MemWrite(addr++,SETT_HEADER2);
 
   // сохраняем температуру открытия
-  EEPROM.write(addr++,tempOpen);
+  MemWrite(addr++,tempOpen);
 
   // сохраняем температуру закрытия
-  EEPROM.write(addr++,tempClose);
+  MemWrite(addr++,tempClose);
 
   // сохраняем интервал работы
   const byte* readAddr = (const byte*) &openInterval;
-  EEPROM.write(addr++,*readAddr++);
-  EEPROM.write(addr++,*readAddr++);
-  EEPROM.write(addr++,*readAddr++);
-  EEPROM.write(addr++,*readAddr);
+  MemWrite(addr++,*readAddr++);
+  MemWrite(addr++,*readAddr++);
+  MemWrite(addr++,*readAddr++);
+  MemWrite(addr++,*readAddr);
 
   // сохраняем номер телефона для управления по смс
   uint8_t smsnumlen = smsPhoneNumber.length();
-  EEPROM.write(addr++,smsnumlen);
+  MemWrite(addr++,smsnumlen);
   
   const char* sms_c = smsPhoneNumber.c_str();
   for(uint8_t i=0;i<smsnumlen;i++)
   {
-    EEPROM.write(addr++, *sms_c++);
+    MemWrite(addr++, *sms_c++);
   }
 
   // сохраняем опцию контроля за поливом
-  EEPROM.write(addr++,wateringOption);
+  MemWrite(addr++,wateringOption);
   
   // сохраняем дни недели для полива
-  EEPROM.write(addr++,wateringWeekDays);
+  MemWrite(addr++,wateringWeekDays);
 
   // сохраняем продолжительность полива
   readAddr = (const byte*) &wateringTime;
-  EEPROM.write(addr++,*readAddr++);
-  EEPROM.write(addr++,*readAddr);
+  MemWrite(addr++,*readAddr++);
+  MemWrite(addr++,*readAddr);
 
   // сохраняем время начала полива
   // EEPROM.write(addr++,startWateringTime);
   readAddr = (const byte*) &startWateringTime;
-  EEPROM.write(addr++,*readAddr++);
-  EEPROM.write(addr++,*readAddr);
+  MemWrite(addr++,*readAddr++);
+  MemWrite(addr++,*readAddr);
  
   // сохраняем опцию включения насоса при поливе
-   EEPROM.write(addr++,turnOnPump);
+   MemWrite(addr++,turnOnPump);
 
    // сохраняем кол-во каналов полива
-   EEPROM.write(addr++,WATER_RELAYS_COUNT);
+   MemWrite(addr++,WATER_RELAYS_COUNT);
 
    // пишем настройки каналов полива
    #if WATER_RELAYS_COUNT > 0
    for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
    {
-      EEPROM.write(addr++,wateringChannelsOptions[i].wateringWeekDays);
+      MemWrite(addr++,wateringChannelsOptions[i].wateringWeekDays);
       readAddr = (const byte*) &(wateringChannelsOptions[i].wateringTime);
-      EEPROM.write(addr++,*readAddr++);
-      EEPROM.write(addr++,*readAddr);
+      MemWrite(addr++,*readAddr++);
+      MemWrite(addr++,*readAddr);
 
       // пишем время начала полива
 //      EEPROM.write(addr++,wateringChannelsOptions[i].startWateringTime);
       readAddr = (const byte*) &(wateringChannelsOptions[i].startWateringTime);
-      EEPROM.write(addr++,*readAddr++);
-      EEPROM.write(addr++,*readAddr);
+      MemWrite(addr++,*readAddr++);
+      MemWrite(addr++,*readAddr);
    } // for
    #endif
 
  // сохраняем настройки Wi-Fi
- EEPROM.write(addr++,wifiState);
+ MemWrite(addr++,wifiState);
 
 // сохраняем ID роутера
   uint8_t str_len = routerID.length();
-  EEPROM.write(addr++,str_len);
+  MemWrite(addr++,str_len);
   
   const char* str_p = routerID.c_str();
   for(uint8_t i=0;i<str_len;i++)
-    EEPROM.write(addr++, *str_p++);
+    MemWrite(addr++, *str_p++);
 
 
  // сохраняем пароль к роутеру
   str_len = routerPassword.length();
-  EEPROM.write(addr++,str_len);
+  MemWrite(addr++,str_len);
   
   str_p = routerPassword.c_str();
   for(uint8_t i=0;i<str_len;i++)
-    EEPROM.write(addr++, *str_p++);
+    MemWrite(addr++, *str_p++);
 
  // сохраняем название нашей точки доступа
   str_len = stationID.length();
-  EEPROM.write(addr++,str_len);
+  MemWrite(addr++,str_len);
   
   str_p = stationID.c_str();
   for(uint8_t i=0;i<str_len;i++)
-    EEPROM.write(addr++, *str_p++);
+    MemWrite(addr++, *str_p++);
 
  // сохраняем пароль к нашей точке доступа
   str_len = stationPassword.length();
-  EEPROM.write(addr++,str_len);
+  MemWrite(addr++,str_len);
   
   str_p = stationPassword.c_str();
   for(uint8_t i=0;i<str_len;i++)
-    EEPROM.write(addr++, *str_p++);
+    MemWrite(addr++, *str_p++);
 
    iotSettings.Header1 = SETT_HEADER1;
    iotSettings.Header2 = SETT_HEADER2;
 
-   EEPROM.put(addr,iotSettings);
-   addr += sizeof(iotSettings);
+    byte* pB = (byte*) &iotSettings;
+    for(size_t k=0;k<sizeof(iotSettings);k++)
+    {
+      MemWrite(addr++,*pB++);
+    }
+  
+   //EEPROM.put(addr,iotSettings);
+   //addr += sizeof(iotSettings);
 
 
-  EEPROM.write(addr++,gsmProvider);
+  MemWrite(addr++,gsmProvider);
   
   // сохраняем другие настройки!
 

@@ -9,6 +9,12 @@
 #include "ModuleController.h"
 #include "AlertModule.h"
 #include "ZeroStreamListener.h"
+#include "Memory.h"
+
+
+#ifdef USE_HTTP_MODULE
+#include "HttpModule.h"
+#endif
 
 #ifdef USE_PIN_MODULE
 #include "PinModule.h"
@@ -125,6 +131,11 @@ TempSensors tempSensors;
 #ifdef USE_IOT_MODULE
 // модуль отсыла данных на внешние IoT-хранилища
 IoTModule iotModule; 
+#endif
+
+#ifdef USE_HTTP_MODULE
+// модуль проверки на наличие входящих команд
+HttpModule httpModule;
 #endif
 
 #ifdef USE_SMS_MODULE
@@ -272,7 +283,7 @@ void WIFI_EVENT_FUNC()
         }
           
         wifiModule.ProcessAnswerLine(*wiFiReceiveBuff);
-        //wiFiReceiveBuff = F("");
+
         delete wiFiReceiveBuff;
         wiFiReceiveBuff = new String();
     }
@@ -281,7 +292,8 @@ void WIFI_EVENT_FUNC()
         if(wifiModule.WaitForDataWelcome && ch == '>') // ждут команду >
         {
           wifiModule.WaitForDataWelcome = false;
-          wifiModule.ProcessAnswerLine(F(">"));
+          String s = F(">");
+          wifiModule.ProcessAnswerLine(s);
         }
         else
           *wiFiReceiveBuff += ch;
@@ -316,6 +328,9 @@ AlertModule alertsModule;
 
 void setup() 
 { 
+  // инициализируем память (EEPROM не надо, а вот I2C - надо)
+  MemInit();
+  
   Serial.begin(SERIAL_BAUD_RATE); // запускаем Serial на нужной скорости
 
   WORK_STATUS.PinMode(0,INPUT,false);
@@ -420,6 +435,10 @@ void setup()
 
   #ifdef USE_IOT_MODULE
     controller.RegisterModule(&iotModule);
+  #endif
+
+  #ifdef USE_HTTP_MODULE
+    controller.RegisterModule(&httpModule);
   #endif
   
  // модуль алертов регистрируем последним, т.к. он должен вычитать зависимости с уже зарегистрированными модулями

@@ -18,6 +18,9 @@
 #include "LogModule.h"
 #endif
 
+#include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
+
+
 #include <SD.h>
 
 class AbstractModule; // forward declaration
@@ -36,6 +39,8 @@ class ModuleController
   GlobalSettings settings; // глобальные настройки
 
   ReservationResolver* reservationResolver; // держатель списков резервирования
+
+  HTTPQueryProvider* httpQueryProvider;
 
 #ifdef USE_DS3231_REALTIME_CLOCK
   DS3231Clock _rtc; // часы реального времени
@@ -103,6 +108,9 @@ public:
 
   void SetCommandParser(CommandParser* c) {cParser = c;};
   CommandParser* GetCommandParser() {return cParser;}
+
+  HTTPQueryProvider* GetHTTPProvider() {return httpQueryProvider; }
+  void SetHTTPProvider(HTTPQueryProvider* prov) {httpQueryProvider = prov; }
 
   void Alarm(AlertRule* rule); // обработчик тревог
   #ifdef USE_ALARM_DISPATCHER

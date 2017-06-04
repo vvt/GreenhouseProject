@@ -9,11 +9,12 @@
 #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
 #include "IoT.h"
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------
+#include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
+//--------------------------------------------------------------------------------------------------------------------------------
 #define MAX_WIFI_CLIENTS 4 // максимальное кол-во клиентов
 #define WIFI_PACKET_LENGTH 2048 // по скольку байт в пакете отсылать данные
-
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   /*0*/  wfaIdle, // пустое состояние
@@ -38,6 +39,11 @@ typedef enum
   /*16*/ wfaActualSendIoTData, // актуальный отсыл данных в IoT
   /*17*/ wfaCloseIoTConnection, // закрываем соединение
 #endif
+
+  /*18*/ wfaStartHTTPSend, // начинаем запрос HTTP
+  /*19*/ wfaStartSendHTTPData, // начинаем отсылать данные по HTTP
+  /*20*/ wfaCloseHTTPConnection, // закрываем HTTP-соединение
+  /*21*/ wfaActualSendHTTPData, // актуальный отсыл данных HTTP-запроса
   
 } WIFIActions;
 
@@ -49,8 +55,10 @@ typedef struct
   bool inSendData : 1; 
   bool isAnyAnswerReceived : 1;
   bool inRebootMode : 1;
-  bool wantIoTToProcess : 1;
-  byte pad : 4;
+  bool wantIoTToProcess : 1; // нас попросили отправить данные в IoT
+  bool wantHTTPRequest : 1; // нас попросили запросить URI по HTTP и получить ответ
+  bool inHTTPRequestMode: 1; // мы в процессе работы с HTTP-запросом
+  byte pad : 2;
       
 } WiFiModuleFlags;
 
@@ -58,10 +66,15 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
 , public IoTGate
 #endif
+, public HTTPQueryProvider
 {
   private:
 
     WiFiModuleFlags flags;
+
+    HTTPRequestHandler* httpHandler; // интерфейс перехватчика работы с HTTP-запросами
+    String* httpData; // данные для отсыла по HTTP
+    void EnsureHTTPProcessed(uint16_t statusCode); // убеждаемся, что мы сообщили вызывающей стороне результат запроса по HTTP
     
     long needToWaitTimer; // таймер ожидания до запроса следующей команды   
     unsigned long sendCommandTime, answerWaitTimer;
@@ -104,12 +117,15 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
     void Setup();
     void Update(uint16_t dt);
 
-    void ProcessAnswerLine(const String& line);
+    void ProcessAnswerLine(String& line);
     volatile bool WaitForDataWelcome; // флаг, что мы ждём приглашения на отсыл данных - > (плохое ООП, негодное :) )
 
 #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
     virtual void SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone);
-#endif    
+#endif 
+
+  virtual bool CanMakeQuery(); // тестирует, может ли модуль сейчас сделать запрос
+  virtual void MakeQuery(HTTPRequestHandler* handler); // начинаем запрос по HTTP
 
 };
 

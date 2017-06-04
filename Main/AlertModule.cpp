@@ -1,6 +1,6 @@
 #include "AlertModule.h"
 #include "ModuleController.h"
-#include <EEPROM.h>
+#include "Memory.h"
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertModule* RulesDispatcher = NULL;
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -643,16 +643,20 @@ uint8_t AlertRule::Save(uint16_t writeAddr) // сохраняем себя в EE
   uint16_t curWriteAddr = writeAddr;
 
   // сохраняем настройки
-  EEPROM.put(curWriteAddr,Settings);
-  curWriteAddr += sizeof(Settings);
+  byte* bPtr = (byte*) &Settings;
+  for(size_t i=0;i<sizeof(Settings);i++)
+    MemWrite(curWriteAddr++,*bPtr++);
+    
+  //EEPROM.put(curWriteAddr,Settings);
+  //curWriteAddr += sizeof(Settings);
 
   // затем пишем индексы связанных правил
   uint8_t cnt = linkedRulesIndices.size();
-  EEPROM.write(curWriteAddr++,cnt);
+  MemWrite(curWriteAddr++,cnt);
 
   for(uint8_t i=0;i<cnt;i++)
   {
-    EEPROM.write(curWriteAddr++,linkedRulesIndices[i]);
+    MemWrite(curWriteAddr++,linkedRulesIndices[i]);
   } // for
 
   // затем смотрим: если у нас команда commandUnparsed и есть сама команда - то пишем её
@@ -661,10 +665,10 @@ uint8_t AlertRule::Save(uint16_t writeAddr) // сохраняем себя в EE
       if(rawCommand)
       {
         uint8_t len = strlen(rawCommand);
-        EEPROM.write(curWriteAddr++,len);
+        MemWrite(curWriteAddr++,len);
         for(uint8_t i=0;i<len;i++)
         {
-          EEPROM.write(curWriteAddr++,rawCommand[i]);
+          MemWrite(curWriteAddr++,rawCommand[i]);
         }
       }
   } // if
@@ -682,21 +686,28 @@ uint8_t AlertRule::Load(uint16_t readAddr)
   delete[] rawCommand; rawCommand = NULL;
 
   // сначала читаем настройки
-  EEPROM.get(curReadAddr,Settings);
-  curReadAddr += sizeof(Settings);
+  byte* bSettPtr = (byte*) &Settings;
+  for(size_t i=0;i<sizeof(Settings);i++)
+  {
+    *bSettPtr = MemRead(curReadAddr++);
+    bSettPtr++;
+  }
+    
+  //EEPROM.get(curReadAddr,Settings);
+  //curReadAddr += sizeof(Settings);
 
   // потом читаем индексы связанных правил
-  uint8_t cnt = EEPROM.read(curReadAddr++);
+  uint8_t cnt = MemRead(curReadAddr++);
   for(uint8_t i=0;i<cnt;i++)
-    linkedRulesIndices.push_back(EEPROM.read(curReadAddr++));
+    linkedRulesIndices.push_back(MemRead(curReadAddr++));
 
   // затем смотрим: если у нас команда commandUnparsed и есть сама команда - то читаем её
   if(Settings.TargetCommandType == commandUnparsed)
   {
-      uint8_t len = EEPROM.read(curReadAddr++);
+      uint8_t len = MemRead(curReadAddr++);
       rawCommand = new char[len+1];
       for(uint8_t i=0;i<len;i++)
-        rawCommand[i] = EEPROM.read(curReadAddr++);
+        rawCommand[i] = MemRead(curReadAddr++);
 
       rawCommand[len] = 0;
   } // if
@@ -964,30 +975,30 @@ void AlertModule::LoadRules() // читаем настройки из EEPROM
 
   // сначала читаем заголовок
   uint8_t h1, h2;
-  h1 = EEPROM.read(readAddr++);
-  h2 = EEPROM.read(readAddr++);
+  h1 = MemRead(readAddr++);
+  h2 = MemRead(readAddr++);
 
   if(!(h1 == RULE_SETT_HEADER1 && h2 == RULE_SETT_HEADER2)) // ничего не записано
     return;
 
   ClearParams(); // очищаем параметры
   // потом читаем кол-во сохранённых имён правил
-  uint8_t namesCnt = EEPROM.read(readAddr++);
+  uint8_t namesCnt = MemRead(readAddr++);
 
   // потом читаем имена правил
   for(uint8_t i=0;i<namesCnt;i++)
   {
-      uint8_t len = EEPROM.read(readAddr++);
+      uint8_t len = MemRead(readAddr++);
       char* param = new char[len+1];
       for(uint8_t j=0;j<len;j++)
-        param[j] = EEPROM.read(readAddr++);
+        param[j] = MemRead(readAddr++);
 
        param[len] = 0;
        paramsArray.push_back(param);
   } // for
   
   // потом читаем количество правил
- rulesCnt = EEPROM.read(readAddr++);
+ rulesCnt = MemRead(readAddr++);
 
   if(rulesCnt > MAX_ALERT_RULES)
     rulesCnt = MAX_ALERT_RULES;
@@ -1017,27 +1028,27 @@ void AlertModule::SaveRules() // сохраняем настройки в EEPROM
   uint16_t writeAddr = EEPROM_RULES_START_ADDR; // пишем с этого смещения
 
   // сначала пишем заголовок
-  EEPROM.write(writeAddr++,RULE_SETT_HEADER1);
-  EEPROM.write(writeAddr++,RULE_SETT_HEADER2);
+  MemWrite(writeAddr++,RULE_SETT_HEADER1);
+  MemWrite(writeAddr++,RULE_SETT_HEADER2);
 
   // потом пишем кол-во сохранённых имён правил
-  EEPROM.write(writeAddr++,(uint8_t)paramsArray.size());
+  MemWrite(writeAddr++,(uint8_t)paramsArray.size());
 
   // потом пишем все сохранённые имена правил
   for(size_t i=0;i<paramsArray.size();i++)
   {
     char* param = paramsArray[i];
     uint8_t len = strlen(param);
-    EEPROM.write(writeAddr++,len);
+    MemWrite(writeAddr++,len);
     while(*param)
     {
-      EEPROM.write(writeAddr++,*param);
+      MemWrite(writeAddr++,*param);
       param++;
     }
   }
   
   // потом пишем количество правил
-  EEPROM.write(writeAddr++,rulesCnt);
+  MemWrite(writeAddr++,rulesCnt);
 
   // потом пишем правила
   for(uint8_t i=0;i<rulesCnt;i++)

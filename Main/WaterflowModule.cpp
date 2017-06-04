@@ -1,7 +1,7 @@
 #include "WaterflowModule.h"
 #include "ModuleController.h"
 #include "Globals.h"
-#include <EEPROM.h>
+#include "Memory.h"
 
 #if WATERFLOW_SENSORS_COUNT > 0
 volatile unsigned int pin2FlowPulses; // зафиксированные срабатывания датчика Холла на пине 2
@@ -45,10 +45,10 @@ void WaterflowModule::Setup()
    byte* wrAddr = (byte*) &tmp;
    uint16_t readPtr = WATERFLOW_EEPROM_ADDR;
   
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr = EEPROM.read(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr = MemRead(readPtr++);
 
   if(*wrAddr != 0xFF)
   {
@@ -60,10 +60,10 @@ void WaterflowModule::Setup()
   tmp = 0;
   wrAddr = (byte*) &tmp;
   
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr++ = EEPROM.read(readPtr++);
-  *wrAddr = EEPROM.read(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr++ = MemRead(readPtr++);
+  *wrAddr = MemRead(readPtr++);
 
   if(*wrAddr != 0xFF)
   {
@@ -72,8 +72,8 @@ void WaterflowModule::Setup()
   }
 
   // теперь читаем факторы калибровки
-  pin2Flow.calibrationFactor = EEPROM.read(readPtr++);
-  pin3Flow.calibrationFactor = EEPROM.read(readPtr++);
+  pin2Flow.calibrationFactor = MemRead(readPtr++);
+  pin3Flow.calibrationFactor = MemRead(readPtr++);
 
   // если ничего не сохранено - назначаем фактор калибровки по умолчанию
   if(pin2Flow.calibrationFactor == 0xFF)
@@ -135,10 +135,10 @@ void WaterflowModule::UpdateFlow(WaterflowStruct* wf,unsigned int delta, unsigne
         unsigned long toWrite = wf->totalLitres;
           
         const byte* readAddr = (const byte*) &toWrite;
-        EEPROM.write(addr++,*readAddr++);
-        EEPROM.write(addr++,*readAddr++);
-        EEPROM.write(addr++,*readAddr++);
-        EEPROM.write(addr++,*readAddr);
+        MemWrite(addr++,*readAddr++);
+        MemWrite(addr++,*readAddr++);
+        MemWrite(addr++,*readAddr++);
+        MemWrite(addr++,*readAddr);
 
     }
   
@@ -228,8 +228,8 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
                   
                   uint16_t addr = WATERFLOW_EEPROM_ADDR + sizeof(unsigned long)*2;
                   
-                  EEPROM.write(addr++,pin2Flow.calibrationFactor);
-                  EEPROM.write(addr++,pin3Flow.calibrationFactor);
+                  MemWrite(addr++,pin2Flow.calibrationFactor);
+                  MemWrite(addr++,pin3Flow.calibrationFactor);
 
                   PublishSingleton.Status = true;
                   if(wantAnswer)
@@ -243,7 +243,7 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
             // сбросить показания датчиков расхода
             uint16_t addr = WATERFLOW_EEPROM_ADDR;
             for(byte i=0;i<sizeof(unsigned long)*2;i++)
-              EEPROM.write(addr++,0xFF);
+              MemWrite(addr++,0xFF);
 
               pin2Flow.totalLitres = 0;
               pin3Flow.totalLitres = 0;

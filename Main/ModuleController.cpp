@@ -13,6 +13,7 @@ ModuleController::ModuleController() : cParser(NULL)
 #endif
 {
   reservationResolver = NULL;
+  httpQueryProvider = NULL;
   PublishSingleton.Text.reserve(SHARED_BUFFER_LENGTH); // 500 байт для ответа от модуля должно хватить.
 }
 #ifdef USE_DS3231_REALTIME_CLOCK

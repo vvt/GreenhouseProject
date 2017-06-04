@@ -1,6 +1,6 @@
 #include "WateringModule.h"
 #include "ModuleController.h"
-#include <EEPROM.h>
+#include "Memory.h"
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LOG_MODULE
 #include <SD.h> // пробуем записать статус полива не только в EEPROM, но и на SD-карту, если LOG-модуль есть в прошивке
@@ -296,12 +296,12 @@ void WateringChannel::DoLoadState(byte addressOffset)
     // мы читаем 5 байт на канал, поэтому вычисляем адрес очень просто - по смещению addressOffset, в котором находится индекс канала
     volatile uint16_t curReadAddr = WATERING_STATUS_EEPROM_ADDR + addressOffset*5;
 
-    savedDOW = EEPROM.read(curReadAddr++);
+    savedDOW = MemRead(curReadAddr++);
 
-    *writeAddr++ = EEPROM.read(curReadAddr++);
-    *writeAddr++ = EEPROM.read(curReadAddr++);
-    *writeAddr++ = EEPROM.read(curReadAddr++);
-    *writeAddr = EEPROM.read(curReadAddr++);
+    *writeAddr++ = MemRead(curReadAddr++);
+    *writeAddr++ = MemRead(curReadAddr++);
+    *writeAddr++ = MemRead(curReadAddr++);
+    *writeAddr = MemRead(curReadAddr++);
 
     if(savedDOW != 0xFF && savedWorkTime != 0xFFFFFFFF) // есть сохранённое время работы канала на сегодня
     {
@@ -342,13 +342,13 @@ void WateringChannel::DoSaveState(byte addressOffset)
     uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR + addressOffset*5; // адрес записи
     
     // сохраняем в EEPROM день недели, для которого запомнили значение таймера
-    EEPROM.write(wrAddr++,today);
+    MemWrite(wrAddr++,today);
     
     // сохраняем в EEPROM значение таймера канала
     unsigned long ttw = timeToWatering*60000; // запишем полное время полива на сегодня
     byte* readAddr = (byte*) &ttw;
     for(int i=0;i<4;i++)
-      EEPROM.write(wrAddr++,*readAddr++);
+      MemWrite(wrAddr++,*readAddr++);
     
  #else
     WTR_LOG(F("[WTR] - NO state for channel - no realtime clock!\r\n"));
@@ -623,7 +623,7 @@ void WateringModule::ResetChannelsState()
   uint8_t bytes_to_write = 5 + WATER_RELAYS_COUNT*5;
   
   for(uint8_t i=0;i<bytes_to_write;i++)
-    EEPROM.write(wrAddr++,0); // для каждого канала по отдельности  
+    MemWrite(wrAddr++,0); // для каждого канала по отдельности  
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void WateringModule::TurnChannelsOff() // выключает все каналы

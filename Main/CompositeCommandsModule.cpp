@@ -1,6 +1,6 @@
 #include "CompositeCommandsModule.h"
 #include "ModuleController.h"
-#include <EEPROM.h>
+#include "Memory.h"
 #include "InteropStream.h"
 
 void CompositeCommandsModule::Setup()
@@ -32,7 +32,7 @@ void CompositeCommandsModule::LoadCommands()
   
   uint16_t addr = COMPOSITE_COMMANDS_START_ADDR;
   // читаем кол-во команд
-  uint8_t cnt = EEPROM.read(addr++);
+  uint8_t cnt = MemRead(addr++);
   
   if(cnt == 0xFF) // ничего не сохранено
     return;
@@ -42,7 +42,7 @@ void CompositeCommandsModule::LoadCommands()
   {
     // для каждой команды читаем кол-во дочерних
       CompositeCommands* newCmds = new CompositeCommands;
-      uint8_t childCount = EEPROM.read(addr++);
+      uint8_t childCount = MemRead(addr++);
 
     // последовательно читаем дочерние команды
     for(uint8_t j=0;j<childCount;j++)
@@ -50,10 +50,10 @@ void CompositeCommandsModule::LoadCommands()
       // для каждой команды читаем
       CompositeCommand* childCommand = new CompositeCommand;
       // тип действия
-      childCommand->command = EEPROM.read(addr++);
+      childCommand->command = MemRead(addr++);
       
       // дополнительные параметры
-      childCommand->data = EEPROM.read(addr++);
+      childCommand->data = MemRead(addr++);
       // и помещаем её в список команд для команды
       newCmds->Commands.push_back(childCommand);
       
@@ -73,7 +73,7 @@ void CompositeCommandsModule::SaveCommands()
     
     size_t cnt = commands.size();
   // сначала пишем кол-во команд
-    EEPROM.write(addr++,(uint8_t)cnt);
+    MemWrite(addr++,(uint8_t)cnt);
     
     for(size_t i=0;i<cnt;i++)
     {
@@ -81,16 +81,16 @@ void CompositeCommandsModule::SaveCommands()
         CompositeCommands* cCommands = commands[i];
         // кол-во её дочерних команд
         size_t child_cnt = cCommands->Commands.size();
-        EEPROM.write(addr++,(uint8_t)child_cnt);
+        MemWrite(addr++,(uint8_t)child_cnt);
         // и дочерние команды
         for(size_t j=0;j<child_cnt;j++)
         {
           // для каждой дочерней пишем
           CompositeCommand* child = cCommands->Commands[j];
           // действие
-          EEPROM.write(addr++,child->command);
+          MemWrite(addr++,child->command);
           // дополнительные параметры
-          EEPROM.write(addr++,child->data);
+          MemWrite(addr++,child->data);
         } // for
     } // for
     
