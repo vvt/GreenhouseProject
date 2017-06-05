@@ -114,8 +114,6 @@ void WiFiModule::ProcessAnswerLine(String& line)
  #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
     currentAction != wfaActualSendIoTData &&  // если мы не в процессе отсыла данных в IoT
 #endif
-
-  //  !flags.inHTTPRequestMode && // если мы не в режиме работы с HTTP-запросом на наличие команд
    
     line.startsWith(F("+IPD")))
   {
@@ -1138,7 +1136,6 @@ void WiFiModule::ProcessQueue()
         WIFI_DEBUG_WRITE(F("Restart the ESP..."),currentAction);
       #endif
       SendCommand(F("AT+RST"));
-      //SendCommand(F("AT+GMR"));
       }
       break;
 
@@ -1159,7 +1156,6 @@ void WiFiModule::ProcessQueue()
         WIFI_DEBUG_WRITE(F("Disable echo..."),currentAction);
       #endif
       SendCommand(F("ATE0"));
-      //SendCommand(F("AT+GMR"));
       //SendCommand(F("AT+CIOBAUD=230400")); // переводим на другую скорость
       }
       break;

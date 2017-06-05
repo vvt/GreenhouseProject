@@ -7,7 +7,7 @@
 TCPClient::TCPClient()
 {
   state.isConnected = false;
-  commandHolder = new String();//F("");
+  commandHolder = new String();
   cachedData = new String();
   state.hasFullCommand = false; 
   Clear();
@@ -28,7 +28,7 @@ void TCPClient::Clear()
   packetsLeft = 0;
   packetsSent = 0;
   sentContentLength = 0;
-  //cachedData = F("");
+
   delete cachedData;
   cachedData = new String();
 }
@@ -38,7 +38,7 @@ void TCPClient::Update()
   {
     // есть полная команда, надо её обработать
     Prepare(commandHolder->c_str()); 
-    //commandHolder = F(""); // подготавливаем команду
+    // подготавливаем команду
     delete commandHolder;
     commandHolder = new String();
 
@@ -229,7 +229,6 @@ bool TCPClient::SendPacket(Stream* s)
     {
        // длина оставшихся к отсылу данных больше, чем размер одного пакета.
        // поэтому можем отсылать пакет целиком, предварительно его сформировав.
-     //  String str = cachedData.substring(0,nextPacketLength);
        s->write(cachedData->c_str(),nextPacketLength); // пишем данные в поток
        *cachedData = cachedData->substring(nextPacketLength);
        
@@ -241,7 +240,7 @@ bool TCPClient::SendPacket(Stream* s)
       uint16_t dataLeft = nextPacketLength - cachedData->length();
 
       s->write(cachedData->c_str(),cachedData->length()); // пишем данные в поток
-      //cachedData = F("");
+
       delete cachedData;
       cachedData = new String();
 

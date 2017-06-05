@@ -158,7 +158,6 @@ void HttpModule::OnAskForData(String* data)
     
    } // switch
   
-  //*data = F("GET /check_commands.php HTTP/1.1\r\nHost: gh-local.ru\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
@@ -451,7 +450,7 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
 
   if(flags.currentAction == HTTP_REPORT_TO_SERVER)
   {
-    // после каждого репорта дадим поработать дугим командам
+    // после каждого репорта дадим поработать другим командам
     waitTimer = 5000;
   }
   
@@ -516,7 +515,7 @@ void HttpModule::Update(uint16_t dt)
         
     commandsCheckTimer = 0;
 
-    //TODO: Тут актуальное получение API KEY из настроек !!!
+    // получаем API KEY из настроек
     String apyKey = MainController->GetSettings()->GetHTTPApiKey();
     
     if(apyKey.length()) // только если ключ есть в настройках
