@@ -124,7 +124,11 @@ class TempSensors : public AbstractModule // модуль опроса темп�
     void SetWorkMode(uint8_t m) {workMode = m;}
 
     void SaveChannelState(uint8_t channel, uint8_t state); // сохраняем состояние каналов
+    
+    bool IsWindowOpen(uint8_t windowNumber); // сообщает, открывается или открыто ли нужное окно
 
 };
+
+extern TempSensors* WindowModule; // тут будет лежать указатель на класс диспетчера окон, чтобы его публичные методы можно было дёргать напрямую
 
 #endif

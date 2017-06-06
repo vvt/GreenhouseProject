@@ -137,6 +137,7 @@ const unsigned char WINDOW_ICON[] U8G_PROGMEM = {
 0x00,0x00
  };
 #endif
+
 #ifdef USE_WATERING_MODULE
 const unsigned char WATERING_ICON[] U8G_PROGMEM = {
 0x00,0x00,
@@ -155,6 +156,48 @@ const unsigned char WATERING_ICON[] U8G_PROGMEM = {
 0xC0,0x03,
 0x00,0x00,
 0x00,0x00
+ };
+#endif
+
+#if defined(USE_WATERING_MODULE) && defined(WATER_CHANNELS_SCREEN_ENABLED)
+const unsigned char WATERING_CHANNELS_ICON[] U8G_PROGMEM = {
+0X00,0X00,
+0X00,0X00,
+0X60,0X30,
+0X60,0X38,
+0X60,0X28,
+0XF0,0X2C,
+0XB8,0X3D,
+0X78,0X21,
+0X7C,0X03,
+0XFC,0X02,
+0X7C,0X03,
+0X7C,0X03,
+0XF8,0X01,
+0XF0,0X00,
+0X00,0X00,
+0X00,0X00
+ };
+#endif
+
+#if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
+const unsigned char WINDOWS_CHANNELS_ICON[] U8G_PROGMEM = {
+0X00,0X00,
+0X00,0X00,
+0XFC,0X3F,
+0X04,0X22,
+0X04,0X22,
+0XF4,0X22,
+0X14,0X3E,
+0XF4,0X22,
+0X84,0X22,
+0X94,0X22,
+0XF4,0X22,
+0X04,0X22,
+0X04,0X22,
+0XFC,0X3F,
+0X00,0X00,
+0X00,0X00,
  };
 #endif
 
@@ -296,6 +339,7 @@ class WindowMenuItem : public AbstractLCDMenuItem // класс меню упр�
   
 };
 #endif
+
 #ifdef USE_WATERING_MODULE
 class WateringMenuItem : public AbstractLCDMenuItem // класс меню управления поливом
 {
@@ -306,6 +350,40 @@ class WateringMenuItem : public AbstractLCDMenuItem // класс меню уп�
 
    public:
     WateringMenuItem();
+    virtual void draw(DrawContext* dc);
+    virtual void init(LCDMenu* parent);
+    virtual bool OnEncoderPositionChanged(int dir, LCDMenu* menu);
+    virtual void update(uint16_t dt, LCDMenu* menu);
+  
+};
+#endif
+
+#if defined(USE_WATERING_MODULE) && defined(WATER_CHANNELS_SCREEN_ENABLED)
+class WateringChannelsMenuItem : public AbstractLCDMenuItem // класс меню управления каналами полива
+{
+  private:
+
+  int8_t currentSelectedChannel;
+  
+   public:
+    WateringChannelsMenuItem();
+    virtual void draw(DrawContext* dc);
+    virtual void init(LCDMenu* parent);
+    virtual bool OnEncoderPositionChanged(int dir, LCDMenu* menu);
+    virtual void update(uint16_t dt, LCDMenu* menu);
+  
+};
+#endif
+
+#if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
+class WindowsChannelsMenuItem : public AbstractLCDMenuItem // класс меню управления каналами полива
+{
+  private:
+
+  int8_t currentSelectedChannel;
+  
+   public:
+    WindowsChannelsMenuItem();
     virtual void draw(DrawContext* dc);
     virtual void init(LCDMenu* parent);
     virtual bool OnEncoderPositionChanged(int dir, LCDMenu* menu);
@@ -379,7 +457,15 @@ class LCDMenu : public DrawContext
 #endif    
 #ifdef USE_LUMINOSITY_MODULE
     friend class LuminosityMenuItem;
-#endif    
+#endif  
+
+#if defined(USE_WATERING_MODULE) && defined(WATER_CHANNELS_SCREEN_ENABLED)
+    friend class WateringChannelsMenuItem;
+#endif   
+
+#if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
+    friend class WindowsChannelsMenuItem;
+#endif  
 
    void wantRedraw(); // ставим флаг необходимости перерисовки 
    void resetTimer(); // сбрасываем таймер перехода в меню ожидания

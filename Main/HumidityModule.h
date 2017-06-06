@@ -20,8 +20,8 @@ class HumidityModule : public AbstractModule // модуль управлени�
   private:
 
 #if SUPPORTED_HUMIDITY_SENSORS > 0
-    DHTSupport dhtQuery; // класс опроса датчиков DHT
-    Si7021 si7021; // класс опроса датчиков Si7021
+    //DHTSupport dhtQuery; // класс опроса датчиков DHT
+   // Si7021 si7021; // класс опроса датчиков Si7021
     HumidityAnswer dummyAnswer;
     const HumidityAnswer& QuerySensor(uint8_t sensorNumber, uint8_t pin, uint8_t pin2,HumiditySensorType type); // опрашивает сенсор
 #endif

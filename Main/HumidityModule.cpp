@@ -13,7 +13,7 @@ void HumidityModule::Setup()
 
   #if SUPPORTED_HUMIDITY_SENSORS > 0
 
-  si7021.begin(); // настраиваем датчик Si7021
+ // si7021.begin(); // настраиваем датчик Si7021
   dummyAnswer.IsOK = false;
   
   for(uint8_t i=0;i<SUPPORTED_HUMIDITY_SENSORS;i++)
@@ -21,7 +21,7 @@ void HumidityModule::Setup()
     State.AddState(StateHumidity,i); // поддерживаем и влажность,
     State.AddState(StateTemperature,i); // и температуру
     // запускаем конвертацию с датчиков при старте, через 2 секунды нам вернётся измеренная влажность и температура
-    QuerySensor(i, HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].pin2, HUMIDITY_SENSORS_ARRAY[i].type);
+   // QuerySensor(i, HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].pin2, HUMIDITY_SENSORS_ARRAY[i].type);
    }
    #endif  
  }
@@ -38,18 +38,31 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
   {
     case DHT11:
     {
+      DHTSupport dhtQuery;
       return dhtQuery.read(pin,DHT_11);
     }
     break;
     
     case DHT2x:
     {
+      DHTSupport dhtQuery;
       return dhtQuery.read(pin,DHT_2x);
     }
     break;
 
     case SI7021:
     {
+      
+      Si7021 si7021;
+
+      static bool isSI7021Inited = false;
+      
+      if(!isSI7021Inited)
+      {
+        isSI7021Inited = true;
+        si7021.begin();
+      }
+      
       return si7021.read();
     }
     break;
@@ -77,6 +90,7 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
       }
 
       dummyAnswer.IsOK = (dummyAnswer.Temperature != NO_TEMPERATURE_DATA) && (dummyAnswer.Humidity != NO_TEMPERATURE_DATA);
+
       return dummyAnswer;
     }
     break;

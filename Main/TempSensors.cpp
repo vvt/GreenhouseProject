@@ -230,6 +230,30 @@ void TempSensors::SaveChannelState(uint8_t channel, uint8_t state)
     WORK_STATUS.PinWrite(WINDOWS_RELAYS[channel],state);
   #endif
 }
+
+bool TempSensors::IsWindowOpen(uint8_t windowNumber)
+{
+  if(windowNumber >= SUPPORTED_WINDOWS)
+    return false;
+
+  WindowState* ws = &(Windows[windowNumber]);
+  
+  if(ws->IsBusy()) // окно в движении
+  {  
+    if(ws->GetDirection() == dirOPEN) // окно открывается
+      return true;    
+  }
+  else // окно никуда не двигается
+  {
+     if(ws->GetCurrentPosition() > 0) // окно открыто
+      return true;
+  } 
+
+  return false; // окно закрывается или закрыто
+}
+
+
+
 void TempSensors::SetupWindows()
 {
   // настраиваем фрамуги  
@@ -823,47 +847,112 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                     
                   } // for
                  
-               } // if wantAnwer
-            }
+               } // if wantAnswer
+               
+            } // if(commandRequested == PROP_WINDOW_STATEMASK)
             else // запросили по индексу
             {
-              //TODO: Тут может быть запрос ALL, а не только индекс!!!
-              
-             uint8_t windowIdx = commandRequested.toInt();
-             if(windowIdx >= SUPPORTED_WINDOWS)
-             {
-                if(wantAnswer)
-                  PublishSingleton = NOT_SUPPORTED; // неверный индекс
-             }
+              if(commandRequested == F("ALL"))
+              {
+                /* 
+                 Запросили состояние всех окон. Поскольку у нас окна могут находится в разничных независимых позициях,
+                 разрешаем конфликты так:
+                  - если хотя бы одно окно открывается - статус "открываются", при этом неважно, закрывается ли другое окно
+                  - если хотя бы одно окно закрывается - статус "закрываются"
+                  - если хотя бы одно окно открыто - статус "открыты"
+                  - иначе - статус "закрыты"
+                */
+                  bool isAnyOpening = false;
+                  bool isAnyClosing = false;
+                  bool isAnyOpen = false;
+
+                  for(byte k=0;k<SUPPORTED_WINDOWS;k++)
+                  {
+                    WindowState* ws = &(Windows[k]);
+
+                    if(ws->IsBusy())
+                    {
+                      // окно в движении
+                      if(ws->GetDirection() == dirOPEN)
+                        isAnyOpening = true;
+                      else
+                        isAnyClosing = true;
+                    }
+                    else
+                    {
+                      // окно не двигается
+                      if(ws->GetCurrentPosition() > 0)
+                        isAnyOpen = true;
+                    }
+                    
+                  } // for
+
+                  // тут мы уже имеем состояние, обобщённое для всех окон
+                  PublishSingleton.Status = true;
+                  PublishSingleton = PROP_WINDOW;
+                  PublishSingleton << PARAM_DELIMITER << commandRequested << PARAM_DELIMITER;
+                  
+                  if(isAnyOpening)
+                  {
+                    PublishSingleton << STATE_OPENING;
+                  }
+                  else if(isAnyClosing)
+                  {
+                    PublishSingleton << STATE_CLOSING;
+                  }
+                  else if(isAnyOpen)
+                  {
+                    PublishSingleton << STATE_OPEN;
+                  }
+                  else
+                  {
+                    PublishSingleton << STATE_CLOSED;
+                  }
+                  
+              }
               else
               {
-                WindowState* ws = &(Windows[windowIdx]);
-                String sAdd;
-                if(ws->IsBusy())
-                {
-                  //куда-то едем
-                  sAdd = ws->GetDirection() == dirOPEN ? STATE_OPENING : STATE_CLOSING;
-                  
-                } // if
-                else
-                {
-                    // никуда не едем
-                    if(ws->GetCurrentPosition() > 0)
-                      sAdd = STATE_OPEN;
+                // состояние окна по индексу
+              
+                   uint8_t windowIdx = commandRequested.toInt();
+                   if(windowIdx >= SUPPORTED_WINDOWS)
+                   {
+                      if(wantAnswer)
+                        PublishSingleton = NOT_SUPPORTED; // неверный индекс
+                   }
                     else
-                      sAdd = STATE_CLOSED;
-                } // else
-                
-                
-                PublishSingleton.Status = true;
-                if(wantAnswer)
-                {
-                  PublishSingleton = PROP_WINDOW;
-                  PublishSingleton << PARAM_DELIMITER << commandRequested << PARAM_DELIMITER << sAdd;
-                }
-              }
-            } // else
-          } // else
+                    {
+                      WindowState* ws = &(Windows[windowIdx]);
+                      String sAdd;
+                      if(ws->IsBusy())
+                      {
+                        //куда-то едем
+                        sAdd = ws->GetDirection() == dirOPEN ? STATE_OPENING : STATE_CLOSING;
+                        
+                      } // if
+                      else
+                      {
+                          // никуда не едем
+                          if(ws->GetCurrentPosition() > 0)
+                            sAdd = STATE_OPEN;
+                          else
+                            sAdd = STATE_CLOSED;
+                      } // else
+                      
+                      
+                      PublishSingleton.Status = true;
+                      if(wantAnswer)
+                      {
+                        PublishSingleton = PROP_WINDOW;
+                        PublishSingleton << PARAM_DELIMITER << commandRequested << PARAM_DELIMITER << sAdd;
+                      }
+                    } // else хороший индекс
+                                    
+                    } // else состояние окна по индексу
+              
+            } // else запросили статус окна
+            
+          } // else command == STATE|WINDOW|...
          
         
       } // if
