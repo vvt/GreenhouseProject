@@ -57,8 +57,132 @@ void LCDModule::Update(uint16_t dt)
 bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
-  UNUSED(command);
 
+  uint8_t argsCnt = command.GetArgsCount();
+ 
+  
+  if(command.GetType() == ctSET) // установка свойств
+  {
+
+      if(argsCnt < 1)
+      {
+        PublishSingleton << PARAMS_MISSED;
+      }
+      else
+      {
+            String whichCommand = command.GetArg(0);
+            
+            if(whichCommand == F("DEL")) // удалить все данные датчиков
+            {
+               PublishSingleton.Status = true;
+               PublishSingleton << whichCommand << PARAM_DELIMITER << REG_SUCC;
+
+               #ifdef USE_LCD_MODULE
+                lcdMenu.ClearSDSensors();
+               #endif
+            } // if(whichCommand == F("DEL"))
+            else if(whichCommand == F("ADD"))
+            {
+              if(argsCnt < 4)
+              {
+                PublishSingleton << PARAMS_MISSED;
+              }
+              else
+              {
+                  byte folder = (byte) atoi(command.GetArg(1));
+                  byte sensorIndex = (byte) atoi(command.GetArg(2));
+
+                  const char* encodedCaption = command.GetArg(3);
+                  String strCaption;
+                  
+                  // переводим закодированный текст в UTF-8
+                  while(*encodedCaption)
+                  {
+                    strCaption += (char) WorkStatus::FromHex(encodedCaption);
+                    encodedCaption += 2;
+                  }
+
+                  #ifdef USE_LCD_MODULE
+                    lcdMenu.AddSDSensor(folder,sensorIndex,strCaption);
+                  #endif
+
+                  PublishSingleton.Status = true;
+                  PublishSingleton << whichCommand << PARAM_DELIMITER << REG_SUCC;
+              }
+            } // else if(whichCommand == F("ADD"))
+      }
+    
+  } // ctSET
+  else
+  {
+      // чтение свойств
+      if(argsCnt < 1)
+      {
+        PublishSingleton << PARAMS_MISSED;
+      }
+      else
+      {
+        // есть параметры
+        String whichCommand = command.GetArg(0);
+        if(whichCommand == F("T_SETT")) // CTGET=LCD|T_SETT
+        {
+            // получить данные о кол-ве файлов в каждой директории настроек датчиков экрана.
+            // данные идут так: DIR_TEMP|DIR_HUMIDITY|DIR_LUMINOSITY|DIR_SOIL|DIR_PH
+
+            PublishSingleton.Status = true;
+            PublishSingleton << whichCommand;
+
+            for(byte i=DIR_TEMP;i<DIR_DUMMY_LAST_DIR;i++)
+            {
+              PublishSingleton << PARAM_DELIMITER;
+              
+              #ifdef USE_LCD_MODULE
+                PublishSingleton << lcdMenu.GetFilesCount(i);
+              #else
+                PublishSingleton << 0;
+              #endif
+            } // for
+          
+        } // if(whichCommand == F("T_SETT"))
+        else if(whichCommand == F("VIEW")) // CTGET=LCD|VIEW|folder|index
+        {
+          // запросили просмотр содержимого файла
+          if(argsCnt < 3)
+          {
+            // недостаточно параметров
+            PublishSingleton << PARAMS_MISSED;
+          }
+          else
+          {
+            byte folder = (byte) atoi(command.GetArg(1));
+            byte index = (byte)  atoi(command.GetArg(2));
+
+            PublishSingleton.Status = true;
+            PublishSingleton << whichCommand << PARAM_DELIMITER << folder << PARAM_DELIMITER;
+
+            #ifdef USE_LCD_MODULE
+                int sensorIndex = 0;
+                String content = lcdMenu.GetFileContent(folder,index,sensorIndex);
+
+                PublishSingleton << sensorIndex << PARAM_DELIMITER;
+                
+                const char* str = content.c_str();
+                while(*str)
+                {
+                  PublishSingleton << WorkStatus::ToHex(*str++);
+                }
+             #else
+                PublishSingleton << index << PARAM_DELIMITER;
+             #endif
+
+            
+          }
+          
+        } // if(whichCommand == F("VIEW"))
+      } // else
+  } // ctGET
+
+  MainController->Publish(this,command); 
 
   return true;
 }

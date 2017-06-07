@@ -46,7 +46,7 @@ void ModuleController::Setup()
 _rtc.begin();
 #endif
 
-#if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE)
+#if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE)|| (defined(SENSORS_SETTINGS_ON_SD_ENABLED) && defined(USE_LCD_MODULE))
   sdCardInitFlag = SD.begin(SDCARD_CS_PIN); // пробуем инициализировать SD-модуль
   WORK_STATUS.PinMode(SDCARD_CS_PIN,OUTPUT,false);
   WORK_STATUS.PinMode(MOSI,OUTPUT,false);

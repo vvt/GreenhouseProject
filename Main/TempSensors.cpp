@@ -11,7 +11,7 @@ static TempSensorSettings TEMP_SENSORS[] = { TEMP_SENSORS_PINS };
 static uint8_t WINDOWS_RELAYS[] = { WINDOWS_RELAYS_PINS };
 #endif
 
-void WindowState::Setup(/*TempSensors* parent, */uint8_t relayChannel1, uint8_t relayChannel2)
+void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 {
 //  Parent = parent;
 
@@ -260,7 +260,7 @@ void TempSensors::SetupWindows()
   for(uint8_t i=0, j=0;i<SUPPORTED_WINDOWS;i++, j+=2)
   {
       // раздаём каналы реле: первому окну - 0,1, второму - 2,3 и т.д.
-      Windows[i].Setup(/*this, */ j,j+1);
+      Windows[i].Setup(j,j+1);
 
       #ifdef USE_WINDOWS_SHIFT_REGISTER // если используем сдвиговые регистры
         // ничего не делаем, поскольку у нас все реле будут выключены после первоначальной настройки

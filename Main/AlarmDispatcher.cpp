@@ -36,6 +36,8 @@ void AlarmDispatcher::Alarm(AlertRule* rule)
      if(!foundInSMSLists)
       queueSMSAlarms.push_back(rule);
       
+  #else 
+      UNUSED(rule);
   #endif  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------

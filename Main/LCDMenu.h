@@ -298,9 +298,27 @@ class LCDMenu; // forward declaration
     
  };
 
+typedef struct
+{
+    bool linkedToSD: 1; // флаг, что мы читаем привязки с SD-карты
+    bool sdSettingsInited: 1;
+    int8_t currentSensorsDirectory : 6;
+  
+} IdlePageMenuItemFlags;
+
 class IdlePageMenuItem : public AbstractLCDMenuItem // класс экрана ожидания
 {
   private:
+
+#ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+    IdlePageMenuItemFlags idleFlags;
+    void SelectNextSDSensor(LCDMenu* menu);
+    void RequestSDSensorData(LCDMenu* menu);
+    File workDir, workFile;
+    bool SelectNextDirectory(LCDMenu* menu);
+    void OpenCurrentSDDirectory(LCDMenu* menu);
+    char* ReadCurrentFile();
+#endif
 
     unsigned long rotationTimer;
     int8_t currentSensorIndex;
@@ -323,12 +341,19 @@ class IdlePageMenuItem : public AbstractLCDMenuItem // класс экрана �
     
 };
 #ifdef USE_TEMP_SENSORS
+
+typedef struct
+{
+    bool isWindowsOpen : 1;
+    bool isWindowsAutoMode : 1;
+    byte pad : 6;
+  
+} WindowMenuItemFlags;
+
 class WindowMenuItem : public AbstractLCDMenuItem // класс меню управления окнами
 {
   private:
-    bool isWindowsOpen;
-    bool isWindowsAutoMode;
-  
+      WindowMenuItemFlags windowsFlags;
    public:
     WindowMenuItem();
     virtual void draw(DrawContext* dc);
@@ -341,12 +366,20 @@ class WindowMenuItem : public AbstractLCDMenuItem // класс меню упр�
 #endif
 
 #ifdef USE_WATERING_MODULE
+
+typedef struct
+{
+    bool isWateringOn : 1;
+    bool isWateringAutoMode : 1;
+    byte pad : 6;
+      
+} WateringMenuItemFlags;
+
 class WateringMenuItem : public AbstractLCDMenuItem // класс меню управления поливом
 {
   private:
   
-    bool isWateringOn;
-    bool isWateringAutoMode;
+    WateringMenuItemFlags waterFlags;
 
    public:
     WateringMenuItem();
@@ -393,13 +426,21 @@ class WindowsChannelsMenuItem : public AbstractLCDMenuItem // класс мен�
 #endif
 
 #ifdef USE_LUMINOSITY_MODULE
+
+typedef struct
+{
+  bool isLightOn : 1;
+  bool isLightAutoMode : 1;
+  byte pad : 6; 
+  
+} LuminosityMenuItemFlags;
+
 class LuminosityMenuItem : public AbstractLCDMenuItem // класс меню управления досветкой
 {
   private:
   
-    bool isLightOn;
-    bool isLightAutoMode;
-
+    LuminosityMenuItemFlags lumFlags;
+    
    public:
     LuminosityMenuItem();
     virtual void draw(DrawContext* dc);
@@ -428,6 +469,27 @@ class SettingsMenuItem : public AbstractLCDMenuItem // класс меню уп�
 }; 
 
  typedef Vector<AbstractLCDMenuItem*> MenuItems;
+
+ typedef struct
+ {
+    bool backlightIsOn : 1;
+    bool backlightCheckingEnabled : 1;
+    bool needRedraw : 1; // флаг, что нам надо перерисовать экран
+    byte pad : 5;
+    
+ } LCDMenuFlags;
+
+ enum // папки, в которых хранятся привязки датчиков для экрана ожидания
+ {
+    DIR_TEMP,
+    DIR_HUMIDITY,
+    DIR_LUMINOSITY,
+    DIR_SOIL,
+    DIR_PH,
+
+    DIR_DUMMY_LAST_DIR // заглушка - признак окончания конца списка
+  
+ }; 
  
 class LCDMenu : public DrawContext
 {
@@ -441,6 +503,15 @@ class LCDMenu : public DrawContext
     void update(uint16_t dt); // обновляем меню
     void selectNextMenu(int encoderDirection); // выбирает следующее меню в списке
     void enterSubMenu(); // входим внутрь выбранного экрана
+
+    // функции взаимодействия с настройками на SD
+    byte GetFilesCount(byte directory); // возвращает кол-во файлов в папке
+    bool HasSensorsSettingsOnSD(); // проверяет, есть ли хоть одна привязка датчиков на SD-карте
+    String GetFileContent(byte directory,byte fileIndex, int& resultSensorIndex); // возвращает содержимое файла нужной директории
+    String GetFolderName(byte directory);
+
+    void ClearSDSensors();
+    void AddSDSensor(byte folder,byte sensorIndex,const String& strCaption);
 
   protected:
 
@@ -473,14 +544,17 @@ class LCDMenu : public DrawContext
 
    private:
 
-   bool backlightIsOn;
+   void DoRemoveFiles(const String& dirName);
+
+   LCDMenuFlags flags;
+ 
    void backlight(bool en=true); // управление подсветкой
    uint16_t backlightCounter; // выключаем досветку, когда ничего не делается и накопили в этой переменной нужный интервал
-   bool backlightCheckingEnabled;
+   
 
    size_t selectedMenuItem; // какой пункт меню выбран?
    MenuItems items;
-   bool needRedraw; // флаг, что нам надо перерисовать экран
+   
 
    uint16_t gotLastCommmandAt; // время с момента получения последней команды
 };

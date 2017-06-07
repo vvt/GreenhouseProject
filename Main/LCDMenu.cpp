@@ -106,7 +106,224 @@ IdlePageMenuItem::IdlePageMenuItem() : AbstractLCDMenuItem(MONITOR_ICON,("Мон
   rotationTimer = ROTATION_INTERVAL; // получаем данные с сенсора сразу в первом вызове update
   currentSensorIndex = 0; 
   displayString = NULL;
+
+#ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+  idleFlags.linkedToSD = false;
+  idleFlags.sdSettingsInited = false;
+  idleFlags.currentSensorsDirectory = -1;
+#endif
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool IdlePageMenuItem::SelectNextDirectory(LCDMenu* menu)
+{    
+
+  // тут надо переместится на первую папку, в которой есть файлы.
+  // причём переместится, учитывая зацикливание и тот вариант,
+  // что файлов вообще может не быть
+  byte attempts = 0;
+
+  while(true)
+  {
+      attempts++;
+      if(attempts >= DIR_DUMMY_LAST_DIR*2) // пробежали по кругу однозначно
+      {
+        // если ничего не нашли - деградируем в прошитые настройки
+        idleFlags.linkedToSD = false;
+        return false;
+      }
+
+    idleFlags.currentSensorsDirectory++;
+    if(idleFlags.currentSensorsDirectory >= DIR_DUMMY_LAST_DIR)
+      idleFlags.currentSensorsDirectory = DIR_TEMP;
+
+      if(menu->GetFilesCount(idleFlags.currentSensorsDirectory) > 0) // есть файлы в папке
+        return true;
+        
+  } // while
+
+  return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void IdlePageMenuItem::SelectNextSDSensor(LCDMenu* menu)
+{
+    if(!workDir) // нет открытой текущей папки
+    {
+      if(!SelectNextDirectory(menu))
+        return;
+
+      OpenCurrentSDDirectory(menu);
+    }
+
+    if(workDir)
+    {
+      if(workFile)
+        workFile.close();
+
+        workFile = workDir.openNextFile();
+
+        if(!workFile) {
+           // дошли до конца, надо выбрать следующую папку
+           workDir.close(); // закрываем текущую папку, чтобы перейти на новую папку
+           SelectNextSDSensor(menu);
+           return;
+        }
+
+        // файл открыли, можно работать
+      
+    } // if
+    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void IdlePageMenuItem::OpenCurrentSDDirectory(LCDMenu* menu)
+{
+  UNUSED(menu);
+  
+  if(workDir)
+    workDir.close();
+
+    String folderName = "LCD";
+    folderName += F("/");
+    
+    switch(idleFlags.currentSensorsDirectory)
+    {
+        case DIR_TEMP:
+          folderName += F("TEMP");
+        break;
+  
+        case DIR_HUMIDITY:
+          folderName += "HUMIDITY";
+        break;
+  
+        case DIR_LUMINOSITY:
+          folderName += "LIGHT";
+        break;
+  
+        case DIR_SOIL:
+          folderName += "SOIL";
+        break;
+  
+        case DIR_PH:
+          folderName += "PH";
+        break;
+      
+    } // switch
+
+    workDir = SD.open(folderName);
+    
+    if(workDir)
+      workDir.rewindDirectory();
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+char* IdlePageMenuItem::ReadCurrentFile()
+{
+    if(!workFile)
+      return NULL;
+
+    uint32_t sz = workFile.size();
+
+    if(sz > 0)
+    {
+      char* result = new char[sz+1];
+      result[sz] = '\0';
+      workFile.read(result,sz);
+      return result;
+    }
+
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void IdlePageMenuItem::RequestSDSensorData(LCDMenu* menu)
+{
+  UNUSED(menu);
+  
+  sensorData = "";
+  
+  delete [] displayString;
+  displayString = NULL;
+
+  
+    if(!workFile)
+      return;
+
+   // получаем имя файла
+    String idx;
+    char* fName = workFile.name();
+
+    while(*fName && *fName != '.')
+    {
+      // выцепляем индекс датчика
+      idx += *fName;
+      fName++;
+    }
+
+    // получаем модуль в системе
+    AbstractModule* module = NULL;
+    ModuleStates sensorType;
+    
+
+
+    switch(idleFlags.currentSensorsDirectory)
+    {
+        case DIR_TEMP:
+          module = MainController->GetModuleByID("STATE");
+          sensorType = StateTemperature;
+        break;
+  
+        case DIR_HUMIDITY:
+          module = MainController->GetModuleByID("HUMIDITY");
+          sensorType = StateHumidity;
+        break;
+  
+        case DIR_LUMINOSITY:
+          module = MainController->GetModuleByID("LIGHT");
+          sensorType = StateLuminosity;
+        break;
+  
+        case DIR_SOIL:
+          module = MainController->GetModuleByID("SOIL");
+          sensorType = StateSoilMoisture;
+        break;
+  
+        case DIR_PH:
+          module = MainController->GetModuleByID("PH");
+          sensorType = StatePH;
+        break;
+      
+    } // switch    
+
+
+    if(module)
+    {
+      // получаем состояние для датчика
+      OneState* os = module->State.GetState(sensorType,idx.toInt());
+      if(!os)
+      {
+        // нет такого датчика, просим показать следующие данные
+        rotationTimer = ROTATION_INTERVAL;
+        return;
+      }
+
+      // датчик есть, можно получать его данные
+        if(os->HasData())
+        {
+          sensorData = *os;
+          sensorData += os->GetUnit();
+        }
+        else
+           sensorData = NO_DATA;
+
+       // в displayString надо прочитать содержимое файла
+       displayString = ReadCurrentFile();
+      
+    } // if(module)
+      
+
+   workFile.close(); // не забываем закрывать файл за собой
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------------
 void IdlePageMenuItem::init(LCDMenu* parent)
 {
@@ -123,12 +340,35 @@ void IdlePageMenuItem::OnButtonClicked(LCDMenu* menu)
   AbstractLCDMenuItem::OnButtonClicked(menu);
 
     rotationTimer = 0; // сбрасываем таймер ротации
+    
+  #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
 
-    // выбираем следующий сенсор
-    SelectNextSensor();
+      if(idleFlags.linkedToSD)
+      {
+        // работаем с SD
 
-    // получаем данные с сенсора
-    RequestSensorData(WaitScreenInfos[currentSensorIndex]);
+        // выбираем следующий файл на SD
+        SelectNextSDSensor(menu);
+
+        // и запрашиваем с него показания
+        RequestSDSensorData(menu);
+      }
+      else
+      {
+        // деградируем на прошитые жёстко настройки
+        // выбираем следующий сенсор
+        SelectNextSensor();
+        // получаем данные с сенсора
+        RequestSensorData(WaitScreenInfos[currentSensorIndex]);
+      }
+  
+  #else
+      // выбираем следующий сенсор
+      SelectNextSensor();
+      // получаем данные с сенсора
+      RequestSensorData(WaitScreenInfos[currentSensorIndex]);
+  
+  #endif
 
     // говорим, что мы хотим перерисоваться
     menu->notifyMenuUpdated(this);
@@ -147,6 +387,14 @@ void IdlePageMenuItem::SelectNextSensor()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void IdlePageMenuItem::update(uint16_t dt, LCDMenu* menu)
 {
+#ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+  if(!idleFlags.sdSettingsInited)
+  {
+    idleFlags.sdSettingsInited = true;
+    idleFlags.linkedToSD = menu->HasSensorsSettingsOnSD();
+  }
+#endif  
+  
 
   rotationTimer += dt;
 
@@ -154,11 +402,37 @@ void IdlePageMenuItem::update(uint16_t dt, LCDMenu* menu)
   {
     rotationTimer = 0;
 
-    // выбираем следующий сенсор
-    SelectNextSensor();
+    #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
 
-    // получаем данные с сенсора
-    RequestSensorData(WaitScreenInfos[currentSensorIndex]);
+      if(idleFlags.linkedToSD)
+      {
+        // есть файлы на SD
+        // выбираем следующий датчик на SD
+        SelectNextSDSensor(menu);
+        
+        // и запрашиваем для него данные
+        RequestSDSensorData(menu);
+      }
+      else
+      {
+        // нет файлов на SD
+        // выбираем следующий сенсор
+        SelectNextSensor();
+    
+        // получаем данные с сенсора
+        RequestSensorData(WaitScreenInfos[currentSensorIndex]);
+      }
+
+    #else
+      // работа с SD выключена в прошивке
+
+      // выбираем следующий сенсор
+      SelectNextSensor();
+  
+      // получаем данные с сенсора
+      RequestSensorData(WaitScreenInfos[currentSensorIndex]);
+
+    #endif
 
     // говорим, что мы хотим перерисоваться
     menu->notifyMenuUpdated(this);
@@ -256,8 +530,8 @@ void WindowMenuItem::init(LCDMenu* parent)
 {
   AbstractLCDMenuItem::init(parent);
   
-  isWindowsOpen = WORK_STATUS.GetStatus(WINDOWS_STATUS_BIT);
-  isWindowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
+  windowsFlags.isWindowsOpen = WORK_STATUS.GetStatus(WINDOWS_STATUS_BIT);
+  windowsFlags.isWindowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
 
   itemsCount = 3;
 }
@@ -267,8 +541,8 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
   if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
-    bool lastWO = isWindowsOpen;
-    bool lastWAM = isWindowsAutoMode;
+    bool lastWO = windowsFlags.isWindowsOpen;
+    bool lastWAM = windowsFlags.isWindowsAutoMode;
 
     if(dir != 0)
     {
@@ -277,35 +551,35 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
        {
           case 0: // открыть окна
           {
-            isWindowsOpen = true;
+            windowsFlags.isWindowsOpen = true;
             //Тут посылаем команду на открытие окон
-            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);//,false);
+            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);
           }
           break;
           
           case 1: // закрыть окна
           {
-            isWindowsOpen = false;
+            windowsFlags.isWindowsOpen = false;
             //Тут посылаем команду на закрытие окон
-            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);//,false);
+            ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);
           }
           break;
           
           case 2: // поменять режим
           {
-            isWindowsAutoMode = !isWindowsAutoMode;
+            windowsFlags.isWindowsAutoMode = !windowsFlags.isWindowsAutoMode;
             //Тут посылаем команду на смену режима окон
-            if(isWindowsAutoMode)
-              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false);//,false);
+            if(windowsFlags.isWindowsAutoMode)
+              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false);
             else
-              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false);//,false);
+              ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false);
           }
           break;
         
        } // switch
     }
 
-    if(lastWO != isWindowsOpen || lastWAM != isWindowsAutoMode) // состояние изменилось, просим меню перерисоваться
+    if(lastWO != windowsFlags.isWindowsOpen || lastWAM != windowsFlags.isWindowsAutoMode) // состояние изменилось, просим меню перерисоваться
       menu->wantRedraw();
 
     return true; // сами обработали смену позиции энкодера
@@ -319,13 +593,13 @@ void WindowMenuItem::update(uint16_t dt, LCDMenu* menu)
   // текущее меню, иначе - слишком частые отрисовки могут быть.
   // поэтому вызываем notifyMenuUpdated только тогда, когда были изменения.
  
-  bool lastWO = isWindowsOpen;
-  bool lastWAM = isWindowsAutoMode;
+  bool lastWO = windowsFlags.isWindowsOpen;
+  bool lastWAM = windowsFlags.isWindowsAutoMode;
   
-  isWindowsOpen = WORK_STATUS.GetStatus(WINDOWS_STATUS_BIT);
-  isWindowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
+  windowsFlags.isWindowsOpen = WORK_STATUS.GetStatus(WINDOWS_STATUS_BIT);
+  windowsFlags.isWindowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
 
-  bool anyChangesFound = (isWindowsOpen != lastWO) || (lastWAM != isWindowsAutoMode);
+  bool anyChangesFound = (windowsFlags.isWindowsOpen != lastWO) || (lastWAM != windowsFlags.isWindowsAutoMode);
   
   
   if(anyChangesFound)
@@ -353,7 +627,7 @@ void WindowMenuItem::draw(DrawContext* dc)
   const unsigned char* cur_icon = UNCHECK_ICON;
     if(i == 0)
     {
-      if(isWindowsOpen)
+      if(windowsFlags.isWindowsOpen)
         cur_icon = RADIO_CHECK_ICON;
       else
         cur_icon = RADIO_UNCHECK_ICON;
@@ -361,7 +635,7 @@ void WindowMenuItem::draw(DrawContext* dc)
     else
     if(i == 1)
     {
-      if(!isWindowsOpen)
+      if(!windowsFlags.isWindowsOpen)
         cur_icon = RADIO_CHECK_ICON;
       else
         cur_icon = RADIO_UNCHECK_ICON;
@@ -369,7 +643,7 @@ void WindowMenuItem::draw(DrawContext* dc)
     else
     if(i == 2)
     {
-      if(isWindowsAutoMode)
+      if(windowsFlags.isWindowsAutoMode)
          cur_icon = CHECK_ICON;
     }
   int left = i*CONTENT_PADDING + i*one_icon_box_width + one_icon_left_spacing;
@@ -728,8 +1002,8 @@ void WateringMenuItem::init(LCDMenu* parent)
 {
   AbstractLCDMenuItem::init(parent);
  
-  isWateringOn = WORK_STATUS.GetStatus(WATER_STATUS_BIT);
-  isWateringAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
+  waterFlags.isWateringOn = WORK_STATUS.GetStatus(WATER_STATUS_BIT);
+  waterFlags.isWateringAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
   
   itemsCount = 3;
 }
@@ -755,7 +1029,7 @@ void WateringMenuItem::draw(DrawContext* dc)
   const unsigned char* cur_icon = UNCHECK_ICON;
     if(i == 0)
     {
-      if(isWateringOn)
+      if(waterFlags.isWateringOn)
         cur_icon = RADIO_CHECK_ICON;
       else
         cur_icon = RADIO_UNCHECK_ICON;
@@ -763,7 +1037,7 @@ void WateringMenuItem::draw(DrawContext* dc)
     else
     if(i == 1)
     {
-      if(!isWateringOn)
+      if(!waterFlags.isWateringOn)
         cur_icon = RADIO_CHECK_ICON;
       else
         cur_icon = RADIO_UNCHECK_ICON;
@@ -771,7 +1045,7 @@ void WateringMenuItem::draw(DrawContext* dc)
     else
     if(i == 2)
     {
-      if(isWateringAutoMode)
+      if(waterFlags.isWateringAutoMode)
          cur_icon = CHECK_ICON;
     }
   int left = i*CONTENT_PADDING + i*one_icon_box_width + one_icon_left_spacing;
@@ -805,14 +1079,14 @@ void WateringMenuItem::update(uint16_t dt, LCDMenu* menu)
   // текущее меню, иначе - слишком частые отрисовки могут быть.
   // поэтому вызываем notifyMenuUpdated только тогда, когда были изменения.
 
-  bool lastWO = isWateringOn;
-  bool lastWAM = isWateringAutoMode;
+  bool lastWO = waterFlags.isWateringOn;
+  bool lastWAM = waterFlags.isWateringAutoMode;
 
-  isWateringOn = WORK_STATUS.GetStatus(WATER_STATUS_BIT);
-  isWateringAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
+  waterFlags.isWateringOn = WORK_STATUS.GetStatus(WATER_STATUS_BIT);
+  waterFlags.isWateringAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
 
   
-  bool anyChangesFound = (isWateringOn != lastWO) || (isWateringAutoMode != lastWAM);
+  bool anyChangesFound = (waterFlags.isWateringOn != lastWO) || (waterFlags.isWateringAutoMode != lastWAM);
  
   if(anyChangesFound)
     menu->notifyMenuUpdated(this);  
@@ -823,8 +1097,8 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
   if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
-    bool lastWO = isWateringOn;
-    bool lastWAM = isWateringAutoMode;
+    bool lastWO = waterFlags.isWateringOn;
+    bool lastWAM = waterFlags.isWateringAutoMode;
 
     if(dir != 0)
     {
@@ -833,35 +1107,35 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
        {
           case 0: // включить полив
           {
-            isWateringOn = true;
+            waterFlags.isWateringOn = true;
             //Тут посылаем команду на включение полива
-            ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);//,false);
+            ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);
           }
           break;
           
           case 1: // выключить полив
           {
-            isWateringOn = false;
+            waterFlags.isWateringOn = false;
             //Тут посылаем команду на выключение полива
-            ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);//,false);
+            ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);
           }
           break;
           
           case 2: // поменять режим
           {
-            isWateringAutoMode = !isWateringAutoMode;
+            waterFlags.isWateringAutoMode = !waterFlags.isWateringAutoMode;
             //Тут посылаем команду на смену режима полива
-            if(isWateringAutoMode)
-              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false);//,false);
+            if(waterFlags.isWateringAutoMode)
+              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false);
             else
-              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false);//,false);
+              ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false);
           }
           break;
         
        } // switch
     }
 
-    if(lastWO != isWateringOn || lastWAM != isWateringAutoMode) // состояние изменилось, просим меню перерисоваться
+    if(lastWO != waterFlags.isWateringOn || lastWAM != waterFlags.isWateringAutoMode) // состояние изменилось, просим меню перерисоваться
       menu->wantRedraw();
 
     return true; // сами обработали смену позиции энкодера
@@ -880,8 +1154,8 @@ void LuminosityMenuItem::init(LCDMenu* parent)
 {
   AbstractLCDMenuItem::init(parent);
 
-  isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
-  isLightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
+  lumFlags.isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
+  lumFlags.isLightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
   
   itemsCount = 3;
 }
@@ -907,7 +1181,7 @@ void LuminosityMenuItem::draw(DrawContext* dc)
   const unsigned char* cur_icon = UNCHECK_ICON;
     if(i == 0)
     {
-      if(isLightOn)
+      if(lumFlags.isLightOn)
         cur_icon = RADIO_CHECK_ICON;
       else
         cur_icon = RADIO_UNCHECK_ICON;
@@ -915,7 +1189,7 @@ void LuminosityMenuItem::draw(DrawContext* dc)
     else
     if(i == 1)
     {
-      if(!isLightOn)
+      if(!lumFlags.isLightOn)
         cur_icon = RADIO_CHECK_ICON;
       else
         cur_icon = RADIO_UNCHECK_ICON;
@@ -923,7 +1197,7 @@ void LuminosityMenuItem::draw(DrawContext* dc)
     else
     if(i == 2)
     {
-      if(isLightAutoMode)
+      if(lumFlags.isLightAutoMode)
          cur_icon = CHECK_ICON;
     }
   int left = i*CONTENT_PADDING + i*one_icon_box_width + one_icon_left_spacing;
@@ -957,14 +1231,14 @@ void LuminosityMenuItem::update(uint16_t dt, LCDMenu* menu)
   // текущее меню, иначе - слишком частые отрисовки могут быть.
   // поэтому вызываем notifyMenuUpdated только тогда, когда были изменения.
 
-  bool lastLO = isLightOn;
-  bool lastLAM = isLightAutoMode;
+  bool lastLO = lumFlags.isLightOn;
+  bool lastLAM = lumFlags.isLightAutoMode;
   
-  isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
-  isLightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
+  lumFlags.isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
+  lumFlags.isLightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
 
   
-  bool anyChangesFound = (isLightOn != lastLO) || (isLightAutoMode != lastLAM);
+  bool anyChangesFound = (lumFlags.isLightOn != lastLO) || (lumFlags.isLightAutoMode != lastLAM);
  
   if(anyChangesFound)
     menu->notifyMenuUpdated(this);  
@@ -974,8 +1248,8 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
   if(!(flags & 2))//needToDrawCursor) // курсор не нарисован, значит, нам не надо обрабатывать смену настройки с помощью энкодера
     return false;
 
-    bool lastLO = isLightOn;
-    bool lastLAM = isLightAutoMode;
+    bool lastLO = lumFlags.isLightOn;
+    bool lastLAM = lumFlags.isLightAutoMode;
 
     if(dir != 0)
     {
@@ -984,35 +1258,35 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
        {
           case 0: // включить досветку
           {
-            isLightOn = true;
+            lumFlags.isLightOn = true;
             //Тут посылаем команду на включение досветки
-            ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);//,false);
+            ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);
           }
           break;
           
           case 1: // выключить досветку
           {
-            isLightOn = false;
+            lumFlags.isLightOn = false;
             //Тут посылаем команду на выключение досветки
-            ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);//,false);
+            ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);
           }
           break;
           
           case 2: // поменять режим
           {
-            isLightAutoMode = !isLightAutoMode;
+            lumFlags.isLightAutoMode = !lumFlags.isLightAutoMode;
             //Тут посылаем команду на смену режима досветки
-            if(isLightAutoMode)
-              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false);//,false);
+            if(lumFlags.isLightAutoMode)
+              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false);
             else
-              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false);//,false);
+              ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false);
           }
           break;
         
        } // switch
     }
 
-    if(lastLO != isLightOn || lastLAM != isLightAutoMode) // состояние изменилось, просим меню перерисоваться
+    if(lastLO != lumFlags.isLightOn || lastLAM != lumFlags.isLightAutoMode) // состояние изменилось, просим меню перерисоваться
       menu->wantRedraw();
 
     return true; // сами обработали смену позиции энкодера
@@ -1246,7 +1520,7 @@ LCDMenu::~LCDMenu()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::wantRedraw()
 {
-  needRedraw = true; // выставляем флаг необходимости перерисовки
+  flags.needRedraw = true; // выставляем флаг необходимости перерисовки
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::resetTimer()
@@ -1303,10 +1577,10 @@ void LCDMenu::selectNextMenu(int encoderDirection)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::backlight(bool en)
 {
-  backlightIsOn = en;
+  flags.backlightIsOn = en;
   analogWrite(SCREEN_BACKLIGHT_PIN, en ? SCREEN_BACKLIGHT_INTENSITY : 0);
  
-  backlightCheckingEnabled = false;
+  flags.backlightCheckingEnabled = false;
   backlightCounter = 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -1362,7 +1636,7 @@ void LCDMenu::update(uint16_t dt)
   gotLastCommmandAt += dt;
 
   // обновляем таймер выключения подсветки
-  if(backlightCheckingEnabled)
+  if(flags.backlightCheckingEnabled)
   {
     backlightCounter += dt;
     if(backlightCounter >= SCREEN_BACKLIGHT_OFF_DELAY) // надо выключить подсветку
@@ -1381,14 +1655,222 @@ void LCDMenu::update(uint16_t dt)
       wantRedraw();
       
      selectedMenuItem = 0; // выбираем первый пункт меню
-     backlightCheckingEnabled = true; // включаем таймер выключения досветки
+     flags.backlightCheckingEnabled = true; // включаем таймер выключения досветки
 
   } // if
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+bool LCDMenu::HasSensorsSettingsOnSD()
+{
+   for(byte i=DIR_TEMP;i<DIR_DUMMY_LAST_DIR;i++)
+   {
+    if(GetFilesCount(i) > 0)
+      return true;
+   }
+
+   return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String LCDMenu::GetFileContent(byte directory,byte fileIndex, int& resultSensorIndex)
+{
+  String result;
+  resultSensorIndex = -1;
+  
+  #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+    String folderName = GetFolderName(directory);
+
+    
+    File dir = SD.open(folderName);
+    if(dir) 
+    {
+      
+        dir.rewindDirectory();
+        File workFile;
+        for(int i=0;i<fileIndex;i++)
+        {
+          if(workFile)
+            workFile.close();
+            
+          workFile = dir.openNextFile();
+          if(!workFile)
+            break;
+        } // for
+
+        if(workFile)
+        {
+          // получаем индекс датчика (он является именем файла до расширения)
+          String idx;
+          char* fName = workFile.name();
+          while(*fName && *fName != '.')
+            idx += *fName++;
+
+          resultSensorIndex = idx.toInt();
+                      
+          uint32_t sz = workFile.size();
+          if(sz > 0)
+          {
+              char* toRead = new char[sz+1];
+              toRead[sz] = '\0';
+              workFile.read(toRead,sz);
+              result = toRead;
+          
+              delete [] toRead;
+
+          }
+          workFile.close();
+        } // if(workFile)
+
+
+        dir.close();
+    }
+  #endif
+
+  return result;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void LCDMenu::DoRemoveFiles(const String& dirName)
+{
+  File iter = SD.open(dirName);
+  if(!iter)
+    return;
+
+  while(1)
+  {
+    File entry = iter.openNextFile();
+    if(!entry)
+      break;
+
+    if(entry.isDirectory())
+    {
+      String subPath = dirName + F("/");
+      subPath += entry.name();
+      DoRemoveFiles(subPath);
+      entry.close();
+    }
+    else
+    {
+      String fullPath = dirName;
+      fullPath += F("/");
+      fullPath += entry.name();
+      SD.remove(fullPath);
+      entry.close();
+    }
+  }
+
+
+  iter.close();
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void LCDMenu::ClearSDSensors()
+{
+  #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+    if(MainController->HasSDCard())
+      DoRemoveFiles("LCD");
+  #endif
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void LCDMenu::AddSDSensor(byte folder,byte sensorIndex,const String& strCaption)
+{
+ #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+  if(MainController->HasSDCard())
+  {
+    String folderName = GetFolderName(folder);
+    if(SD.mkdir(folderName))
+    {
+      folderName += F("/");
+      folderName += String(sensorIndex);
+      folderName += F(".INF");
+
+      File outFile = SD.open(folderName,FILE_WRITE | O_TRUNC);
+
+      if(outFile)
+      {
+        outFile.write((byte*)strCaption.c_str(),strCaption.length());
+        outFile.close();
+      }
+        
+    }
+  }
+ #endif 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String LCDMenu::GetFolderName(byte directory)
+{
+  String folderName = "LCD"; // эта строка уже в оперативке, т.к. является именем модуля
+  folderName += F("/");
+
+  switch(directory)
+  {
+      case DIR_TEMP:
+        folderName += F("TEMP");
+      break;
+
+      case DIR_HUMIDITY:
+        folderName += "HUMIDITY";
+      break;
+
+      case DIR_LUMINOSITY:
+        folderName += "LIGHT";
+      break;
+
+      case DIR_SOIL:
+        folderName += "SOIL";
+      break;
+
+      case DIR_PH:
+        folderName += "PH";
+      break;
+
+  } // switch
+
+  return folderName;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+byte LCDMenu::GetFilesCount(byte directory)
+{
+    #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
+
+      if(!MainController->HasSDCard()) // нет SD-карты, деградируем в жёстко прошитые настройки
+        return 0;
+      else
+      {
+          byte result = 0; // не думаю, что будет больше 255 датчиков :)
+          // подсчитываем кол-во файлов в папке
+          String folderName = GetFolderName(directory); // эта строка уже в оперативке, т.к. является именем модуля
+
+         File dir = SD.open(folderName);
+         
+         if(dir)
+         {
+            dir.rewindDirectory();
+
+            while(1)
+            {
+              File f = dir.openNextFile();
+              if(!f)
+                break;
+
+              f.close();
+              result++;
+            } // while
+
+            dir.close();
+         } // if(dir)
+
+         return result;
+      } // else
+      
+    
+    #else
+      UNUSED(directory);
+      return 0;
+    #endif
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::draw()
 {
-if(!needRedraw || !backlightIsOn) // не надо ничего перерисовывать
+if(!flags.needRedraw || !flags.backlightIsOn) // не надо ничего перерисовывать
   return;
 
 #ifdef LCD_DEBUG
@@ -1453,7 +1935,7 @@ unsigned long m = millis();
   
   } while( nextPage() ); 
 
-   needRedraw = false; // отрисовали всё, что нам надо - и сбросили флаг необходимости отрисовки
+   flags.needRedraw = false; // отрисовали всё, что нам надо - и сбросили флаг необходимости отрисовки
 #ifdef LCD_DEBUG
    Serial.println(millis() - m);
 #endif   
