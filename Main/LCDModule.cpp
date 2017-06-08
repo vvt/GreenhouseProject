@@ -89,6 +89,7 @@ bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
               }
               else
               {
+                #ifdef USE_LCD_MODULE
                   byte folder = (byte) atoi(command.GetArg(1));
                   byte sensorIndex = (byte) atoi(command.GetArg(2));
 
@@ -102,8 +103,8 @@ bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
                     encodedCaption += 2;
                   }
 
-                  #ifdef USE_LCD_MODULE
                     lcdMenu.AddSDSensor(folder,sensorIndex,strCaption);
+                    
                   #endif
 
                   PublishSingleton.Status = true;

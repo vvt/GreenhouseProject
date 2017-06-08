@@ -4,6 +4,18 @@
 #include <Arduino.h>
 #include "Globals.h"
 
+ enum // папки, в которых хранятся привязки датчиков для экрана ожидания
+ {
+    DIR_TEMP,
+    DIR_HUMIDITY,
+    DIR_LUMINOSITY,
+    DIR_SOIL,
+    DIR_PH,
+
+    DIR_DUMMY_LAST_DIR // заглушка - признак окончания конца списка
+  
+ }; 
+
 #ifdef USE_LCD_MODULE
 
 #include "U8glib.h"
@@ -478,18 +490,6 @@ class SettingsMenuItem : public AbstractLCDMenuItem // класс меню уп�
     byte pad : 5;
     
  } LCDMenuFlags;
-
- enum // папки, в которых хранятся привязки датчиков для экрана ожидания
- {
-    DIR_TEMP,
-    DIR_HUMIDITY,
-    DIR_LUMINOSITY,
-    DIR_SOIL,
-    DIR_PH,
-
-    DIR_DUMMY_LAST_DIR // заглушка - признак окончания конца списка
-  
- }; 
  
 class LCDMenu : public DrawContext
 {
