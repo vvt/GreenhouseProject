@@ -6,7 +6,8 @@
 
 #include "UniversalSensors.h"
 #include "InteropStream.h"
-
+#include "Memory.h"
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_UNIVERSAL_SENSORS
 
   #ifdef USE_UNI_REGISTRATION_LINE
@@ -22,9 +23,9 @@
 #ifdef USE_NRF_GATE
   UniNRFGate nrfGate;
 #endif
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void(* resetFunc) (void) = 0;
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void ZeroStreamListener::Setup()
 {
   // настройка модуля тут
@@ -42,7 +43,7 @@ void ZeroStreamListener::Setup()
 #endif  
   
  }
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void ZeroStreamListener::Update(uint16_t dt)
 {
 #ifdef USE_UNIVERSAL_SENSORS
@@ -87,7 +88,7 @@ void ZeroStreamListener::Update(uint16_t dt)
 #endif    
 
 }
-
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void ZeroStreamListener::PrintSensorsValues(uint8_t totalCount,ModuleStates wantedState,AbstractModule* module, Stream* outStream)
 {
   if(!totalCount) // нечего писать
@@ -140,7 +141,43 @@ void ZeroStreamListener::PrintSensorsValues(uint8_t totalCount,ModuleStates want
   } // for
   
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+String ZeroStreamListener::GetGUID(const char* passedGuid)
+{
+    uint16_t address = GUID_ADDRESS;
+    
+    byte header1 = MemRead(address++);
+    byte header2 = MemRead(address++);
 
+    if(header1 == SETT_HEADER1 && header2 == SETT_HEADER2)
+    {
+      // есть сохранённые настройки
+      String result;
+      for(byte i=0;i<32;i++)
+        result += (char) MemRead(address++);
+
+        return result;
+    }
+    else
+    {
+      // нет сохранённых настроек, пишем GUID в EEPROM и возвращаем его
+      address = GUID_ADDRESS;
+      MemWrite(address++,SETT_HEADER1);
+      MemWrite(address++,SETT_HEADER2);
+
+      const char* ptr = passedGuid;
+
+      for(byte i=0;i<32;i++)
+      {
+          if(*ptr)
+            MemWrite(address++,*ptr++);
+          else
+            MemWrite(address++,'\0');
+      }
+      return passedGuid;
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer) PublishSingleton = UNKNOWN_COMMAND;
@@ -174,6 +211,22 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = PONG;
           PublishSingleton.AddModuleIDToAnswer = false;
         } // if
+        else if(t == F("GUID"))
+        {
+           // получить уникальный ID контроллера. Параметром приходит сгенерённый конфигуратором GUID, в формате 32 символа подряд.
+           // если сохранённого GUID нет - надо вернуть переданный и сохранить в EEPROM, иначе - вернуть сохранённый.
+           if(argsCnt < 2)
+           {
+              PublishSingleton = PARAMS_MISSED;
+           }
+           else
+           {
+              PublishSingleton.Status = true;
+              PublishSingleton = GetGUID(command.GetArg(1));
+              PublishSingleton.AddModuleIDToAnswer = false;
+           }
+           
+        }
         else
         if(t == UNI_RF_CHANNEL_COMMAND)
         {
@@ -645,4 +698,6 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
     
   return PublishSingleton.Status;
 }
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 

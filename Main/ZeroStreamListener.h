@@ -9,6 +9,7 @@ class ZeroStreamListener : public AbstractModule
 {
   private:
     void PrintSensorsValues(uint8_t totalCount,ModuleStates wantedState,AbstractModule* module, Stream* outStream);
+    String GetGUID(const char* passedGuid);
   public:
     ZeroStreamListener() : AbstractModule("0") {}
 
