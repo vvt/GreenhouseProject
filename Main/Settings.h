@@ -119,9 +119,7 @@ class GlobalSettings
           }
           return false;
       }
-
-    String GetHTTPApiKey() {return HTTP_APY_KEY; }
-
+      
     uint8_t GetControllerID() {return controllerID;}
     void SetControllerID(uint8_t val);
 
@@ -177,6 +175,9 @@ class GlobalSettings
     String GetStationPassword() const {return stationPassword;}
     void SetStationPassword(const String& val) {stationPassword = val;}
 
+
+    String GetHttpApiKey();
+    void SetHttpApiKey(const char* val);
 
     
     

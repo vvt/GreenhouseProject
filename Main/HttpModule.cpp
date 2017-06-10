@@ -92,7 +92,7 @@ void HttpModule::OnAskForData(String* data)
         // формируем запрос
 
         // для начала подсчитываем длину контента
-        String key = MainController->GetSettings()->GetHTTPApiKey(); // ключ доступа к API
+        String key = MainController->GetSettings()->GetHttpApiKey(); // ключ доступа к API
         int contentLength = 2 + key.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
 
         // теперь начинаем формировать запрос
@@ -129,7 +129,7 @@ void HttpModule::OnAskForData(String* data)
         commandsToReport.pop(); // удаляем из списка
 
         // теперь формируем запрос
-        String key = MainController->GetSettings()->GetHTTPApiKey(); // ключ доступа к API
+        String key = MainController->GetSettings()->GetHttpApiKey(); // ключ доступа к API
         int contentLength = 2 + key.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
         contentLength += 4; // на переменную &r=1, т.е. сообщаем серверу, что этот запрос - со статусом выполнения команды
         contentLength += 3; // на переменную &c=, содержащую ID команды
@@ -516,7 +516,7 @@ void HttpModule::Update(uint16_t dt)
     commandsCheckTimer = 0;
 
     // получаем API KEY из настроек
-    String apyKey = MainController->GetSettings()->GetHTTPApiKey();
+    String apyKey = MainController->GetSettings()->GetHttpApiKey();
     
     if(apyKey.length()) // только если ключ есть в настройках
       CheckForIncomingCommands(HTTP_ASK_FOR_COMMANDS);
@@ -527,8 +527,55 @@ void HttpModule::Update(uint16_t dt)
 bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
-  UNUSED(command);
 
+  uint8_t argsCnt = command.GetArgsCount();
+ 
+  
+  if(command.GetType() == ctSET) // установка свойств
+  {
+      if(argsCnt < 2)
+      {
+        PublishSingleton = PARAMS_MISSED;
+      }
+      else
+      {
+        String which = command.GetArg(0);
+        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here
+        {
+          MainController->GetSettings()->SetHttpApiKey(command.GetArg(1));
+          PublishSingleton.Status = true;
+          PublishSingleton = which;
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << REG_SUCC;
+
+        }
+      } // else
+  }
+  else // получение свойств
+  {
+      if(argsCnt < 1)
+      {
+        PublishSingleton = PARAMS_MISSED;
+      }
+      else
+      {
+        String which = command.GetArg(0);
+
+        if(which == F("KEY")) // запрос ключа API, CTGET=HTTP|KEY
+        {
+          PublishSingleton.Status = true;
+          PublishSingleton = which;
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << (MainController->GetSettings()->GetHttpApiKey());
+          
+        } // if(which == F("KEY"))
+        
+      } // else
+    
+  } // ctGET
+
+  MainController->Publish(this,command); 
+   
   return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------

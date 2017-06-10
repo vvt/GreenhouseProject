@@ -1,12 +1,14 @@
 #include "Settings.h"
 #include "Globals.h"
 #include "Memory.h" 
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 //  ГЛОБАЛЬНЫЕ НАСТРОЙКИ
+//--------------------------------------------------------------------------------------------------------------------------------------
 GlobalSettings::GlobalSettings()
 {
   ResetToDefault();
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, DeltaReadWriteFunction OnDeltaWrite)
 {
   if(!(OnDeltaGetCount && OnDeltaWrite)) // обработчики не заданы
@@ -83,6 +85,7 @@ void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, Delt
     
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, DeltaReadWriteFunction OnDeltaRead)
 {
   if(!(OnDeltaSetCount && OnDeltaRead)) // обработчики не заданы
@@ -163,6 +166,7 @@ void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, Delta
   
     
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::ResetToDefault()
 {
   tempOpen = DEF_OPEN_TEMP;
@@ -178,11 +182,13 @@ void GlobalSettings::ResetToDefault()
 
   memset(&iotSettings,0,sizeof(iotSettings));
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetControllerID(uint8_t val)
 {
   controllerID = val;
   MemWrite(CONTROLLER_ID_EEPROM_ADDR,controllerID);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::Load()
 {  
   uint16_t readPtr = 0; // сбрасываем указатель чтения на начало памяти
@@ -384,7 +390,7 @@ void GlobalSettings::Load()
 
   
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::Save()
 {
   uint16_t addr = 0;
@@ -508,8 +514,55 @@ void GlobalSettings::Save()
   MemWrite(addr++,gsmProvider);
   
   // сохраняем другие настройки!
-
-
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::GetHttpApiKey()
+{
+  String result;
+  uint16_t addr = HTTP_API_KEY_ADDRESS;
+  
+  byte header1 = MemRead(addr++);
+  byte header2 = MemRead(addr++);
+
+  if(header1 == SETT_HEADER1 && header2 == SETT_HEADER2)
+  {
+      for(byte i=0;i<32;i++)
+      {
+        char ch = (char) MemRead(addr++);
+        if(ch != '\0')
+          result += ch;
+        else
+          break;
+      }
+  } // if
+
+  return result;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetHttpApiKey(const char* val)
+{
+  if(!*val)
+    return;
+
+  uint16_t addr = HTTP_API_KEY_ADDRESS;
+  
+  MemWrite(addr++,SETT_HEADER1);
+  MemWrite(addr++,SETT_HEADER2);
+
+  for(byte i=0;i<32;i++)
+  {
+      if(!*val)
+      {
+          MemWrite(addr++,'\0');
+          break;  
+      }
+
+      MemWrite(addr++,*val);
+      val++;
+  } // for
+    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+
 
