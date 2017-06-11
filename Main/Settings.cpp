@@ -517,6 +517,22 @@ void GlobalSettings::Save()
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+bool GlobalSettings::IsHttpApiEnabled()
+{
+  uint16_t addr = HTTP_API_KEY_ADDRESS + 34;
+  byte en = MemRead(addr);
+  if(en == 0xFF)
+    en = 0; // если ничего не записано - считаем, что API выключено
+
+  return en ? true : false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetHttpApiEnabled(bool val)
+{
+  uint16_t addr = HTTP_API_KEY_ADDRESS + 34;
+  MemWrite(addr,val ? 1 : 0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------    
 String GlobalSettings::GetHttpApiKey()
 {
   String result;

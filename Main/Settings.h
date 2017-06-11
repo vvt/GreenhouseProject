@@ -178,6 +178,8 @@ class GlobalSettings
 
     String GetHttpApiKey();
     void SetHttpApiKey(const char* val);
+    bool IsHttpApiEnabled();
+    void SetHttpApiEnabled(bool val);
 
     
     

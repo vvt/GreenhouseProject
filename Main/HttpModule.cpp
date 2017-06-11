@@ -42,6 +42,7 @@ void HttpModule::Setup()
   // настройка модуля тут
   flags.inProcessQuery = false;
   flags.currentAction = HTTP_ASK_FOR_COMMANDS; // пытаемся запросить команды
+  flags.isEnabled = MainController->GetSettings()->IsHttpApiEnabled();
 
   commandsCheckTimer = 0;
   waitTimer = 0;
@@ -89,7 +90,7 @@ void HttpModule::OnAskForData(String* data)
           Serial.println(F("Asking for commands..."));
         #endif 
 
-        // формируем запрос
+        // формируем запрос:
 
         // для начала подсчитываем длину контента
         String key = MainController->GetSettings()->GetHttpApiKey(); // ключ доступа к API
@@ -460,7 +461,7 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::Update(uint16_t dt)
 { 
-  if(flags.inProcessQuery) // занимаемся обработкой запроса
+  if(flags.inProcessQuery || !flags.isEnabled) // занимаемся обработкой запроса или выключены
     return;
 
   commandsCheckTimer += dt; // прибавляем время простоя
@@ -540,9 +541,17 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
       else
       {
         String which = command.GetArg(0);
-        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here
+        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled
         {
-          MainController->GetSettings()->SetHttpApiKey(command.GetArg(1));
+          GlobalSettings* sett = MainController->GetSettings();
+          sett->SetHttpApiKey(command.GetArg(1));
+
+          if(argsCnt > 2) {
+              bool en = (bool) atoi(command.GetArg(2));
+              flags.isEnabled = en;
+              sett->SetHttpApiEnabled(en);
+          }
+          
           PublishSingleton.Status = true;
           PublishSingleton = which;
           PublishSingleton << PARAM_DELIMITER;
@@ -563,10 +572,13 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
 
         if(which == F("KEY")) // запрос ключа API, CTGET=HTTP|KEY
         {
+          GlobalSettings* sett = MainController->GetSettings();
           PublishSingleton.Status = true;
           PublishSingleton = which;
           PublishSingleton << PARAM_DELIMITER;
-          PublishSingleton << (MainController->GetSettings()->GetHttpApiKey());
+          PublishSingleton << (sett->GetHttpApiKey());
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << (sett->IsHttpApiEnabled() ? 1 : 0);
           
         } // if(which == F("KEY"))
         

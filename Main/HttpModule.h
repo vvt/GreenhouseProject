@@ -10,7 +10,8 @@ struct HttpModuleFlags
 {
   bool inProcessQuery: 1;
   byte currentAction: 2;
-  byte pad: 5;
+  byte isEnabled: 1;
+  byte pad: 4;
 };
 //--------------------------------------------------------------------------------------------------------------------------------
 enum
