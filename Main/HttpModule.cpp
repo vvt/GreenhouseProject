@@ -108,6 +108,18 @@ void HttpModule::OnAskForData(String* data)
         *data += F("k=");
         *data += key;
 
+        // тут передаём локальное время контроллера
+        #ifdef USE_DS3231_REALTIME_CLOCK
+          *data += F("&d=");
+          DS3231Clock rtc = MainController->GetClock();
+          DS3231Time tm = rtc.getTime();
+
+          *data += rtc.getDateStr(tm);
+          *data += F("&t=");
+          *data += rtc.getTimeStr(tm);
+                     
+        #endif
+
         // запрос сформирован
 
         #ifdef HTTP_DEBUG
@@ -149,6 +161,18 @@ void HttpModule::OnAskForData(String* data)
         *data += key;
         *data += F("&r=1&c=");
         *data += *commandId;
+
+        // тут передаём локальное время контроллера
+        #ifdef USE_DS3231_REALTIME_CLOCK
+          *data += F("&d=");
+          DS3231Clock rtc = MainController->GetClock();
+          DS3231Time tm = rtc.getTime();
+
+          *data += rtc.getDateStr(tm);
+          *data += F("&t=");
+          *data += rtc.getTimeStr(tm);
+                     
+        #endif
 
         delete commandId; // не забываем чистить за собой
 
