@@ -92,8 +92,10 @@ void HttpModule::OnAskForData(String* data)
 
         // формируем запрос:
 
+        GlobalSettings* sett = MainController->GetSettings();
+
         // для начала подсчитываем длину контента
-        String key = MainController->GetSettings()->GetHttpApiKey(); // ключ доступа к API
+        String key = sett->GetHttpApiKey(); // ключ доступа к API
         int contentLength = 2 + key.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
 
         // теперь начинаем формировать запрос
@@ -107,6 +109,10 @@ void HttpModule::OnAskForData(String* data)
         *data += HTTP_END_OF_HEADER;
         *data += F("k=");
         *data += key;
+
+        // передаём таймзону
+        *data += F("&z=");
+        *data += sett->GetTimezone();
 
         // тут передаём локальное время контроллера
         #ifdef USE_DS3231_REALTIME_CLOCK
@@ -137,12 +143,14 @@ void HttpModule::OnAskForData(String* data)
           Serial.println(F("Report to server..."));
         #endif 
 
+        GlobalSettings* sett = MainController->GetSettings();
+
         // сначала получаем ID команды
         String* commandId = commandsToReport[commandsToReport.size()-1];
         commandsToReport.pop(); // удаляем из списка
 
         // теперь формируем запрос
-        String key = MainController->GetSettings()->GetHttpApiKey(); // ключ доступа к API
+        String key = sett->GetHttpApiKey(); // ключ доступа к API
         int contentLength = 2 + key.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
         contentLength += 4; // на переменную &r=1, т.е. сообщаем серверу, что этот запрос - со статусом выполнения команды
         contentLength += 3; // на переменную &c=, содержащую ID команды
@@ -161,6 +169,10 @@ void HttpModule::OnAskForData(String* data)
         *data += key;
         *data += F("&r=1&c=");
         *data += *commandId;
+
+        // передаём таймзону
+        *data += F("&z=");
+        *data += sett->GetTimezone();
 
         // тут передаём локальное время контроллера
         #ifdef USE_DS3231_REALTIME_CLOCK
@@ -565,7 +577,7 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
       else
       {
         String which = command.GetArg(0);
-        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled
+        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled|timezone
         {
           GlobalSettings* sett = MainController->GetSettings();
           sett->SetHttpApiKey(command.GetArg(1));
@@ -575,13 +587,19 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
               flags.isEnabled = en;
               sett->SetHttpApiEnabled(en);
           }
+
+          if(argsCnt > 3) {
+              int16_t tz = (int16_t) atoi(command.GetArg(3));
+              sett->SetTimezone(tz);
+          }          
           
           PublishSingleton.Status = true;
           PublishSingleton = which;
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << REG_SUCC;
 
-        }
+        } // which == F("KEY")
+
       } // else
   }
   else // получение свойств
@@ -603,6 +621,8 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << (sett->GetHttpApiKey());
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << (sett->IsHttpApiEnabled() ? 1 : 0);
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << (sett->GetTimezone());
           
         } // if(which == F("KEY"))
         

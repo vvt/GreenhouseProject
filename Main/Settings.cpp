@@ -532,7 +532,43 @@ void GlobalSettings::SetHttpApiEnabled(bool val)
   uint16_t addr = HTTP_API_KEY_ADDRESS + 34;
   MemWrite(addr,val ? 1 : 0);
 }
-//--------------------------------------------------------------------------------------------------------------------------------------    
+//--------------------------------------------------------------------------------------------------------------------------------------
+int16_t GlobalSettings::GetTimezone()
+{
+  int16_t result = 0;
+  uint16_t addr = TIMEZONE_ADDRESS;
+  
+  byte header1 = MemRead(addr++);
+  byte header2 = MemRead(addr++);
+
+  if(header1 == SETT_HEADER1 && header2 == SETT_HEADER2)
+  {
+      byte* b = (byte*) &result;
+      *b++ = MemRead(addr++);
+      *b++ = MemRead(addr++);
+
+      if(0xFFFF == (uint16_t)result)
+        result = 0;
+  }
+
+  return result;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetTimezone(int16_t val)
+{
+  uint16_t addr = TIMEZONE_ADDRESS;
+  
+  MemWrite(addr++,SETT_HEADER1);
+  MemWrite(addr++,SETT_HEADER2);
+
+  byte* b = (byte*) &val;
+
+  MemWrite(addr++,*b++);
+  MemWrite(addr++,*b++);
+  
+    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------        
 String GlobalSettings::GetHttpApiKey()
 {
   String result;

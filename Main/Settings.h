@@ -181,6 +181,8 @@ class GlobalSettings
     bool IsHttpApiEnabled();
     void SetHttpApiEnabled(bool val);
 
+    int16_t GetTimezone();
+    void SetTimezone(int16_t val);
     
     
 };
