@@ -569,6 +569,20 @@ void GlobalSettings::SetTimezone(int16_t val)
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------        
+bool GlobalSettings::CanSendSensorsDataToHTTP()
+{
+  byte en = MemRead(HTTP_SEND_SENSORS_DATA_ADDRESS);
+  if(en == 0xFF)
+    en = 1; // если ничего не записано - считаем, что можем отсылать данные
+
+  return en ? true : false;  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetSensSensorsDataFlag(bool val)
+{
+   MemWrite(HTTP_SEND_SENSORS_DATA_ADDRESS, val ? 1 : 0); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------        
 String GlobalSettings::GetHttpApiKey()
 {
   String result;

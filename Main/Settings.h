@@ -183,6 +183,9 @@ class GlobalSettings
 
     int16_t GetTimezone();
     void SetTimezone(int16_t val);
+
+    bool CanSendSensorsDataToHTTP();
+    void SetSensSensorsDataFlag(bool val);
     
     
 };

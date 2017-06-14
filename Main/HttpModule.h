@@ -33,6 +33,8 @@ class HttpModule : public AbstractModule, public HTTPRequestHandler
    HTTPReportList commandsToReport;
    
    void CheckForIncomingCommands(byte wantedAction);
+   void CollectSensorsData(String* data);
+   uint8_t MapFraction(uint8_t fraction);
   
   public:
     HttpModule() : AbstractModule("HTTP") {}

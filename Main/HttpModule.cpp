@@ -72,6 +72,202 @@ void HttpModule::OnAskForHost(String& host)
   host = F(HTTP_SERVER_IP);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+uint8_t HttpModule::MapFraction(uint8_t fraction)
+{
+  uint16_t tmp = 15*fraction;
+  return tmp/100;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void HttpModule::CollectSensorsData(String* data)
+{
+  // тут собираем данные с датчиков
+  // порядок следования датчиков:
+  // температура|влажность|освещённость|влажность почвы|показания pH
+    *data += F("&s=");
+
+
+    ///////////////////////////////////////////////////////////
+    // собираем показания датчиков температуры
+    ///////////////////////////////////////////////////////////
+    AbstractModule* mod = MainController->GetModuleByID("STATE");
+    if(mod)
+    {
+       int cnt = mod->State.GetStateCount(StateTemperature);
+       *data += WorkStatus::ToHex(cnt);
+
+       for(int i=0;i<cnt;i++)
+       {
+          OneState* os = mod->State.GetStateByOrder(StateTemperature,i);
+          if(os->HasData()) // есть показания
+          {
+            TemperaturePair tp = *os;
+            int8_t wholePart = tp.Current.Value;
+            uint8_t fractionPart = MapFraction(tp.Current.Fract);
+            
+            *data += WorkStatus::ToHex(wholePart);
+            // для дробной части у нас всего один символ, поэтому берём только второй из перекодированных в HEX, т.к. первый символ там будет всё равно 0
+            const char* fractPtr = WorkStatus::ToHex(fractionPart);
+            fractPtr++;
+            *data += fractPtr;
+            
+          }
+          else // нет показаний
+          {
+            *data += F("-");
+          }
+       } // for
+    }
+    else
+      *data += F("00"); // не найдено модуля
+
+
+    ///////////////////////////////////////////////////////////
+    // собираем показания датчиков влажности
+    ///////////////////////////////////////////////////////////
+    mod = MainController->GetModuleByID("HUMIDITY");
+    if(mod)
+    {
+       int cnt = mod->State.GetStateCount(StateHumidity);
+       *data += WorkStatus::ToHex(cnt);
+
+       for(int i=0;i<cnt;i++)
+       {
+          OneState* os = mod->State.GetStateByOrder(StateHumidity,i);
+          OneState* os2 = mod->State.GetStateByOrder(StateTemperature,i);
+          if(os->HasData() && os2->HasData()) // есть показания
+          {
+            // показания влажности
+            HumidityPair tp = *os;
+            int8_t wholePart = tp.Current.Value;
+            uint8_t fractionPart = MapFraction(tp.Current.Fract);
+            
+            *data += WorkStatus::ToHex(wholePart);
+            const char* fractPtr = WorkStatus::ToHex(fractionPart);
+            fractPtr++;
+            *data += fractPtr;
+
+            // показания температуры
+            TemperaturePair tp2 = *os2;
+            wholePart = tp2.Current.Value;
+            fractionPart = MapFraction(tp2.Current.Fract);
+            
+            *data += WorkStatus::ToHex(wholePart);
+            fractPtr = WorkStatus::ToHex(fractionPart);
+            fractPtr++;
+            *data += fractPtr;
+            
+          }
+          else // нет показаний
+          {
+            *data += F("-");
+          }
+       } // for
+    }
+    else
+      *data += F("00"); // не найдено модуля
+
+   ///////////////////////////////////////////////////////////
+    // собираем показания датчиков освещённости
+    ///////////////////////////////////////////////////////////
+    mod = MainController->GetModuleByID("LIGHT");
+    if(mod)
+    {
+       int cnt = mod->State.GetStateCount(StateLuminosity);
+       *data += WorkStatus::ToHex(cnt);
+
+       for(int i=0;i<cnt;i++)
+       {
+          OneState* os = mod->State.GetStateByOrder(StateLuminosity,i);
+          if(os->HasData()) // есть показания
+          {
+            LuminosityPair tp = *os;
+            long sensorData = tp.Current;
+            byte* b = (byte*) &sensorData;
+            
+            // копируем 4 байта показаний датчика, как есть
+            for(byte kk=0; kk < 4; kk++)
+              *data += WorkStatus::ToHex(*b++);          
+          }
+          else // нет показаний
+          {
+            *data += F("-");
+          }
+       } // for
+    }
+    else
+      *data += F("00"); // не найдено модуля
+
+    ///////////////////////////////////////////////////////////
+    // собираем показания датчиков влажности почвы
+    ///////////////////////////////////////////////////////////
+    mod = MainController->GetModuleByID("SOIL");
+    if(mod)
+    {
+       int cnt = mod->State.GetStateCount(StateSoilMoisture);
+       *data += WorkStatus::ToHex(cnt);
+
+       for(int i=0;i<cnt;i++)
+       {
+          OneState* os = mod->State.GetStateByOrder(StateSoilMoisture,i);
+          if(os->HasData()) // есть показания
+          {
+            TemperaturePair tp = *os;
+            int8_t wholePart = tp.Current.Value;
+            uint8_t fractionPart = MapFraction(tp.Current.Fract);
+            
+            *data += WorkStatus::ToHex(wholePart);
+            // для дробной части у нас всего один символ, поэтому берём только второй из перекодированных в HEX, т.к. первый символ там будет всё равно 0
+            const char* fractPtr = WorkStatus::ToHex(fractionPart);
+            fractPtr++;
+            *data += fractPtr;
+            
+          }
+          else // нет показаний
+          {
+            *data += F("-");
+          }
+       } // for
+    }
+    else
+      *data += F("00"); // не найдено модуля          
+
+    ///////////////////////////////////////////////////////////
+    // собираем показания датчиков pH
+    ///////////////////////////////////////////////////////////
+    mod = MainController->GetModuleByID("PH");
+    if(mod)
+    {
+       int cnt = mod->State.GetStateCount(StatePH);
+       *data += WorkStatus::ToHex(cnt);
+
+       for(int i=0;i<cnt;i++)
+       {
+          OneState* os = mod->State.GetStateByOrder(StatePH,i);
+          if(os->HasData()) // есть показания
+          {
+            TemperaturePair tp = *os;
+            int8_t wholePart = tp.Current.Value;
+            uint8_t fractionPart = MapFraction(tp.Current.Fract);
+            
+            *data += WorkStatus::ToHex(wholePart);
+            // для дробной части у нас всего один символ, поэтому берём только второй из перекодированных в HEX, т.к. первый символ там будет всё равно 0
+            const char* fractPtr = WorkStatus::ToHex(fractionPart);
+            fractPtr++;
+            *data += fractPtr;
+            
+          }
+          else // нет показаний
+          {
+            *data += F("-");
+          }
+       } // for
+    }
+    else
+      *data += F("00"); // не найдено модуля          
+
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::OnAskForData(String* data)
 {
   #ifdef HTTP_DEBUG
@@ -125,6 +321,12 @@ void HttpModule::OnAskForData(String* data)
           *data += rtc.getTimeStr(tm);
                      
         #endif
+
+        if(sett->CanSendSensorsDataToHTTP())
+        {
+          // можем посылать данные датчиков
+          CollectSensorsData(data);
+        }
 
         // запрос сформирован
 
@@ -577,7 +779,7 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
       else
       {
         String which = command.GetArg(0);
-        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled|timezone
+        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled|timezone|sendSensorsData
         {
           GlobalSettings* sett = MainController->GetSettings();
           sett->SetHttpApiKey(command.GetArg(1));
@@ -591,7 +793,11 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
           if(argsCnt > 3) {
               int16_t tz = (int16_t) atoi(command.GetArg(3));
               sett->SetTimezone(tz);
-          }          
+          } 
+          if(argsCnt > 4) {
+               bool en = (bool) atoi(command.GetArg(4));
+              sett->SetSensSensorsDataFlag(en);
+          }                     
           
           PublishSingleton.Status = true;
           PublishSingleton = which;
@@ -623,6 +829,8 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << (sett->IsHttpApiEnabled() ? 1 : 0);
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << (sett->GetTimezone());
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << (sett->CanSendSensorsDataToHTTP() ? 1 : 0);
           
         } // if(which == F("KEY"))
         
