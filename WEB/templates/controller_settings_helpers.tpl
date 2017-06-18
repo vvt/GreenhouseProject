@@ -1990,6 +1990,30 @@ controller.OnGetModulesList = function(obj)
         });
     }
     
+    if(controller.Modules.includes('HTTP') && hasWIFIModule)
+    {
+        controller.queryCommand(true,'HTTP|KEY',function(obj,answer){
+        
+            $('#HTTP_MENU').toggle(answer.IsOK);
+            if(answer.IsOK) {
+            
+                $('#http_api_key').val(answer.Params[2]);
+                $('#http_api_enabled').get(0).checked = parseInt(answer.Params[3]) == 1;
+                $('#http_timezone').val(answer.Params[4]);
+                $('#http_send_status').get(0).checked = parseInt(answer.Params[5]) == 1;
+                
+                $('#http_timezone').spinner({
+                    min: -1000,
+                    max: 1000,
+                    step: 5
+                });
+            }
+        
+        });
+    
+    }
+    
+    
     if(controller.Modules.includes('IOT') && (hasWIFIModule || hasSMSModule))
     {
       // можем получать настройки IoT
@@ -2333,6 +2357,53 @@ $("#new_cc_command_dialog").dialog({modal:true, buttons: [{text: "Добавит
   ] });  
 
 
+}
+//-----------------------------------------------------------------------------------------------------
+function saveHTTPSettings()
+{
+  var httpEnabled = $('#http_api_enabled').get(0).checked ? 1 : 0;
+  var sendSensors = $('#http_send_status').get(0).checked ? 1 : 0;
+  
+  var apiKey = $('#http_api_key').val().trim();
+  var rawTimezoneVal = $('#http_timezone').val().trim();
+  var timezone = parseInt(rawTimezoneVal);
+  
+  if(apiKey.length != 32)
+  {
+    showMessage("Ключ API должен быть длиной в 32 символа!", function(){
+    
+      $('#http_api_key').focus();
+    
+    });
+    return;
+  }
+  
+  if(rawTimezoneVal == '' || isNaN(timezone))
+  {
+    showMessage("Пожалуйста, укажите вашу часовую зону!", function(){
+    
+      $('#http_timezone').focus();
+    
+    });
+    return;
+  }
+  
+  var full_command = "HTTP|KEY|" + apiKey + '|' + httpEnabled + '|' + timezone + '|' + sendSensors;
+  
+  showWaitDialog();
+  
+  controller.queryCommand(false,full_command,function(obj,answer){
+                                
+                                  closeWaitDialog();
+                                  if(answer.IsOK)
+                                    showMessage("Данные успешно сохранены!");
+                                  else
+                                    showMessage("Ошибка сохранения данных :(");                           
+                                  
+                                  
+                                });  
+  
+  
 }
 //-----------------------------------------------------------------------------------------------------
 function saveIoTSettings()
@@ -2838,7 +2909,7 @@ $(document).ready(function(){
       }
     });
     
-  $( "#save_delta_button, #save_iot_button, #save_cc_button, #save_watering_button, #save_rules_button, #save_sms_button, #save_timers_button" ).button({
+  $( "#save_delta_button, #save_iot_button, #save_http_button, #save_cc_button, #save_watering_button, #save_rules_button, #save_sms_button, #save_timers_button" ).button({
       icons: {
         primary: "ui-icon-arrowthickstop-1-n"
       }

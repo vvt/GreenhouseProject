@@ -540,6 +540,7 @@
       <div class='menuitem ui-corner-all hdn' id='TIMERS_MENU' onclick="content(this);">Таймеры</div>
       <div class='menuitem ui-corner-all hdn' id='SMS_MENU' onclick="content(this);">Список SMS</div>
       <div class='menuitem ui-corner-all hdn' id='IOT_MENU' onclick="content(this);">IoT</div>
+      <div class='menuitem ui-corner-all hdn' id='HTTP_MENU' onclick="content(this);">HTTP API</div>
       <div class='menuitem ui-corner-all' id='COMMAND_PROMPT_MENU' onclick="content(this);">Командная строка</div>
 
       <div class='ui-corner-all button_menu_spacer hdn' id='ph_calibration_button' onclick="editPHCalibration();">Настройки PH</div>
@@ -599,6 +600,31 @@
                      </div> 
                      
                     
+            </div>
+            
+            <div class='content hdn' id='HTTP_MENU_CONTENT'>
+                  
+                    <h3 class='ui-widget-header ui-corner-all'>Настройки HTTP API сервиса gardenboss.ru</h3>
+                    
+                        <div class='button_menu_spacer'>
+                          <input type='checkbox' id='http_api_enabled'><label for='http_api_enabled'>HTTP API активно?</label>
+                        </div>                    
+                        <div class='button_menu_spacer'>
+                          <input type='checkbox' id='http_send_status'><label for='http_send_status'>Посылать данные датчиков на сервис?</label>
+                        </div>                    
+                    
+                        <div class='button_menu_spacer'>
+                          Ключ доступа к сервису:<br/><input type='text' id='http_api_key' value='' maxlength='32'/>
+                        </div>                    
+
+                        <div class='button_menu_spacer'>
+                          Ваш часовой пояс (в минутах от UTC):<br/><input type='text' id='http_timezone' value='' maxlength='32'/>
+                        </div> 
+                        
+                    <div style='margin-top:10px;'>
+                        <button id='save_http_button' onclick='saveHTTPSettings();'>Сохранить</button>                        
+                    </div>                        
+                                           
             </div>
             
             
