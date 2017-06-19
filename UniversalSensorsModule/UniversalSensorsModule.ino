@@ -56,6 +56,8 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 #define NRF_CE_PIN 9 // номер пина CE для модуля nRF
 #define NRF_CSN_PIN 10 // номер пина CSN для модуля nRF
 #define DEFAULT_RF_CHANNEL 19 // номер канала для nRF по умолчанию
+//#define NRF_AUTOACK_INVERTED // раскомментировать эту строчку здесь и в главной прошивке, если у вас они не коннектятся. 
+// Иногда auto aсk в китайских модулях имеет инвертированное значение.
 
 // настройки RS-485
 #define USE_RS485_GATE // закомментировать, если не нужна работа через RS-485
@@ -1252,7 +1254,13 @@ void initNRF()
   radio.setRetries(15,15);
   radio.setPayloadSize(sizeof(t_scratchpad)); // у нас 30 байт на пакет
   radio.setCRCLength(RF24_CRC_16);
-  radio.setAutoAck(true);
+  radio.setAutoAck(
+    #ifdef NRF_AUTOACK_INVERTED
+      false
+    #else
+    true
+    #endif
+    );
 
   #ifdef NRF_DEBUG
     radio.printDetails();
