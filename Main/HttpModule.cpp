@@ -2,7 +2,7 @@
 #include "ModuleController.h"
 #include "InteropStream.h"
 //--------------------------------------------------------------------------------------------------------------------------------
-#define HTTP_START_OF_HEADERS F("POST /check_commands.php HTTP/1.1\r\nConnection: close\r\nContent-Type: application/x-www-form-urlencoded\r\nHost: ")
+#define HTTP_START_OF_HEADERS F("POST /check HTTP/1.1\r\nConnection: close\r\nContent-Type: application/x-www-form-urlencoded\r\nHost: ")
 #define HTTP_CONTENT_LENGTH_HEADER F("Content-Length: ")
 #define HTTP_END_OF_HEADER F("\r\n")
 #define HTTP_START_OF_COMMAND F("[~]")
