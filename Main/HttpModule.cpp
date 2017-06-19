@@ -292,7 +292,29 @@ void HttpModule::OnAskForData(String* data)
 
         // для начала подсчитываем длину контента
         String key = sett->GetHttpApiKey(); // ключ доступа к API
-        int contentLength = 2 + key.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
+        String tz = String((int) sett->GetTimezone());
+
+        int addedLength = 0;
+        #ifdef USE_DS3231_REALTIME_CLOCK
+          addedLength = 6;
+          DS3231Clock rtc = MainController->GetClock();
+          DS3231Time tm = rtc.getTime();
+          String dateStr = rtc.getDateStr(tm);
+          String timeStr = rtc.getTimeStr(tm);
+
+          addedLength += dateStr.length();
+          addedLength += timeStr.length();
+          
+        #endif
+
+        String sensorsData;
+        if(sett->CanSendSensorsDataToHTTP())
+        {
+          // можем посылать данные датчиков
+          CollectSensorsData(&sensorsData);
+        }        
+                
+        int contentLength = 2 + key.length() + 3 + tz.length() + addedLength + sensorsData.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
 
         // теперь начинаем формировать запрос
         *data = HTTP_START_OF_HEADERS;
@@ -308,25 +330,19 @@ void HttpModule::OnAskForData(String* data)
 
         // передаём таймзону
         *data += F("&z=");
-        *data += sett->GetTimezone();
+        *data += tz;
 
         // тут передаём локальное время контроллера
         #ifdef USE_DS3231_REALTIME_CLOCK
           *data += F("&d=");
-          DS3231Clock rtc = MainController->GetClock();
-          DS3231Time tm = rtc.getTime();
-
-          *data += rtc.getDateStr(tm);
+          *data += dateStr;
           *data += F("&t=");
-          *data += rtc.getTimeStr(tm);
-                     
+          *data += timeStr;                  
         #endif
 
         if(sett->CanSendSensorsDataToHTTP())
-        {
-          // можем посылать данные датчиков
-          CollectSensorsData(data);
-        }
+          *data += sensorsData;
+
 
         // запрос сформирован
 
@@ -353,7 +369,23 @@ void HttpModule::OnAskForData(String* data)
 
         // теперь формируем запрос
         String key = sett->GetHttpApiKey(); // ключ доступа к API
-        int contentLength = 2 + key.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
+        String tz = String((int)sett->GetTimezone());
+
+        int addedLength = 0;
+
+        #ifdef USE_DS3231_REALTIME_CLOCK
+          addedLength = 6;
+          DS3231Clock rtc = MainController->GetClock();
+          DS3231Time tm = rtc.getTime();
+          String dateStr = rtc.getDateStr(tm);
+          String timeStr = rtc.getTimeStr(tm);
+
+          addedLength += dateStr.length();
+          addedLength += timeStr.length();
+        #endif
+
+        
+        int contentLength = 2 + key.length() + 3 + tz.length() + addedLength; // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
         contentLength += 4; // на переменную &r=1, т.е. сообщаем серверу, что этот запрос - со статусом выполнения команды
         contentLength += 3; // на переменную &c=, содержащую ID команды
         contentLength += commandId->length(); // ну и, собственно, длину ID команды тоже считаем
@@ -374,17 +406,15 @@ void HttpModule::OnAskForData(String* data)
 
         // передаём таймзону
         *data += F("&z=");
-        *data += sett->GetTimezone();
+        *data += tz;
 
         // тут передаём локальное время контроллера
         #ifdef USE_DS3231_REALTIME_CLOCK
           *data += F("&d=");
-          DS3231Clock rtc = MainController->GetClock();
-          DS3231Time tm = rtc.getTime();
-
-          *data += rtc.getDateStr(tm);
+          
+          *data += dateStr;
           *data += F("&t=");
-          *data += rtc.getTimeStr(tm);
+          *data += timeStr;
                      
         #endif
 
