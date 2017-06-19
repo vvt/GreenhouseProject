@@ -627,6 +627,7 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
       break;
     
     case mstDS18B20:
+      InitDS18B20(sett);
     break;
 
     case mstBH1750:
