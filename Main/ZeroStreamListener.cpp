@@ -227,6 +227,23 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
            }
            
         }
+         else 
+         if (t == F("RFSCAN")) // сканировать канал на занятость
+         {
+            byte ch = atoi(command.GetArg(1));
+            
+            #ifdef USE_NRF_GATE
+              
+              int level = nrfGate.ScanChannel(ch);
+              PublishSingleton.Status = true;
+              PublishSingleton = t; 
+              PublishSingleton << PARAM_DELIMITER << ch << PARAM_DELIMITER << level;
+              
+            #else
+              PublishSingleton = t; 
+              PublishSingleton << PARAM_DELIMITER << ch << PARAM_DELIMITER << NOT_SUPPORTED;
+            #endif
+         }        
         else
         if(t == UNI_RF_CHANNEL_COMMAND)
         {

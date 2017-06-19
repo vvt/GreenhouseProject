@@ -442,6 +442,7 @@ class UniNRFGate
     void Update(uint16_t dt);
 
     void SetChannel(byte channel);
+    int ScanChannel(byte channel);
 
   private:
   

@@ -1026,6 +1026,8 @@ void WiFiModule::ProcessQueue()
           {      
             // тут посылаем данные
             SendCommand(*httpData,false);
+            delete httpData;
+            httpData = NULL;
           }
           else
           {

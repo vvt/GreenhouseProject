@@ -2193,6 +2193,36 @@ void UniNRFGate::SetChannel(byte channel)
   radio.startListening();
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+int UniNRFGate::ScanChannel(byte channel)
+{
+  
+  if(!nRFInited)
+    return -1;
+
+    int level = 0;
+
+    radio.stopListening();
+    radio.setAutoAck(false);
+    radio.setChannel(channel);   
+    radio.startListening();
+
+    for(int i=0;i<1000;i++)
+    {
+        if(radio.testRPD())
+          level++;
+
+         delayMicroseconds(50);
+    }
+
+    radio.stopListening();
+    radio.setAutoAck(true);
+    radio.setChannel(UniDispatcher.GetRFChannel());   
+    radio.startListening();
+
+    return level;
+    
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniNRFGate::initNRF()
 {
   #ifdef NRF_DEBUG
