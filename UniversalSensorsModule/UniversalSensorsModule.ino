@@ -46,9 +46,12 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 #define LINES_POWER_DOWN_LEVEL HIGH // уровень на пине для выключения линий
 #define LINES_POWER_UP_LEVEL LOW // уровень на пине для включения линий 
 
+
+//#define _DEBUG // раскомментировать для отладочного режима (плюётся в Serial, не использовать с подключённым RS-485 !!!)
+
+
 // настройки nRF
 #define USE_NRF // закомментировать, если не надо работать через nRF.
-//#define NRF_DEBUG // раскомментировать для отладочного режима nRF (плюётся в Serial)
 /*
  nRF для своей работы занимает следующие пины: 3,9,10,11,12,13. 
  Следите за тем, чтобы номера пинов не пересекались c номерами пинов датчиков, или с RS-485.
@@ -310,34 +313,10 @@ void ProcessRS485Packet()
      }
 
      if(!sMatch) {// не нашли у нас такого датчика
-/*
-      Serial.print(scratchpadS.sensor1.type);
-      Serial.print(",");
-      Serial.println(scratchpadS.sensor1.index);
 
-      Serial.print(scratchpadS.sensor2.type);
-      Serial.print(",");
-      Serial.println(scratchpadS.sensor2.index);
-
-      Serial.print(scratchpadS.sensor3.type);
-      Serial.print(",");
-      Serial.println(scratchpadS.sensor3.index);
-
-      
-      Serial.print(sensorType);
-      Serial.print(",");
-      Serial.print(sensorIndex);
-      Serial.println(" - NO SENSOR");
-*/
       return;
      }
-/*
-      Serial.print(sensorType);
-      Serial.print(",");
-      Serial.print(sensorIndex);
-      Serial.println(" - GOT SENSOR !!!");
-      Serial.println(sizeof(RS485Packet));
-*/
+
      memcpy(readPtr,sMatch->data,4); // у нас 4 байта на показания, копируем их все
 
      // выставляем нужное направление пакета
@@ -545,6 +524,11 @@ void ReadROM()
 
     // вычисляем интервал опроса
     query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
+
+    #ifdef _DEBUG
+      Serial.print(F("Query interval: "));
+      Serial.println(query_interval);
+    #endif
     
     scratchpadS.sensor1.type = GetSensorType(Sensors[0]);
     scratchpadS.sensor2.type = GetSensorType(Sensors[1]);
@@ -570,16 +554,6 @@ void ReadROM()
                 scratchpadS.calibration_factor1 = map(SOIL_MOISTURE_0_PERCENT,0,1023,0,255);
                 scratchpadS.calibration_factor2 = map(SOIL_MOISTURE_100_PERCENT,0,1023,0,255);
               }
-              /*
-              if(scratchpadS.calibration_factor1 == 0xFF || scratchpadS.calibration_factor1 == 0)
-              {
-                scratchpadS.calibration_factor1 = map(450,0,1023,0,255);
-              }
-              if(scratchpadS.calibration_factor2 == 0xFF || scratchpadS.calibration_factor2 == 0)
-              {
-                scratchpadS.calibration_factor2 = map(1023,0,1023,0,255);
-              }
-              */
 
               // мы поддерживаем два фактора калибровки
               scratchpadS.config |= (4 | 8);
@@ -674,6 +648,10 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
 //----------------------------------------------------------------------------------------------------------------
 void WakeUpSensors() // будим все датчики
 {
+  #ifdef _DEBUG
+    Serial.println(F("Wake up sensors..."));
+  #endif
+  
   // включаем все линии
   linesPowerDown.write(LINES_POWER_UP_LEVEL);
   
@@ -688,6 +666,9 @@ void WakeUpSensors() // будим все датчики
 //----------------------------------------------------------------------------------------------------------------
 void PowerDownSensors()
 {
+   #ifdef _DEBUG
+    Serial.println(F("Power down sensors..."));
+  #endif 
   // выключаем все линии
   linesPowerDown.write(LINES_POWER_DOWN_LEVEL);
   
@@ -731,13 +712,26 @@ void* InitBH1750(const SensorSettings& sett) // инициализируем д�
 //----------------------------------------------------------------------------------------------------------------
 void* InitDS18B20(const SensorSettings& sett) // инициализируем датчик температуры
 {
-  if(!sett.Pin)
-    return NULL;   
+  #ifdef _DEBUG
+    Serial.println(F("Init DS18B20..."));
+  #endif
+  
+  if(!sett.Pin) {
+    #ifdef _DEBUG
+      Serial.println(F("WDS18B20 - no pin number!!!"));
+    #endif
+    return NULL; 
+  }  
 
    OneWire ow(sett.Pin);
 
   if(!ow.reset()) // нет датчика
+  {
+     #ifdef _DEBUG
+      Serial.println(F("DS18B20 - not found during init!!!"));
+    #endif
     return NULL;  
+  }
 
    ow.write(0xCC); // пофиг на адреса (SKIP ROM)
    ow.write(0x4E); // запускаем запись в scratchpad
@@ -752,12 +746,20 @@ void* InitDS18B20(const SensorSettings& sett) // инициализируем д
    delay(10);
    ow.reset();
 
+  #ifdef _DEBUG
+    Serial.println(F("DS18B20 - inited."));
+  #endif
+
    return NULL;
     
 }
 //----------------------------------------------------------------------------------------------------------------
 void InitSensors()
 {
+  #ifdef _DEBUG
+    Serial.println(F("Init sensors..."));
+  #endif
+  
   // инициализируем датчики
   for(byte i=0;i<3;i++)
     SensorDefinedData[i] = InitSensor(Sensors[i]);
@@ -766,16 +768,30 @@ void InitSensors()
 //----------------------------------------------------------------------------------------------------------------
  void ReadDS18B20(const SensorSettings& sett, struct sensor* s) // читаем данные с датчика температуры
 { 
+  #ifdef _DEBUG
+    Serial.println(F("Read DS18B20..."));
+  #endif
+  
   s->data[0] = NO_TEMPERATURE_DATA;
   s->data[1] = 0;
   
   if(!sett.Pin)
+  {
+    #ifdef _DEBUG
+      Serial.println(F("DS18B20 - no pin number!!!"));
+    #endif       
     return;
+  }
 
    OneWire ow(sett.Pin);
     
     if(!ow.reset()) // нет датчика на линии
-      return; 
+    {
+    #ifdef _DEBUG
+      Serial.println(F("DS18B20 - not found!"));
+    #endif   
+    return; 
+    }
 
   byte data[9] = {0};
   
@@ -787,8 +803,12 @@ void InitSensors()
 
 
  if (OneWire::crc8(data, 8) != data[8]) // проверяем контрольную сумму
+ {
+  #ifdef _DEBUG
+    Serial.println(F("DS18B20 - bad checksum!!!"));
+  #endif     
       return;
-  
+ }
   int loByte = data[0];
   int hiByte = data[1];
 
@@ -803,6 +823,14 @@ void InitSensors()
    
   s->data[0] = tc_100/100;
   s->data[1] = tc_100 % 100;
+
+  #ifdef _DEBUG
+    Serial.print(F("DS18B20: "));
+    Serial.print(s->data[0]);
+    Serial.print(F(","));
+    Serial.println(s->data[1]);
+    
+  #endif     
     
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -823,15 +851,9 @@ void ReadFrequencySoilMoistureMeter(const SensorSettings& sett, void* sensorDefi
  highTime = pulseIn(sett.Pin,HIGH);
  int lowTime = pulseIn(sett.Pin,LOW);
 
- //Serial.print("HIGH pulse: ");
-// Serial.println(highTime);
-
-// Serial.print("LOW pulse: ");
-// Serial.println(lowTime);
 
  if(!lowTime)
  {
-//  Serial.println("NO LOW PULSE!");
   return;
  }
   int totalTime = lowTime + highTime;
@@ -846,12 +868,7 @@ void ReadFrequencySoilMoistureMeter(const SensorSettings& sett, void* sensorDefi
 
    s->data[0] = moistureInt/100;
    s->data[1] = moistureInt%100;
-
- // Serial.print("Moisture are: ");
-//  Serial.print(s->data[0]);
-//  Serial.print(",");
-//  Serial.print(s->data[1]);
-//  Serial.println();   
+ 
 }
 //----------------------------------------------------------------------------------------------------------------
 void ReadBH1750(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика освещённости
@@ -1055,6 +1072,9 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
 //----------------------------------------------------------------------------------------------------------------
 void ReadSensors()
 {
+  #ifdef _DEBUG
+    Serial.println(F("Read sensors..."));
+  #endif  
   // читаем информацию с датчиков
     
   ReadSensor(Sensors[0],SensorDefinedData[0],&scratchpadS.sensor1);
@@ -1065,18 +1085,36 @@ void ReadSensors()
 //----------------------------------------------------------------------------------------------------------------
 void MeasureDS18B20(const SensorSettings& sett)
 {
+  #ifdef _DEBUG
+    Serial.println(F("DS18B20 - start conversion..."));
+  #endif
+  
   if(!sett.Pin)
+  {
+    #ifdef _DEBUG
+      Serial.println(F("DS18B20 - no pin number!!!"));
+    #endif
     return;
+  }
 
    OneWire ow(sett.Pin);
     
     if(!ow.reset()) // нет датчика на линии
+    {
+      #ifdef _DEBUG
+        Serial.println(F("DS18B20 - not found!!!"));
+      #endif    
       return; 
+    }
 
     ow.write(0xCC);
     ow.write(0x44); // посылаем команду на старт измерений
     
     ow.reset();    
+
+  #ifdef _DEBUG
+    Serial.println(F("DS18B20 - converted."));
+  #endif    
   
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -1202,7 +1240,11 @@ void UpdateSensors()
 }
 //----------------------------------------------------------------------------------------------------------------
 void StartMeasure()
-{  
+{
+  #ifdef _DEBUG
+    Serial.println(F("Start measure..."));
+  #endif
+    
  WakeUpSensors(); // будим все датчики
   
   // запускаем конвертацию
@@ -1222,7 +1264,7 @@ const uint64_t writingPipes[5] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0E2LL, 0xF0F0F0F0E3L
 RF24 radio(NRF_CE_PIN,NRF_CSN_PIN);
 bool nRFInited = false;
 //----------------------------------------------------------------------------------------------------------------
-#ifdef NRF_DEBUG
+#ifdef _DEBUG
 int serial_putc( char c, FILE * ) {
   Serial.write( c );
   return c;
@@ -1237,7 +1279,7 @@ void printf_begin(void) {
 //----------------------------------------------------------------------------------------------------------------
 void initNRF()
 {
-  #ifdef NRF_DEBUG
+  #ifdef _DEBUG
   Serial.begin(57600);
   printf_begin();
   #endif
@@ -1262,7 +1304,7 @@ void initNRF()
     #endif
     );
 
-  #ifdef NRF_DEBUG
+  #ifdef _DEBUG
     radio.printDetails();
   #endif
 
@@ -1275,7 +1317,7 @@ void initNRF()
 void sendDataViaNRF()
 {
   if(!nRFInited) {
- #ifdef NRF_DEBUG
+ #ifdef _DEBUG
   Serial.println(F("nRF not inited!"));
  #endif    
     return;
@@ -1283,7 +1325,7 @@ void sendDataViaNRF()
     
   if(!((scratchpadS.config & 1) == 1))
   {
-    #ifdef NRF_DEBUG
+    #ifdef _DEBUG
     Serial.println(F("Transiever disabled."));
     #endif
     return;
@@ -1291,7 +1333,7 @@ void sendDataViaNRF()
   
   radio.powerUp(); // просыпаемся
   
-  #ifdef NRF_DEBUG
+  #ifdef _DEBUG
     Serial.println(F("Send sensors data via nRF..."));
   #endif
   // посылаем данные через nRF
@@ -1303,13 +1345,13 @@ void sendDataViaNRF()
     radio.openWritingPipe(writingPipes[writePipeNum]); // открываем канал для записи
     if(!radio.write(&scratchpadS,sizeof(scratchpadS))) // пишем в него
     {
-      #ifdef NRF_DEBUG
+      #ifdef _DEBUG
         Serial.println(F("No receiving side found!"));
       #endif
     }
   //  radio.startListening(); // начинаем прослушку эфира опять  
 
-  #ifdef NRF_DEBUG
+  #ifdef _DEBUG
     Serial.println(F("Sensors data sent."));
   #endif
 
@@ -1492,7 +1534,12 @@ void loop()
   if(((curMillis - last_measure_at) > query_interval) && !measureTimerEnabled && !needToMeasure) {
     // чего-то долго не запускали конвертацию, запустим, пожалуй
       if(!connectedViaOneWire) // и запустим только тогда, когда мы не подключены к 1-Wire, иначе - мастер сам запросит конвертацию.
+      {
         needToMeasure = true;
+        #ifdef _DEBUG
+          Serial.println(F("Want measure..."));
+        #endif        
+      }
   }
 
   // только если ничего не делаем на линии 1-Wire и запросили конвертацию
@@ -1501,18 +1548,30 @@ void loop()
     StartMeasure();
     sensorsUpdateTimer = curMillis; // сбрасываем таймер обновления
     measureTimerEnabled = true; // включаем флаг, что мы должны прочитать данные с датчиков
+
+    #ifdef _DEBUG
+      Serial.println(F("Wait for measure complete..."));
+    #endif    
   }
 
   if(measureTimerEnabled) {
     UpdateSensors(); // обновляем датчики, если кому-то из них нужно периодическое обновление
   }
   
-  if(measureTimerEnabled && ((curMillis - sensorsUpdateTimer) > query_interval)) {
+  if(measureTimerEnabled && ((curMillis - sensorsUpdateTimer) > MEASURE_MIN_TIME)) {
+
+  #ifdef _DEBUG
+    Serial.println(F("Measure completed, start read..."));
+  #endif
 
      sensorsUpdateTimer = curMillis;
      measureTimerEnabled = false;
      // можно читать информацию с датчиков
      ReadSensors();
+
+  #ifdef _DEBUG
+    Serial.println(F("Sensors data readed."));
+  #endif     
 
      // прочитали, всё в скратчпаде, вычисляем CRC
      scratchpadS.crc8 = OneWireSlave::crc8((const byte*) scratchpad,sizeof(scratchpadS)-1);
@@ -1527,6 +1586,10 @@ void loop()
       if(!connectedViaOneWire)
         sendDataViaNRF();
      #endif
+
+  #ifdef _DEBUG
+    Serial.println(F(""));
+  #endif        
   }
 
   #ifdef USE_RS485_GATE
