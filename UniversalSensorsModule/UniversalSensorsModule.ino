@@ -43,8 +43,8 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //----------------------------------------------------------------------------------------------------------------
 // настройки управляющих пинов
 #define LINES_POWER_DOWN_PIN 8 // номер пина, на котором будет управление питанием линий I2C, 1-Wire и аналогового входа для датчика влажности почвы
-#define LINES_POWER_DOWN_LEVEL HIGH // уровень на пине для выключения линий
-#define LINES_POWER_UP_LEVEL LOW // уровень на пине для включения линий 
+#define LINES_POWER_DOWN_LEVEL LOW // уровень на пине для выключения линий
+#define LINES_POWER_UP_LEVEL HIGH // уровень на пине для включения линий 
 
 
 //#define _DEBUG // раскомментировать для отладочного режима (плюётся в Serial, не использовать с подключённым RS-485 !!!)
@@ -173,11 +173,11 @@ Pin linesPowerDown(LINES_POWER_DOWN_PIN);
 t_scratchpad scratchpadS, scratchpadToSend;
 volatile char* scratchpad = (char *)&scratchpadS; //что бы обратиться к scratchpad как к линейному массиву
 
-volatile bool scratchpadReceivedFromMaster = false; // флаг, что мы получили данные с мастера
+//volatile bool scratchpadReceivedFromMaster = false; // флаг, что мы получили данные с мастера
 volatile bool needToMeasure = false; // флаг, что мы должны запустить конвертацию
 volatile unsigned long sensorsUpdateTimer = 0; // таймер получения информации с датчиков и обновления данных в скратчпаде
 volatile bool measureTimerEnabled = false; // флаг, что мы должны прочитать данные с датчиков после старта измерений
-unsigned long query_interval = MEASURE_MIN_TIME; // тут будет интервал опроса
+volatile unsigned long query_interval = MEASURE_MIN_TIME; // тут будет интервал опроса
 unsigned long last_measure_at = 0; // когда в последний раз запускали конвертацию
 
 volatile bool connectedViaOneWire = false; // флаг, что мы присоединены к линии 1-Wire, при этом мы не сорим в эфир по nRF и не обновляем состояние по RS-485
@@ -718,7 +718,7 @@ void* InitDS18B20(const SensorSettings& sett) // инициализируем д
   
   if(!sett.Pin) {
     #ifdef _DEBUG
-      Serial.println(F("WDS18B20 - no pin number!!!"));
+      Serial.println(F("DS18B20 - no pin number!!!"));
     #endif
     return NULL; 
   }  
@@ -1385,8 +1385,16 @@ void owReceive(OneWireSlave::ReceiveEvent evt, byte data);
 //----------------------------------------------------------------------------------------------------------------
 void setup()
 {
+  #ifdef _DEBUG
+    Serial.begin(57600);
+  #endif
+  
  #ifdef USE_RS485_GATE // если сказано работать через RS-485 - работаем 
-    Serial.begin(RS485_SPEED);
+ 
+    #ifndef _DEBUG
+      Serial.begin(RS485_SPEED);
+    #endif
+    
     InitRS485(); // настраиваем RS-485 на приём
  #endif
   
@@ -1449,7 +1457,9 @@ void owReceive(OneWireSlave::ReceiveEvent evt, byte data)
           state = DS_WaitingReset;
           scratchpadNumOfBytesReceived = 0;
           scratchpadWritePtr = 0;
-          scratchpadReceivedFromMaster = true; // говорим, что мы получили скратчпад от мастера
+          //scratchpadReceivedFromMaster = true; // говорим, что мы получили скратчпад от мастера
+          // вычисляем новый интервал опроса
+          query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
         }
         
      break; // DS_ReadingScratchpad
@@ -1505,6 +1515,7 @@ void loop()
 {
 //return;
 
+/*
   if(scratchpadReceivedFromMaster) {
     // скратч был получен от мастера, тут можно что-то делать
     // вычисляем новый интервал опроса
@@ -1512,7 +1523,7 @@ void loop()
     scratchpadReceivedFromMaster = false;
       
   } // scratchpadReceivedFromMaster
-
+*/
   
   unsigned long curMillis = millis();
 
