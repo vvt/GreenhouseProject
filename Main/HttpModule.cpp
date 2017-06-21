@@ -36,6 +36,7 @@
 #define HTTP_COMMAND_LIGHT_OFF 10
 #define HTTP_COMMAND_PIN_ON 11
 #define HTTP_COMMAND_PIN_OFF 12
+#define HTTP_COMMAND_AUTO_MODE 13
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::Setup()
 {
@@ -664,6 +665,14 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
             ModuleInterop.QueryCommand(ctSET, c, false);            
           }
           break;
+
+          case HTTP_COMMAND_AUTO_MODE:
+          {
+            // переходим в автоматический режим работы
+            ModuleInterop.QueryCommand(ctSET, F("0|AUTO"), false);
+          }
+          break;
+          
           
         } // switch
       
