@@ -231,7 +231,7 @@ void HttpModule::CollectSensorsData(String* data)
           OneState* os = mod->State.GetStateByOrder(StateSoilMoisture,i);
           if(os->HasData()) // есть показания
           {
-            TemperaturePair tp = *os;
+            HumidityPair tp = *os;
             int8_t wholePart = tp.Current.Value;
             uint8_t fractionPart = MapFraction(tp.Current.Fract);
             
@@ -265,7 +265,7 @@ void HttpModule::CollectSensorsData(String* data)
           OneState* os = mod->State.GetStateByOrder(StatePH,i);
           if(os->HasData()) // есть показания
           {
-            TemperaturePair tp = *os;
+            HumidityPair tp = *os;
             int8_t wholePart = tp.Current.Value;
             uint8_t fractionPart = MapFraction(tp.Current.Fract);
             
