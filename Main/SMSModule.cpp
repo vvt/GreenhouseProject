@@ -34,8 +34,6 @@ bool SMSModule::IsKnownAnswer(const String& line, bool& okFound)
   return ( line.indexOf(F("ERROR")) != -1 );
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
-//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::GetAPNUserPass(String& user, String& pass)
 {
     byte provider = MainController->GetSettings()->GetGSMProvider();
@@ -126,6 +124,8 @@ String SMSModule::GetAPN()
    return F("");
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone)
 {
 
@@ -204,7 +204,8 @@ void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToSt
 //--------------------------------------------------------------------------------------------------------------------------------  
 void SMSModule::Setup()
 {
- // Settings = MainController->GetSettings();
+ // сообщаем, что мы провайдер HTTP-запросов
+ MainController->SetHTTPProvider(1,this); 
 
   smsToSend = new String();
   cusdSMS = NULL;
@@ -241,6 +242,10 @@ void SMSModule::Setup()
   flags.inRebootMode = false;
   flags.wantIoTToProcess = false;
   flags.wantBalanceToProcess = false;
+  flags.wantHTTPRequest = false;
+  flags.inHTTPRequestMode = false;
+  httpHandler = NULL;
+  httpData = NULL;
   
   rebootStartTime = 0;
 
@@ -289,7 +294,7 @@ void SMSModule::InitQueue()
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-void SMSModule::ProcessAnswerLine(const String& line)
+void SMSModule::ProcessAnswerLine(String& line)
 {
   // от модема получен какой-то ответ, мы можем утверждать, что на той стороне что-то отвечает
   
@@ -315,6 +320,10 @@ void SMSModule::ProcessAnswerLine(const String& line)
      #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       EnsureIoTProcessed();
      #endif    
+
+     // убеждаемся, что мы обработали HTTP-запрос, пусть и неудачно
+     EnsureHTTPProcessed(ERROR_MODEM_NOT_ANSWERING);
+     
 
     InitQueue(); // инициализировали очередь по новой, т.к. модем либо только загрузился, либо - перезагрузился
     needToWaitTimer = GSM_WAIT_BOOT_TIME; // дадим модему ещё 2 секунды на раздупливание
@@ -812,6 +821,504 @@ void SMSModule::ProcessAnswerLine(const String& line)
     break;
 #endif
 
+//// ЦИКЛ HTTP////////////////////////////////////////////////////////
+    case smaHttpTCPClose: // закрывали соединение
+    {
+      if(line.startsWith(F("+TCPCLOSE")))
+      {
+          // наш ответ
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+               #ifdef GSM_DEBUG_MODE
+                Serial.println(F("HTTP connection closed."));
+             #endif       
+      }
+    }
+    break;
+
+    case smaHttpTCPWaitAnswer:
+    {
+      if(line.startsWith(F("+TCPRECV:")))
+      {
+           
+          bool enough = false;
+          httpHandler->OnAnswerLineReceived(line,enough);
+          if(enough)
+          {
+
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("HTTP answer received, closing connection..."));
+             #endif
+             
+             actionsQueue.pop(); // убираем последнюю обработанную команду     
+             currentAction = smaIdle;
+             
+             // говорим, что мы всё послали
+             EnsureHTTPProcessed(HTTP_REQUEST_COMPLETED);
+             
+             actionsQueue.push_back(smaHttpTCPClose);
+          }                  
+      }
+    }
+    break;
+
+
+
+    case smaHttpTCPSendData: // писали данные для HTTP в поток, проверяем, чего там
+    {
+      if(line.startsWith(F("+TCPSEND:")))
+      {
+          // наш ответ
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         // теперь смотрим, правильно ли отослалось?
+         String wantedEnd = F("0,");
+         wantedEnd += httpData->length();
+
+         if(line.endsWith(wantedEnd))
+         {
+              #ifdef GSM_DEBUG_MODE
+                Serial.println(F("HTTP data sent, waiting answer..."));
+             #endif
+
+             actionsQueue.push_back(smaHttpTCPWaitAnswer);
+
+         }
+         else
+         {
+           // не удалось
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("HTTP Send FAIL!"));
+             #endif
+
+             EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+          }
+      }
+    }
+    break;
+
+    case smaHttpStartSendDataToService: // отсылали команду на пересылку данных для SIM800L, ждём приглашения
+    {
+      if(line == F(">"))
+      {
+        WaitForSMSWelcome = false;
+        // дождались приглашения, посылаем данные
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Welcome received, start sending data..."));
+             #endif
+
+         actionsQueue.push_back(smaHttpSendDataToSIM800);
+      }        
+    }
+    break;
+
+    case smaHttpTCPSEND: // отсылали данные, ждём приглашения
+    {
+      if(line == F(">"))
+      {
+        WaitForSMSWelcome = false;
+        // дождались приглашения, посылаем данные
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Welcome received, start sending data..."));
+             #endif
+
+         actionsQueue.push_back(smaHttpTCPSendData);
+      }
+    }
+    break;
+
+    case smaHttpTCPSETUP: // коннектились к сервису HTTP
+    {
+      if(line.startsWith(F("+TCPSETUP:")))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(line.endsWith(F(",OK")))
+         {
+          // законнектились, продолжаем
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("HTTP connected, continue..."));
+             #endif
+
+            actionsQueue.push_back(smaHttpTCPSEND);
+         }
+         else
+         {
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Unable to connect to IoT!"));
+             #endif
+           // не удалось законнектиться
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+         }
+      }
+    }
+    break;
+
+    case smaHttpCheckPPPIp: // проверяли выбранный адрес
+    {
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(flags.isIPAssigned) 
+         {
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("IP assigned, start TCP connection..."));
+             #endif
+
+          actionsQueue.push_back(smaHttpTCPSETUP);
+                          
+         }
+         else
+         {
+            // bad
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("No PPP IP assigned!"));
+             #endif      
+             // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+          
+         }
+      }
+      if(line.startsWith(F("+XIIC:")))
+      {
+         // пришёл адрес, проверяем
+         if(line.endsWith(F("0.0.0.0")))
+          flags.isIPAssigned = false;
+         else
+             flags.isIPAssigned = true;
+      }
+    }
+    break;
+
+    case smaHttpXIIC: // устанавливали соединение PPP
+    {
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(okFound)
+         {
+           // good, можем проверять соединение
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("PPP connection established, check for IP address..."));
+             #endif
+
+             // Проверяем выданный IP
+             flags.isIPAssigned = false;
+             actionsQueue.push_back(smaHttpCheckPPPIp);
+
+             needToWaitTimer = 5000; // дадим модему 5 секунд на раздупливание
+           
+         }
+         else
+         {
+           // bad
+            // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+  
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("PPP connection failed!"));
+             #endif                
+         }         
+         
+      }
+      
+    }
+    break;
+
+    case smaHttpXGAUTH: // авторизовывались в APN
+    {    
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(okFound)
+         {
+           // good, можем продолжать авторизацию
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Authorized in APN, continue..."));
+             #endif
+
+             // устанавливаем соединение PPP
+             actionsQueue.push_back(smaHttpXIIC);
+           
+         }
+         else
+         {
+           // bad
+            // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+  
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("APN authorization failed!"));
+             #endif                
+         }
+      }      
+    }
+    break;
+
+
+    case smaHttpGDCONT: // устанавливали параметры APN для M590
+    {
+      if(IsKnownAnswer(line,okFound))
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+                 
+          if(okFound)
+          {
+            // good
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("APN setup completed, continue..."));
+             #endif  
+
+             actionsQueue.push_back(smaHttpXGAUTH);
+          }
+          else
+          {
+            // bad
+            // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+  
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("APN setup failed!"));
+             #endif         
+            
+          }
+        
+      } // if
+      
+      
+    }
+    break;
+
+    case smaHttpCheckGPRSConnection:
+    {
+
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle; 
+
+       if(line == F("ERROR"))
+       {
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("No IP address found!"));
+           #endif
+          // ошибка подключения
+          EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+        
+       }
+       else
+       {
+         // установили подключение
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("IP address obtained, continue..."));
+           #endif
+
+          actionsQueue.push_back(smaHttpConnectToService);
+       }
+
+    }
+    break;
+
+    case smaHttpSendDataToSIM800: // отсылали данные через SIM800L
+    {
+        bool sendOk = line.endsWith(F("SEND OK"));
+        bool sendFail = line.endsWith(F("SEND FAIL"));
+        bool anyOtherKnownAnswers = line.startsWith(F("+CME")) || line.startsWith(F("DATA"));
+
+        if(sendOk || sendFail || anyOtherKnownAnswers)
+        {
+           actionsQueue.pop(); // убираем последнюю обработанную команду     
+           currentAction = smaIdle;
+
+           if(!sendOk)
+           {
+              // bad
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Can't send data!"));
+             #endif
+               EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+               actionsQueue.push_back(smaHttpCloseGPRSConnection);           
+           }
+           else
+           {
+            // good
+               #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Data sent, waiting for answer..."));
+             #endif
+
+             actionsQueue.push_back(smaHttpWaitForServiceAnswer);
+           }
+         
+        }
+    }
+    break;  
+
+
+    case smaHttpWaitForServiceAnswer:
+    {
+          bool enough = false;
+          httpHandler->OnAnswerLineReceived(line,enough);
+
+          if(enough)
+          {
+              // точно, хватит
+             #ifdef HTTP_DEBUG
+                 Serial.println(F("HTTP request done."));
+             #endif
+    
+             // говорим, что всё на мази
+             EnsureHTTPProcessed(HTTP_REQUEST_COMPLETED);
+    
+             // и закрываем соединение
+              actionsQueue.pop(); // убираем последнюю обработанную команду
+              currentAction = smaIdle;         
+              
+              // поскольку мы законнекчены - надо закрыть соединение
+              actionsQueue.push_back(smaHttpCloseGPRSConnection);                         
+          }
+    }
+    break;      
+
+    case smaHttpConnectToService: // коннектились к сервису
+    {
+       bool isConnectOk = line.endsWith(F("CONNECT OK"));
+       bool isConnectFail = line.endsWith(F("CONNECT FAIL"));
+
+       if(!isConnectFail)
+       {
+        isConnectFail = line.startsWith(F("+CME ERROR")) || line.startsWith(F("STATE:"));
+       }
+
+       if(isConnectOk || isConnectFail)
+       {
+           actionsQueue.pop(); // убираем последнюю обработанную команду     
+           currentAction = smaIdle;
+
+           if(isConnectFail)
+           {
+             // bad
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("Can't connect to HTTP!"));
+           #endif
+             EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+             actionsQueue.push_back(smaHttpCloseGPRSConnection);
+           }
+           else
+           {
+             // good
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("IoT connected, continue..."));
+           #endif 
+
+              actionsQueue.push_back(smaHttpStartSendDataToService);
+           }
+        
+       } // if
+    }
+    break;
+
+    case smaHttpStartGPRSConnection: // поднимали соединение с GPRS
+    {
+      if(IsKnownAnswer(line,okFound)) 
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+                 
+        if(!okFound)
+        {
+          // bad
+          // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+          EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("Can't open GPRS connection!"));
+           #endif
+
+        }
+        else
+        {
+          // good
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("GPRS connection opened, continue..."));
+           #endif 
+
+          actionsQueue.push_back(smaHttpCheckGPRSConnection);           
+        }
+      }
+    }
+    break;
+
+    case smaHttpCloseGPRSConnection:
+    {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;        
+    }
+    break;
+
+    case smaStartHTTPSend: // начало отсыла данных по HTTP, с этой точки всё ветвится для разных модемов
+
+      if(IsKnownAnswer(line,okFound)) 
+      {
+         actionsQueue.pop(); // убираем последнюю обработанную команду     
+         currentAction = smaIdle;
+
+         if(!okFound) // не срослось
+         {
+
+          // вызываем функцию обратного вызова и сообщаем, что не удалось ничего
+          EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+
+           #ifdef GSM_DEBUG_MODE
+              Serial.println(F("HTTP request failed!"));
+           #endif   
+
+           switch(flags.model)
+           {
+            case M590:
+            break;
+
+            case SIM800:
+              actionsQueue.push_back(smaHttpCloseGPRSConnection);
+            break;
+            
+           } // switch
+                            
+         }
+         else
+         {
+           // всё норм, продолжаем
+           switch(flags.model)
+           {
+            case M590:
+              // пихаем в очередь следующую команду
+              actionsQueue.push_back(smaHttpGDCONT);
+            break;
+
+            case SIM800:
+              actionsQueue.push_back(smaHttpStartGPRSConnection);
+            break;
+            
+           } // switch
+         } // else
+        
+      }
+      
+    break;
+// КОНЕЦ ЦИКЛА HTTP ////////////////////////////////////////////    
+
     case smaCheckModemHardware:
     {
       
@@ -1190,6 +1697,37 @@ void SMSModule::ProcessAnswerLine(const String& line)
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+bool SMSModule::CanMakeQuery() // тестирует, может ли модуль сейчас сделать запрос
+{
+  
+  if(flags.wantBalanceToProcess || 
+    flags.inRebootMode || 
+    flags.wantIoTToProcess || 
+    flags.wantHTTPRequest || 
+    flags.inHTTPRequestMode || 
+    !flags.isAnyAnswerReceived ||
+    actionsQueue.size())
+  {
+    // не можем обработать запрос
+
+    return false;
+  }
+
+  return true;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void SMSModule::MakeQuery(HTTPRequestHandler* handler) // начинаем запрос по HTTP
+{
+    // сперва завершаем обработку предыдущего вызова, если он вдруг нечаянно был
+    EnsureHTTPProcessed(ERROR_HTTP_REQUEST_CANCELLED);
+
+    // сохраняем обработчик запроса у себя
+    httpHandler = handler;
+
+    // и говорим, что мы готовы работать по HTTP-запросу
+    flags.wantHTTPRequest = true;
+}
+//--------------------------------------------------------------------------------------------------------------------------------  
 void SMSModule::ProcessIncomingSMS(const String& line) // обрабатываем входящее SMS
 {
   #ifdef GSM_DEBUG_MODE
@@ -1564,9 +2102,19 @@ void SMSModule::ProcessQueue()
           return;
         }
 
+        if(flags.wantHTTPRequest)
+        {
+          // от нас ждут запроса по HTTP
+          flags.wantHTTPRequest = false;
+          flags.inHTTPRequestMode = true;
+          actionsQueue.push_back(smaStartHTTPSend);
+  
+          return; // возвращаемся, здесь делать нефик
+        }        
+
 
       #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
-      if(flags.wantIoTToProcess && iotWriter && iotDone)
+      if(!flags.inHTTPRequestMode && (flags.wantIoTToProcess && iotWriter && iotDone) )
       {
         // надо поместить в очередь команду на обработку запроса к IoT
         flags.wantIoTToProcess = false;
@@ -1590,6 +2138,265 @@ void SMSModule::ProcessQueue()
     // смотрим, что за команда
     switch(currentAction)
     {
+
+      //////////////////////////// ЦИКЛ HTTP ////////////////////////////////////////
+      case smaHttpTCPWaitAnswer: // ждём ответа, ничего модему не посылаем
+      break;
+      
+      case smaHttpTCPClose: // закрываем соединение
+      {
+        SendCommand(F("AT+TCPCLOSE=0"));
+      }
+      break;
+
+      case smaHttpSendDataToSIM800: // отсылаем данные через SIM800
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Send data to HTTP using SIM800..."));
+        #endif  
+          if(httpData)
+          {      
+            // тут посылаем данные пр HTTP
+            SendCommand(*httpData,false);
+            GSM_SERIAL.write(0x1A);
+            delete httpData;
+            httpData = NULL;       
+          }
+          else
+          {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("HTTP data is INVALID!"));
+        #endif  
+        // чего-то в процессе не задалось, вызываем коллбэк, и говорим, что всё плохо
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+            actionsQueue.pop();
+            currentAction = smaIdle;
+          }        
+          
+      }
+      break;
+
+      case smaHttpTCPSendData: // отсылаем данные
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Send data to HTTP using Neoway..."));
+        #endif  
+          if(httpData)
+          {      
+            // тут посылаем данные в IoT
+            SendCommand(*httpData,false);
+            GSM_SERIAL.write(0x0D);       
+          }
+          else
+          {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("HTTP data is INVALID!"));
+        #endif  
+        // чего-то в процессе не задалось, вызываем коллбэк, и говорим, что всё плохо
+            EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+            actionsQueue.pop();
+            currentAction = smaIdle;
+          }        
+      }
+      break;
+
+      case smaHttpWaitForServiceAnswer: // ничего не делаем, просто ждём ответа
+      break;
+
+      case smaHttpStartSendDataToService: // отсылаем данные для SIM800L
+      {
+           #ifdef GSM_DEBUG_MODE
+            Serial.println(F("Start sending data command..."));
+          #endif
+          
+          delete httpData;
+          httpData = new String();
+          httpHandler->OnAskForData(httpData);
+          
+          String command = F("AT+CIPSEND=");
+          command += httpData->length();
+          WaitForSMSWelcome = true; // выставляем флаг, что мы ждём >
+          SendCommand(command);        
+      }
+      break;
+
+
+      case smaHttpTCPSEND: // начинаем посылать данные
+      {
+          #ifdef GSM_DEBUG_MODE
+            Serial.println(F("Start sending data command..."));
+          #endif
+
+          delete httpData;
+          httpData = new String();
+          httpHandler->OnAskForData(httpData);
+
+          String command = F("AT+TCPSEND=0,");
+          command += httpData->length();
+          WaitForSMSWelcome = true; // выставляем флаг, что мы ждём >
+          SendCommand(command); 
+      }
+      break;
+
+      case smaHttpTCPSETUP: // устанавливаем TCP-соединение
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Connect to HTTP..."));
+        #endif
+
+        String command = F("AT+TCPSETUP=0,");
+        String host;
+        httpHandler->OnAskForHost(host);
+        command += host;
+
+        command += F(",80");
+        
+        SendCommand(command);        
+      }
+      break;
+      
+
+      case smaHttpCheckPPPIp: // проверяем выданный IP
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Check PPP IP-address..."));
+        #endif
+
+        SendCommand(F("AT+XIIC?"));
+        
+      }
+      break;
+
+      case smaHttpXIIC: // устанавливаем соединение PPP
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Establish PPP connection..."));
+        #endif
+
+        SendCommand(F("AT+XIIC=1"));
+        
+      }
+      break;
+
+      case smaHttpXGAUTH: // авторизуемся в APN
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Authorize in APN..."));
+        #endif 
+        String command = F("AT+XGAUTH=1,1,\"");
+
+        // тут проверяем оператора, в зависимости от этого формируем нужную команду
+        String user,pass;
+        GetAPNUserPass(user,pass);
+        
+        command += user;
+        command += F("\",\"");
+        command += pass;
+        command += F("\"");
+        
+        SendCommand(command);                         
+      }
+      break;
+
+      case smaHttpGDCONT: // параметры для Neoway
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Setup APN for HTTP connection..."));
+        #endif        
+        // устанавливаем параметры PDP-контекста, эта команда актуальна для M590.
+        // начиная с этой команды - мы идём по отдельным веткам моделей модема, поэтому проверять модель модема тут необязательно.
+        String command = F("AT+CGDCONT=1,\"IP\",\"");
+
+        // тут проверяем оператора, в зависимости от этого формируем нужную команду
+        command += GetAPN();
+        command += F("\"");
+        SendCommand(command);
+        
+      }
+      break;
+
+
+      case smaHttpCheckGPRSConnection:
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Checking GPRS connection..."));
+        #endif
+        SendCommand(F("AT+CIFSR"));
+      break;
+
+      case smaHttpStartGPRSConnection:
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Open GPRS connection..."));
+        #endif
+        SendCommand(F("AT+CIICR"));
+        
+      }
+      break;
+
+      case smaHttpConnectToService:
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Start connect to HTTP..."));
+        #endif
+
+        String command = F("AT+CIPSTART=\"TCP\",\"");
+
+        String host;
+        httpHandler->OnAskForHost(host);
+        command += host;
+
+        command += F("\",80");
+
+        SendCommand(command);
+         
+      }
+      break;
+
+      case smaHttpCloseGPRSConnection:
+      {
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Shutdown GPRS connection..."));
+        #endif
+        SendCommand(F("AT+CIPSHUT"));
+      }
+      break;
+      
+      case smaStartHTTPSend:
+      {
+          // надо отослать данные по HTTP
+        #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Connect to HTTP using GPRS..."));
+        #endif
+    
+        String comm;
+
+        switch(flags.model)
+        {
+          case M590:
+            comm = F("AT+XISP=0"); // сначала переключаемся на внутренний стек протокола TCP/IP
+          break;
+
+          case SIM800:
+
+            comm = F("AT+CSTT=\"");
+            comm += GetAPN();
+            comm += F("\",\"");
+            String user,pass;
+            GetAPNUserPass(user,pass);
+            comm += user;
+            comm += F("\",\"");
+            comm += pass;
+            comm += F("\"");
+
+          break;
+          
+        } // switch
+
+        SendCommand(comm);   
+      }     
+      break;   
+      //////////////////////////// ЦИКЛ HTTP КОНЧИЛСЯ////////////////////////////////////////
+      
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 
       case smaTCPWaitAnswer: // ждём ответа, ничего модему не посылаем
@@ -2087,6 +2894,26 @@ void SMSModule::ProcessQueue()
     } // switch
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+void SMSModule::EnsureHTTPProcessed(uint16_t statusCode)
+{
+
+    #ifdef HTTP_DEBUG
+      Serial.print(F("EnsureHTTPProcessed: "));
+      Serial.println(statusCode);
+    #endif
+  
+  if(!httpHandler) // не было флага запроса HTTP-адреса
+    return;
+    
+   httpHandler->OnHTTPResult(statusCode); // сообщаем, что мы закончили обработку
+
+  flags.wantHTTPRequest = false;
+  flags.inHTTPRequestMode = false;
+  httpHandler = NULL;
+  delete httpData;
+  httpData = NULL;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::RebootModem()
 {
   // перезагружаем модем тут
@@ -2175,6 +3002,10 @@ void SMSModule::Update(uint16_t dt)
      #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       EnsureIoTProcessed();
      #endif    
+     
+    // тут убеждаемся, что мы сообщили вызывающей стороне о неуспешном запросе по HTTP
+     EnsureHTTPProcessed(ERROR_MODEM_NOT_ANSWERING);
+     
      // очень долго, надо перезапустить последнюю команду.
      // причём лучше всего перезапустить всё сначала
      InitQueue();

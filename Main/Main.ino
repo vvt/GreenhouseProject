@@ -156,7 +156,6 @@ void GSM_EVENT_FUNC()
     if(ch == '\n')
     {
       smsModule.ProcessAnswerLine(*smsReceiveBuff);
-      //smsReceiveBuff = F("");
       delete smsReceiveBuff;
       smsReceiveBuff = new String();
     }
@@ -167,8 +166,8 @@ void GSM_EVENT_FUNC()
         if(smsModule.WaitForSMSWelcome && ch == '>') // ждут команду >
         {         
           smsModule.WaitForSMSWelcome = false;
-          smsModule.ProcessAnswerLine(F(">"));
-          //smsReceiveBuff = F("");
+          String s = F(">");
+          smsModule.ProcessAnswerLine(s);
           delete smsReceiveBuff;
           smsReceiveBuff = new String();
         }

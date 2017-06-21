@@ -1,14 +1,16 @@
 #ifndef _SMS_MODULE_H
 #define _SMS_MODULE_H
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #include "AbstractModule.h"
 #include "Settings.h"
 #include "TinyVector.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 #include "IoT.h"
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------
+#include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   smaIdle, // ничего не делаем, просто ждём
@@ -53,17 +55,41 @@ typedef enum
   smaWaitForIoTAnswer,
   
 #endif  
+
+  smaStartHTTPSend, // начинаем запрос HTTP
+
+  // команды, специфичные для M590  
+  smaHttpGDCONT, // задаём параметры PDP-контекста (AT+CGDCONT)
+  smaHttpXGAUTH, // авторизация в APN (AT+XGAUTH)
+  smaHttpXIIC, // установка соединения PPP (AT+XIIC=1)
+  smaHttpCheckPPPIp, // проверяем выданный IP (AT+XIIC?)
+  smaHttpTCPSETUP, // устанавливаем TCP-соединение
+  smaHttpTCPSEND, // начинаем посылать данные
+  smaHttpTCPSendData, // отсылаем данные
+  smaHttpTCPClose, // закрываем соединение
+  smaHttpTCPWaitAnswer, // ждём ответа
+
+  // команды, специфичные для SIM800L
+  smaHttpStartGPRSConnection,
+  smaHttpCheckGPRSConnection,
+  smaHttpCloseGPRSConnection,
+  smaHttpConnectToService,
+  smaHttpStartSendDataToService,
+  smaHttpSendDataToSIM800,
+  smaHttpWaitForServiceAnswer,
+ 
   
 } SMSActions;
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef Vector<SMSActions> SMSActionsVector;
+//--------------------------------------------------------------------------------------------------------------------------------
 
 enum
 {
   M590,
   SIM800
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
     bool waitForSMSInNextLine : 1;
@@ -75,16 +101,24 @@ typedef struct
     bool isIPAssigned : 1;
     
     bool wantBalanceToProcess : 1;
-    byte pad : 7;
+    bool wantHTTPRequest : 1; // нас попросили запросить URI по HTTP и получить ответ
+    bool inHTTPRequestMode: 1; // мы в процессе работы с HTTP-запросом
+    
+    byte pad : 5;
       
 } SMSModuleFlags;
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class SMSModule : public AbstractModule, public Stream // модуль поддержки управления по SMS
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 , public IoTGate
 #endif
+, public HTTPQueryProvider
 {
   private:
+
+    HTTPRequestHandler* httpHandler; // интерфейс перехватчика работы с HTTP-запросами
+    String* httpData; // данные для отсыла по HTTP
+    void EnsureHTTPProcessed(uint16_t statusCode); // убеждаемся, что мы сообщили вызывающей стороне результат запроса по HTTP
 
     #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       IOT_OnWriteToStream iotWriter;
@@ -94,9 +128,10 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
       String* iotDataFooter;
       uint16_t iotDataLength;
       void EnsureIoTProcessed(bool success=false);
-      String GetAPN();
-      void GetAPNUserPass(String& user, String& pass);
     #endif
+
+    String GetAPN();
+    void GetAPNUserPass(String& user, String& pass);
 
     uint8_t currentAction; // текущая операция, завершения которой мы ждём
     SMSActionsVector actionsQueue; // что надо сделать, шаг за шагом 
@@ -139,7 +174,7 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void SendStatToCaller(const String& phoneNum);
     void SendSMS(const String& sms, bool isSMSInUCS2Format=false);
 
-    void ProcessAnswerLine(const String& line);
+    void ProcessAnswerLine(String& line);
     volatile bool WaitForSMSWelcome; // флаг, что мы ждём приглашения на отсыл SMS - > (плохое ООП, негодное :) )
 
     virtual int available(){ return false; };
@@ -152,7 +187,11 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
 
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
     virtual void SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone);
-#endif               
+#endif 
+
+  virtual bool CanMakeQuery(); // тестирует, может ли модуль сейчас сделать запрос
+  virtual void MakeQuery(HTTPRequestHandler* handler); // начинаем запрос по HTTP
+              
 
 };
 

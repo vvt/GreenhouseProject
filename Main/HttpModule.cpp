@@ -44,13 +44,32 @@ void HttpModule::Setup()
   flags.currentAction = HTTP_ASK_FOR_COMMANDS; // пытаемся запросить команды
   flags.isEnabled = MainController->GetSettings()->IsHttpApiEnabled();
 
+  // инициализируем провайдеров нулями
+  providers[0] = NULL;
+  providers[1] = NULL;
+
+  flags.isFirstUpdateCall = true;
+  flags.currentProviderNumber = 0;
+
   commandsCheckTimer = 0;
   waitTimer = 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::CheckForIncomingCommands(byte wantedAction)
 {
-  HTTPQueryProvider* prov = MainController->GetHTTPProvider();
+  HTTPQueryProvider* prov = providers[flags.currentProviderNumber];//MainController->GetHTTPProvider();
+  if(!prov)
+  {
+   #ifdef HTTP_DEBUG
+    Serial.println(F("HTTP check for commands - NO PROVIDER!!!"));
+   #endif
+    return;
+  }
+
+   #ifdef HTTP_DEBUG
+    Serial.print(F("HTTP current provider: "));
+    Serial.println(flags.currentProviderNumber);
+   #endif
 
    // выставляем флаг, что мы в процессе обработки запроса
    flags.inProcessQuery = true;
@@ -432,7 +451,7 @@ void HttpModule::OnAskForData(String* data)
 void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
 { 
   // ищем - не пришёл ли конец команды, если пришёл - говорим, что нам хватит
-  enough = line.startsWith(F("[CMDEND]"));
+  enough = line.startsWith(F("[CMDEND]")) || line.endsWith(F("CLOSED"));
 
   if(!line.length()) // пустая строка, нечего обрабатывать
     return;
@@ -715,13 +734,44 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
     commandsCheckTimer = HTTP_POLL_INTERVAL;
     commandsCheckTimer *= 1000;
     waitTimer = 5000;
-  }
+
+    
+  } // if
 
   if(flags.currentAction == HTTP_REPORT_TO_SERVER)
   {
     // после каждого репорта дадим поработать другим командам
     waitTimer = 5000;
   }
+
+  if(statusCode != HTTP_REQUEST_COMPLETED)
+  {
+
+    // тут проверяем - можем ли мы сменить провайдера и повторить запрос через другого? ести текущий результат - неудачен?
+  #ifdef HTTP_DEBUG
+    Serial.println(F("HTTP FAIL - try to change provider..."));
+  #endif
+    
+    byte curProviderIndex = flags.currentProviderNumber;
+    if(curProviderIndex == 1)
+      curProviderIndex = 0;
+    else
+      curProviderIndex = 1;
+
+    if(providers[curProviderIndex])
+    {
+      // можем сменить, поэтому меняем 
+      #ifdef HTTP_DEBUG
+        Serial.print(F("HTTP - provider changed from "));
+        Serial.print(flags.currentProviderNumber);
+        Serial.print(F(" to "));
+        Serial.println(curProviderIndex);
+      #endif
+
+      flags.currentProviderNumber = curProviderIndex;
+    } // if  
+
+  } // status bad
   
   
   flags.currentAction = HTTP_ASK_FOR_COMMANDS;
@@ -729,6 +779,17 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::Update(uint16_t dt)
 { 
+
+  // сначала получаем всех провайдеров
+  if(flags.isFirstUpdateCall)
+  {
+    flags.isFirstUpdateCall = false;
+    providers[0] = MainController->GetHTTPProvider(0);
+    providers[1] = MainController->GetHTTPProvider(1);
+    // теперь мы можем работать с обеими провайдерами
+  }
+
+  
   if(flags.inProcessQuery || !flags.isEnabled) // занимаемся обработкой запроса или выключены
     return;
 
@@ -740,8 +801,31 @@ void HttpModule::Update(uint16_t dt)
     return;
 
   waitTimer = 0; // сбрасываем таймер ожидания
-  
 
+  // тут выясняем, какой провайдер на текущий момент может выполнить запрос
+  bool wifiReady = providers[0] && providers[0]->CanMakeQuery();
+  bool gsmReady = providers[1] && providers[1]->CanMakeQuery();
+
+  // если ни один из провайдеров не может выполнить запрос - вываливаемся и пытаемся повторить позже
+  if(!(wifiReady || gsmReady))
+  {
+    #ifdef HTTP_DEBUG
+      Serial.println(F("HTTP - providers busy, try again after 5 seconds..."));
+    #endif 
+       
+    waitTimer = 5000; // через 5 секунд повторим
+    return;    
+    
+  }
+
+  // мы здесь, потому что какой-то из провайдеров может выполнить запрос.
+  // проверяем, какой - и сохраняем его номер для последующей с ним работы
+  if(wifiReady)
+    flags.currentProviderNumber = 0;
+  else if(gsmReady)
+    flags.currentProviderNumber = 1;
+  
+  /*
   HTTPQueryProvider* prov = MainController->GetHTTPProvider();
   
   if(!prov)
@@ -750,12 +834,13 @@ void HttpModule::Update(uint16_t dt)
   if(!prov->CanMakeQuery()) // провайдер не может выполнить запрос
   {
     #ifdef HTTP_DEBUG
-      Serial.println(F("WIFI - busy, try again after 5 seconds..."));
+      Serial.println(F("HTTP - busy, try again after 5 seconds..."));
     #endif 
        
     waitTimer = 5000; // через 5 секунд повторим
     return;    
   }
+  */
 
     // а теперь проверяем, есть ли у нас репорт для команд
     if(commandsToReport.size())

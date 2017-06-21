@@ -706,6 +706,9 @@ void WiFiModule::ProcessAnswerLine(String& line)
 //--------------------------------------------------------------------------------------------------------------------------------
 bool WiFiModule::CanMakeQuery() // тестирует, может ли модуль сейчас сделать запрос
 {
+  //TODO: УБРАТЬ, ЭТО ТОЛЬКО ДЛЯ ЦЕЛЕЙ ТЕСТИРОВАНИЯ провайдера GSM, поскольку Wi-Fi имеет более высокий приоритет!!!
+  //return false;
+  
   if(flags.inSendData || 
     flags.inRebootMode || 
     flags.wantIoTToProcess || 
@@ -794,7 +797,7 @@ void WiFiModule::Setup()
   // настройка модуля тут
 
  // сообщаем, что мы провайдер HTTP-запросов
- MainController->SetHTTPProvider(this); 
+ MainController->SetHTTPProvider(0,this); 
   
   for(uint8_t i=0;i<MAX_WIFI_CLIENTS;i++)
     clients[i].Setup(i, WIFI_PACKET_LENGTH);

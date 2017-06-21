@@ -40,7 +40,7 @@ class ModuleController
 
   ReservationResolver* reservationResolver; // держатель списков резервирования
 
-  HTTPQueryProvider* httpQueryProvider;
+  HTTPQueryProvider* httpQueryProviders[2];
 
 #ifdef USE_DS3231_REALTIME_CLOCK
   DS3231Clock _rtc; // часы реального времени
@@ -109,8 +109,8 @@ public:
   void SetCommandParser(CommandParser* c) {cParser = c;};
   CommandParser* GetCommandParser() {return cParser;}
 
-  HTTPQueryProvider* GetHTTPProvider() {return httpQueryProvider; }
-  void SetHTTPProvider(HTTPQueryProvider* prov) {httpQueryProvider = prov; }
+  HTTPQueryProvider* GetHTTPProvider(byte idx) {return httpQueryProviders[idx]; }
+  void SetHTTPProvider(byte idx, HTTPQueryProvider* prov) {httpQueryProviders[idx] = prov; }
 
   void Alarm(AlertRule* rule); // обработчик тревог
   #ifdef USE_ALARM_DISPATCHER
