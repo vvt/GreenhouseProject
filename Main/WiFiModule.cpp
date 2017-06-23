@@ -1402,14 +1402,14 @@ void WiFiModule::UpdateClients()
 //--------------------------------------------------------------------------------------------------------------------------------
 void WiFiModule::EnsureHTTPProcessed(uint16_t statusCode)
 {
+  if(!httpHandler) // не было флага запроса HTTP-адреса
+    return;
 
     #ifdef HTTP_DEBUG
       Serial.print(F("EnsureHTTPProcessed: "));
       Serial.println(statusCode);
     #endif
   
-  if(!httpHandler) // не было флага запроса HTTP-адреса
-    return;
     
    httpHandler->OnHTTPResult(statusCode); // сообщаем, что мы закончили обработку
 

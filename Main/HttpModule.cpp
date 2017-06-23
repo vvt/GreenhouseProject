@@ -1,6 +1,8 @@
 #include "HttpModule.h"
 #include "ModuleController.h"
 #include "InteropStream.h"
+#include "TempSensors.h"
+#include "Globals.h"
 //--------------------------------------------------------------------------------------------------------------------------------
 #define HTTP_START_OF_HEADERS F("POST /check HTTP/1.1\r\nConnection: close\r\nContent-Type: application/x-www-form-urlencoded\r\nHost: ")
 #define HTTP_CONTENT_LENGTH_HEADER F("Content-Length: ")
@@ -101,6 +103,218 @@ uint8_t HttpModule::MapFraction(uint8_t fraction)
 {
   uint16_t tmp = 15*fraction;
   return tmp/100;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void HttpModule::CollectControllerStatus(String* data)
+{
+  *data += F("&w=");
+
+  ControllerState state = WORK_STATUS.GetState();
+
+  /* 
+   Тут собираем состояние контроллера.
+    структура такая:
+    первый байт - кол-во окон (младшие 6 бит). Если старший бит установлен (0x80) - то есть информация по окнам,
+    тогда следом идёт N байт состояния окон, например, для 8 окон - 1 байт, для 16 окон - два байта и т.п.
+    каналы нумеруются слева-направо, т.е. младший бит первого байта - это первое окно, младший бит второго
+    байта - девятое окно и т.п.
+
+    Седьмой бит первого байта (0x40) - режим работы: 1 - автоматический, 0 - ручной)
+
+     после кол-ва окон идёт информация о каналах полива. структура - такая же, как и у окон.
+
+     потом - идёт информация о каналах досветки, аналогичной структуры.
+
+     далее - состояние модуля pH, один байт:
+
+     бит 0x80 - есть модуль pH
+     первый бит - насос заполнения бака pH включен
+     второй бит - насос перемешивания pH работает
+     третий бит - насос повышения pH работает
+     четвёртый бит - насос понижения pH работае
+     
+   */
+
+    // собираем состояние окон
+    byte windowsCount = SUPPORTED_WINDOWS;
+    
+    #if  defined(USE_TEMP_SENSORS) && (SUPPORTED_WINDOWS > 0)
+    
+      // есть модуль окон в прошивке, устанавливаем старший бит
+      windowsCount |= 0x80;
+      
+      if(WORK_STATUS.GetStatus(WINDOWS_MODE_BIT)) // автоматический режим работы, устанавливаем седьмой бит
+        windowsCount |= 0x40;
+      
+    #endif // USE_TEMP_SENSORS
+
+    // пишем кол-во окон
+    *data += WorkStatus::ToHex(windowsCount);
+
+    #if  defined(USE_TEMP_SENSORS) && (SUPPORTED_WINDOWS > 0)
+      // теперь пишем состояние окон по каналам
+      // вычисляем кол-во байт, в которых будет храниться состояние окон
+      byte bytesNeeded = SUPPORTED_WINDOWS/8;
+      if(bytesNeeded < 1)
+        bytesNeeded = 1;
+        
+      if(SUPPORTED_WINDOWS > 8 && SUPPORTED_WINDOWS%8)
+        bytesNeeded++;
+
+      // получили кол-во байт, теперь создаём массив и пишем в него состояние
+      byte* currentWindowsState = new byte[bytesNeeded];
+      memset(currentWindowsState,0,bytesNeeded);
+      
+      for(byte i=0;i<SUPPORTED_WINDOWS;i++)
+      {
+        byte byteNum = i/8;
+        byte bitNum = i%8;
+        if(WindowModule->IsWindowOpen(i))
+          currentWindowsState[byteNum] = currentWindowsState[byteNum] | (1 << bitNum);
+      } // for
+
+      // теперь пишем это дело в строку
+      for(byte i=0;i<bytesNeeded;i++)
+      {
+        *data += WorkStatus::ToHex(currentWindowsState[i]);
+      }
+
+      // и не забываем чистить за собой
+      delete [] currentWindowsState;
+    #endif // USE_TEMP_SENSORS
+
+    // теперь собираем состояние каналов полива
+    byte waterChannelsCount = WATER_RELAYS_COUNT;
+
+    #if defined(USE_WATERING_MODULE) && (WATER_RELAYS_COUNT > 0)
+      // есть модуль полива в прошивке, устанавливаем старший бит
+      waterChannelsCount |= 0x80;
+      
+      if(WORK_STATUS.GetStatus(WATER_MODE_BIT)) // автоматический режим работы, устанавливаем седьмой бит
+        waterChannelsCount |= 0x40;      
+      
+    #endif // USE_WATERING_MODULE
+
+    // пишем в поток
+    *data += WorkStatus::ToHex(waterChannelsCount);
+
+    #if defined(USE_WATERING_MODULE) && (WATER_RELAYS_COUNT > 0)
+      // теперь пишем состояние полива по каналам
+      // вычисляем кол-во байт, в которых будет храниться состояние каналов полива
+      byte waterBytesNeeded = WATER_RELAYS_COUNT/8;
+      if(waterBytesNeeded < 1)
+        waterBytesNeeded = 1;
+        
+      if(WATER_RELAYS_COUNT > 8 && WATER_RELAYS_COUNT%8)
+        waterBytesNeeded++;
+
+      // получили кол-во байт, теперь создаём массив и пишем в него состояние
+      byte* currentWaterState = new byte[waterBytesNeeded];
+      memset(currentWaterState,0,waterBytesNeeded);
+      
+      for(byte i=0;i<WATER_RELAYS_COUNT;i++)
+      {
+        byte byteNum = i/8;
+        byte bitNum = i%8;
+        if(state.WaterChannelsState & (1 << i) )
+          currentWaterState[byteNum] = currentWaterState[byteNum] | (1 << bitNum);
+      } // for
+
+      // теперь пишем это дело в строку
+      for(byte i=0;i<waterBytesNeeded;i++)
+      {
+        *data += WorkStatus::ToHex(currentWaterState[i]);
+      }
+
+      // и не забываем чистить за собой
+      delete [] currentWaterState;
+    #endif // USE_WATERING_MODULE
+
+
+ // теперь собираем состояние каналов досветки
+    byte lightChannelsCount = LAMP_RELAYS_COUNT;
+
+    #if defined(USE_LUMINOSITY_MODULE) && (LAMP_RELAYS_COUNT > 0)
+      // есть модуль полива в прошивке, устанавливаем старший бит
+      lightChannelsCount |= 0x80;
+      
+      if(WORK_STATUS.GetStatus(LIGHT_MODE_BIT)) // автоматический режим работы, устанавливаем седьмой бит
+        lightChannelsCount |= 0x40;      
+      
+    #endif // USE_LUMINOSITY_MODULE
+
+    // пишем в поток
+    *data += WorkStatus::ToHex(lightChannelsCount);
+
+    #if defined(USE_LUMINOSITY_MODULE) && (LAMP_RELAYS_COUNT > 0)
+      // теперь пишем состояние полива по каналам
+      // вычисляем кол-во байт, в которых будет храниться состояние каналов полива
+      byte lightBytesNeeded = LAMP_RELAYS_COUNT/8;
+      if(lightBytesNeeded < 1)
+        lightBytesNeeded = 1;
+        
+      if(LAMP_RELAYS_COUNT > 8 && LAMP_RELAYS_COUNT%8)
+        lightBytesNeeded++;
+
+      // получили кол-во байт, теперь создаём массив и пишем в него состояние
+      byte* currentLightState = new byte[lightBytesNeeded];
+      memset(currentLightState,0,lightBytesNeeded);
+      
+      for(byte i=0;i<LAMP_RELAYS_COUNT;i++)
+      {
+        byte byteNum = i/8;
+        byte bitNum = i%8;
+        if(state.LightChannelsState & (1 << i) )
+          currentLightState[byteNum] = currentLightState[byteNum] | (1 << bitNum);
+      } // for
+
+      // теперь пишем это дело в строку
+      for(byte i=0;i<lightBytesNeeded;i++)
+      {
+        *data += WorkStatus::ToHex(currentLightState[i]);
+      }
+
+      // и не забываем чистить за собой
+      delete [] currentLightState;
+    #endif // USE_LUMINOSITY_MODULE    
+
+
+    // теперь пишем состояние модуля pH
+    /*
+     далее - состояние модуля pH, один байт:
+
+     бит 0x80 - есть модуль pH
+     первый бит - насос заполнения бака pH включен
+     второй бит - насос перемешивания pH работает
+     третий бит - насос повышения pH работает
+     четвёртый бит - насос понижения pH работае
+     */
+     byte phState = 0;
+
+     #ifdef USE_PH_MODULE
+        phState |= 0x80;
+        if(WORK_STATUS.GetStatus(PH_FLOW_ADD_BIT))
+          phState |= 1;
+          
+        if(WORK_STATUS.GetStatus(PH_MIX_PUMP_BIT))
+          phState |= 2;
+          
+        if(WORK_STATUS.GetStatus(PH_PLUS_PUMP_BIT))
+          phState |= 4;
+
+        if(WORK_STATUS.GetStatus(PH_MINUS_PUMP_BIT))
+          phState |= 8;
+     #endif
+
+     // пишем в поток
+     *data += WorkStatus::ToHex(phState);
+
+     // теперь пишем состояние пинов
+     for(size_t i=0;i<sizeof(state.PinsState);i++)
+     {
+        *data += WorkStatus::ToHex(state.PinsState[i]);
+     }
+   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::CollectSensorsData(String* data)
@@ -333,13 +547,21 @@ void HttpModule::OnAskForData(String* data)
         #endif
 
         String sensorsData;
-        if(sett->CanSendSensorsDataToHTTP())
+        bool canSendSensorsData = sett->CanSendSensorsDataToHTTP();
+        if(canSendSensorsData)
         {
           // можем посылать данные датчиков
           CollectSensorsData(&sensorsData);
-        }        
+        }
+
+        String controllerStatus;
+        bool canSendControllerStatus = sett->CanSendControllerStatusToHTTP();
+        if(canSendControllerStatus)
+        {
+          CollectControllerStatus(&controllerStatus);
+        }
                 
-        int contentLength = 2 + key.length() + 3 + tz.length() + addedLength + sensorsData.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
+        int contentLength = 2 + key.length() + 3 + tz.length() + addedLength + sensorsData.length() + controllerStatus.length(); // 2 - на имя переменной и знак равно, т.е. k=ТУТ_КЛЮЧ_API
 
         // теперь начинаем формировать запрос
         *data = HTTP_START_OF_HEADERS;
@@ -365,8 +587,11 @@ void HttpModule::OnAskForData(String* data)
           *data += timeStr;                  
         #endif
 
-        if(sett->CanSendSensorsDataToHTTP())
+        if(canSendSensorsData)
           *data += sensorsData;
+
+        if(canSendControllerStatus)
+          *data += controllerStatus;
 
 
         // запрос сформирован
@@ -935,7 +1160,7 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
       else
       {
         String which = command.GetArg(0);
-        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled|timezone|sendSensorsData
+        if(which == F("KEY")) // установка ключа API, CTSET=HTTP|KEY|here|enabled|timezone|sendSensorsData|sendControllerStatus
         {
           GlobalSettings* sett = MainController->GetSettings();
           sett->SetHttpApiKey(command.GetArg(1));
@@ -952,7 +1177,11 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
           } 
           if(argsCnt > 4) {
                bool en = (bool) atoi(command.GetArg(4));
-              sett->SetSensSensorsDataFlag(en);
+              sett->SetSendSensorsDataFlag(en);
+          }                     
+          if(argsCnt > 5) {
+               bool en = (bool) atoi(command.GetArg(5));
+              sett->SetSendControllerStatusFlag(en);
           }                     
           
           PublishSingleton.Status = true;
@@ -987,6 +1216,8 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << (sett->GetTimezone());
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << (sett->CanSendSensorsDataToHTTP() ? 1 : 0);
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << (sett->CanSendControllerStatusToHTTP() ? 1 : 0);
           
         } // if(which == F("KEY"))
         

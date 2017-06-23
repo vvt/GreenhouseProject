@@ -211,6 +211,19 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = PONG;
           PublishSingleton.AddModuleIDToAnswer = false;
         } // if
+        else if(t == F("PSTATE")) // информация о состоянии пинов
+        {
+           PublishSingleton.Status = true;
+           PublishSingleton = "";
+           PublishSingleton.AddModuleIDToAnswer = false;
+
+           ControllerState st = WORK_STATUS.GetState();
+           for(size_t i=0;i<sizeof(st.PinsState);i++)
+           {
+              PublishSingleton << WorkStatus::ToHex(st.PinsState[i]);
+           }
+          
+        }
         else if(t == F("GUID"))
         {
            // получить уникальный ID контроллера. Параметром приходит сгенерённый конфигуратором GUID, в формате 32 символа подряд.

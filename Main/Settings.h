@@ -185,7 +185,10 @@ class GlobalSettings
     void SetTimezone(int16_t val);
 
     bool CanSendSensorsDataToHTTP();
-    void SetSensSensorsDataFlag(bool val);
+    void SetSendSensorsDataFlag(bool val);
+
+    bool CanSendControllerStatusToHTTP();
+    void SetSendControllerStatusFlag(bool val);
     
     
 };
