@@ -261,7 +261,12 @@ void SMSModule::Setup()
      iotDataFooter = NULL;
      iotDataLength = 0;     
      IoTList.RegisterGate(this); // регистрируем себя как отсылателя данных в IoT
-#endif    
+#endif  
+
+    #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
+      processedAlarmsClearTimer = millis();
+    #endif
+
    
   // настройка модуля тут
 }
@@ -2960,6 +2965,24 @@ void SMSModule::EnsureIoTProcessed(bool success)
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Update(uint16_t dt)
 { 
+
+    #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
+    
+      unsigned long curAlarmsTimer = millis();
+      unsigned long wantedAlarmsClearInterval = ALARM_CLEAR_INTERVAL*60000;
+
+      if((curAlarmsTimer - processedAlarmsClearTimer) > wantedAlarmsClearInterval)
+      {
+        // настало время очистить сработавшие тревоги
+        processedAlarmsClearTimer = curAlarmsTimer;
+        AlarmDispatcher* alD = MainController->GetAlarmDispatcher();
+        if(alD)
+          alD->ClearProcessedAlarms();
+        
+      }
+
+    #endif
+
 
   if(flags.inRebootMode) {
     // мы в процессе перезагрузки модема, надо проверить, пора ли включать питание?

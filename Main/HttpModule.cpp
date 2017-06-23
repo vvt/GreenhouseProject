@@ -37,6 +37,11 @@
 #define HTTP_COMMAND_PIN_ON 11
 #define HTTP_COMMAND_PIN_OFF 12
 #define HTTP_COMMAND_AUTO_MODE 13
+#define HTTP_COMMAND_RULES_ON 14
+#define HTTP_COMMAND_RULES_OFF 15
+#define HTTP_COMMAND_ALARMS_ON 16
+#define HTTP_COMMAND_ALARMS_OFF 17
+
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::Setup()
 {
@@ -673,7 +678,34 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
           }
           break;
           
+          case HTTP_COMMAND_RULES_ON:
+          {
+            // включаем правила
+            ModuleInterop.QueryCommand(ctSET, F("ALERT|RULE_STATE|ALL|ON"), false);
+          }
+          break;
           
+          case HTTP_COMMAND_RULES_OFF:
+          {
+            // выключаем правила
+            ModuleInterop.QueryCommand(ctSET, F("ALERT|RULE_STATE|ALL|OFF"), false);
+          }
+          break;
+
+          case HTTP_COMMAND_ALARMS_ON:
+          {
+            // включаем тревожные правила
+            ModuleInterop.QueryCommand(ctSET, F("ALERT|RULE_ALERT|ALL|ON"), false);
+          }
+          break;
+          
+          case HTTP_COMMAND_ALARMS_OFF:
+          {
+            // выключаем тревожные правила
+            ModuleInterop.QueryCommand(ctSET, F("ALERT|RULE_ALERT|ALL|OFF"), false);
+          }
+          break;
+
         } // switch
       
     } // if short command format

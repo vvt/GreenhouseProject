@@ -1414,6 +1414,54 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
             } // else
           } // else RULE_STATE
           else
+         if(t == RULE_ALERT) // установить состояние тревожного правила - включено или выключено
+          {
+            if(argsCount < 2)
+            {
+              PublishSingleton = PARAMS_MISSED;
+            } // if
+            else
+            {
+                 String sParam = command.GetArg(1);                 
+                 String state = command.GetArg(2);
+
+                 bool bEnabled = (state == STATE_ON) || (state == STATE_ON_ALT);
+                        
+                if(sParam == ALL)
+                 {
+                   // все правила
+                   for(uint8_t i=0;i<rulesCnt;i++)
+                   {
+                      AlertRule* rule = alertRules[i];
+                      if(rule && rule->IsAlarm()) // это правило тревожное
+                         rule->SetEnabled(bEnabled);
+                   } // for
+
+                   PublishSingleton.Status = true;
+                   PublishSingleton = RULE_ALERT; 
+                   PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << state;
+                 } // if all
+                 else // одно правило
+                 {
+                      // ищем правило по имени
+                      String rName = command.GetArg(1);
+                      for(uint8_t i=0;i<rulesCnt;i++)
+                      {
+                         AlertRule* rule = alertRules[i];
+                         if(rule && rule->IsAlarm() && !strcmp(rule->GetName(),rName.c_str()))
+                         {
+                          rule->SetEnabled(bEnabled);
+                          PublishSingleton.Status = true;
+                          PublishSingleton = RULE_ALERT; 
+                          PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << state;
+                          break;
+                         }
+                      } // for
+                
+                 } // else
+            } // else
+          } // else RULE_ALERT          
+          else
          if(t == RULE_DELETE) // удалить правило по индексу
           {
             if(argsCount < 2)

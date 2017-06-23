@@ -163,6 +163,10 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     unsigned long rebootStartTime;
 
     SMSModuleFlags flags;
+
+    #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
+      unsigned long processedAlarmsClearTimer;
+    #endif
         
   public:
     SMSModule() : AbstractModule("SMS") {}

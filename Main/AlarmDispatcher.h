@@ -18,12 +18,14 @@ class AlarmDispatcher
 #ifdef USE_SMS_MODULE
     RaisedAlarmsList queueSMSAlarms;
     RaisedAlarmsList processedSMSAlarms;
+    
 #endif
 
   public:
     AlarmDispatcher();
 
     void Alarm(AlertRule* rule);
+    void ClearProcessedAlarms();
 
     #ifdef USE_SMS_MODULE
       // функции, специфичные для GSM-модуля

@@ -13,6 +13,8 @@ SMS_BUILD_COMMANDS = [
 , ['CTSET=CC|EXEC|{0}',true,'Выполнить составную команду','Индекс составной команды:']
 , ['CTSET=ALERT|RULE_STATE|ALL|ON',false,'Включить все правила','']
 , ['CTSET=ALERT|RULE_STATE|ALL|OFF',false,'Выключить все правила','']
+, ['CTSET=ALERT|RULE_ALERT|ALL|ON',false,'Включить все тревожные правила','']
+, ['CTSET=ALERT|RULE_ALERT|ALL|OFF',false,'Выключить все тревожные правила','']
 , ['CTSET=0|AUTO',false,'Перевести контроллер в автоматический режим работы','']
 
 ];
