@@ -5,9 +5,7 @@
 #include <Wire.h>
 #include "UniGlobals.h"
 
-#include "HTU21D.h"
 
-/*
 #if (ARDUINO >= 100)
   #define SI7021_READ Wire.read
   #define SI7021_WRITE Wire.write
@@ -25,7 +23,7 @@ enum
   Si7021_E0 = 0xE0,
   Si7021_E5 = 0xE5 
 };
-*/
+
 class Si7021
 {
   public:
@@ -37,6 +35,5 @@ class Si7021
     
   private:
     
-    HTU21D sensor;
 };
 #endif

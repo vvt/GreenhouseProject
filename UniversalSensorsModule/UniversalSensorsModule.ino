@@ -1137,6 +1137,7 @@ bool HasI2CSensors()
 inline void PowerUpI2C()
 {
   power_twi_enable();
+  delay(20);
 }
 //----------------------------------------------------------------------------------------------------------------
 inline void PowerDownI2C()
