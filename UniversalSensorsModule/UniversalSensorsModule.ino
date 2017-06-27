@@ -1351,7 +1351,7 @@ void sendDataViaNRF()
     if(!radio.write(&scratchpadS,sizeof(scratchpadS))) // пишем в него
     {
       #ifdef _DEBUG
-        Serial.println(F("No receiving side found!"));
+        Serial.println(F("NO RECEIVING SIDE FOUND!"));
       #endif
     }
   //  radio.startListening(); // начинаем прослушку эфира опять  
