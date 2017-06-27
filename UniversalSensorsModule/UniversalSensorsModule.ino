@@ -1341,25 +1341,37 @@ void sendDataViaNRF()
   #ifdef _DEBUG
     Serial.println(F("Send sensors data via nRF..."));
   #endif
-  // посылаем данные через nRF
-    uint8_t writePipeNum = random(0,5);
 
-    // подсчитываем контрольную сумму
-    scratchpadS.crc8 = OneWireSlave::crc8((const byte*)&scratchpadS,sizeof(scratchpadS)-1);
-  //  radio.stopListening(); // останавливаем прослушку
-    radio.openWritingPipe(writingPipes[writePipeNum]); // открываем канал для записи
-    if(!radio.write(&scratchpadS,sizeof(scratchpadS))) // пишем в него
+    bool sendDone = false;
+
+    for(int i=0;i<5;i++) // пытаемся послать 5 раз, в разные трубы
+    {
+      // посылаем данные через nRF
+        uint8_t writePipeNum = random(0,5);
+        radio.openWritingPipe(writingPipes[writePipeNum]); // открываем канал для записи
+    
+        // подсчитываем контрольную сумму
+        scratchpadS.crc8 = OneWireSlave::crc8((const byte*)&scratchpadS,sizeof(scratchpadS)-1);
+            
+        if(radio.write(&scratchpadS,sizeof(scratchpadS))) // пишем в него
+        {
+          sendDone = true;
+          break;
+        }
+    } // for
+
+    if(!sendDone)
     {
       #ifdef _DEBUG
         Serial.println(F("NO RECEIVING SIDE FOUND!"));
+      #endif      
+    }
+    else
+    {
+      #ifdef _DEBUG
+        Serial.println(F("Sensors data sent."));
       #endif
     }
-  //  radio.startListening(); // начинаем прослушку эфира опять  
-
-  #ifdef _DEBUG
-    Serial.println(F("Sensors data sent."));
-  #endif
-
  radio.powerDown(); // входим в режим энергосбережения
 
 }
