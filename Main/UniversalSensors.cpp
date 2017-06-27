@@ -458,10 +458,10 @@ void UniRS485Gate::Update(uint16_t dt)
                             #endif
 
                           if(states.State1)
-                            states.State1->Update(&t);
+                            states.State1->Update(&h);
 
                           if(states.State2)
-                            states.State2->Update(&h);
+                            states.State2->Update(&t);
                             
                         } // if                        
                       }
