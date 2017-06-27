@@ -1057,6 +1057,7 @@ void SensorsUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
     UniSensorsScratchpad* ourScratch = (UniSensorsScratchpad*) &(scratchpad->data);
     UniSensorState states;
     
+    
     for(byte i=0;i<MAX_UNI_SENSORS;i++)
     {
 
@@ -1078,12 +1079,17 @@ void SensorsUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
 
     // тут запускаем конвертацию, чтобы при следующем вызове вычитать актуальные данные.
     // конвертацию не стоит запускать чаще, чем в 5, скажем, секунд.
-    if(receivedThrough == ssOneWire)
+    if(receivedThrough == ssOneWire && isModuleOnline)
     {
       // работаем таким образом только по шине 1-Wire, в остальном вызывающая сторона разберётся, что делать со скратчпадом
       unsigned long curMillis = millis();
       if(curMillis - measureTimer > 5000)
       {
+        #ifdef UNI_DEBUG
+          Serial.print(F("Start measure on 1-Wire pin "));
+          Serial.println(pin);
+         #endif    
+        
         measureTimer = curMillis;
         UniScratchpad.begin(pin,scratchpad);
         UniScratchpad.startMeasure();
@@ -1230,6 +1236,10 @@ void UniPermanentLine::Update(uint16_t dt)
     lastClient = UniFactory.GetClient(&SHARED_SCRATCHPAD);
     lastClient->SetPin(pin); // назначаем тот же самый пин, что у нас    
     lastClient->Update(&SHARED_SCRATCHPAD,true, ssOneWire);
+
+    // вот здесь получается следующая ситуация - может отправиться команда на старт измерений, и, одновременно - 
+    // команда на чтение скратчпада. команда на старт измерений требует времени, поэтому, если
+    // сразу после запуска конвертации пытаться читать - получится бяка.
     
   } // if
   else
@@ -1598,6 +1608,9 @@ void UniRegDispatcher::SaveState()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool UniRegDispatcher::GetRegisteredStates(UniSensorType type, uint8_t sensorIndex, UniSensorState& resultStates)
 {
+  resultStates.State1 = NULL;
+  resultStates.State2 = NULL;
+  
    // смотрим тип сенсора, получаем состояния
    switch(type)
    {
@@ -1622,10 +1635,10 @@ bool UniRegDispatcher::GetRegisteredStates(UniSensorType type, uint8_t sensorInd
         if(!humidityModule)
           return false; // нет модуля влажности в прошивке
 
-       resultStates.State1 = humidityModule->State.GetState(StateTemperature,hardCodedHumidityCount + sensorIndex);
-       resultStates.State2 = humidityModule->State.GetState(StateHumidity,hardCodedHumidityCount + sensorIndex);
+       resultStates.State1 = humidityModule->State.GetState(StateHumidity,hardCodedHumidityCount + sensorIndex);
+       resultStates.State2 = humidityModule->State.GetState(StateTemperature,hardCodedHumidityCount + sensorIndex);
 
-       return (resultStates.State1 != NULL);
+       return (resultStates.State1 != NULL && resultStates.State2 != NULL);
 
     }
     break;

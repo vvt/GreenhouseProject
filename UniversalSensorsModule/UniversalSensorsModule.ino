@@ -72,7 +72,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 const SensorSettings Sensors[3] = {
 
 {mstChinaSoilMoistureMeter,A1,0}, // китайский датчик влажности почвы на пине A1
-{mstNone,0,0}, // ничего нет
+{mstSi7021,0,0}, // датчик температуры и влажности Si7021 на шине I2C  
 {mstDS18B20,A2,0} // DS18B20 на пине A2
 /* 
  поддерживаемые типы датчиков: 
@@ -173,7 +173,7 @@ Pin linesPowerDown(LINES_POWER_DOWN_PIN);
 t_scratchpad scratchpadS, scratchpadToSend;
 volatile char* scratchpad = (char *)&scratchpadS; //что бы обратиться к scratchpad как к линейному массиву
 
-//volatile bool scratchpadReceivedFromMaster = false; // флаг, что мы получили данные с мастера
+volatile bool scratchpadReceivedFromMaster = false; // флаг, что мы получили данные с мастера
 volatile bool needToMeasure = false; // флаг, что мы должны запустить конвертацию
 volatile unsigned long sensorsUpdateTimer = 0; // таймер получения информации с датчиков и обновления данных в скратчпаде
 volatile bool measureTimerEnabled = false; // флаг, что мы должны прочитать данные с датчиков после старта измерений
@@ -595,7 +595,7 @@ void ReadROM()
 }
 //----------------------------------------------------------------------------------------------------------------
 void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
-{
+{  
   // просыпаем сенсоры
   switch(sett.Type)
   {
@@ -768,6 +768,7 @@ void InitSensors()
 //----------------------------------------------------------------------------------------------------------------
  void ReadDS18B20(const SensorSettings& sett, struct sensor* s) // читаем данные с датчика температуры
 { 
+  
   #ifdef _DEBUG
     Serial.println(F("Read DS18B20..."));
   #endif
@@ -899,6 +900,8 @@ void ReadSi7021(const SensorSettings& sett, void* sensorDefinedData, struct sens
   si->read(ha);
 
   memcpy(s->data,&ha,sizeof(ha));
+
+
 
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -1085,6 +1088,7 @@ void ReadSensors()
 //----------------------------------------------------------------------------------------------------------------
 void MeasureDS18B20(const SensorSettings& sett)
 {
+    
   #ifdef _DEBUG
     Serial.println(F("DS18B20 - start conversion..."));
   #endif
@@ -1241,7 +1245,7 @@ void UpdateSensors()
 }
 //----------------------------------------------------------------------------------------------------------------
 void StartMeasure()
-{
+{  
   #ifdef _DEBUG
     Serial.println(F("Start measure..."));
   #endif
@@ -1371,6 +1375,7 @@ void WriteROM()
   
     eeprom_write_block( (void*)scratchpad,ROM_ADDRESS,29);
     memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
+    scratchpadToSend.crc8 = OneWireSlave::crc8((const byte*)&scratchpadToSend,sizeof(scratchpadS)-1);
 
     #ifdef USE_NRF
       // переназначаем канал радио
@@ -1405,7 +1410,10 @@ void setup()
   // включаем все линии на период настройки
  linesPowerDown.write(LINES_POWER_UP_LEVEL);
   
-    ReadROM();
+  ReadROM();
+  
+  scratchpadS.crc8 = OneWireSlave::crc8((const byte*) scratchpad,sizeof(scratchpadS)-1);
+  memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
 
    InitSensors(); // инициализируем датчики   
    PowerDownSensors(); // и выключаем их нафик при старте
@@ -1414,8 +1422,6 @@ void setup()
       initNRF();
     #endif
 
-  scratchpadS.crc8 = OneWireSlave::crc8((const byte*) scratchpad,sizeof(scratchpadS)-1);
-  memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
 
   oneWireLastCommandTimer = millis();
   
@@ -1458,9 +1464,9 @@ void owReceive(OneWireSlave::ReceiveEvent evt, byte data)
           state = DS_WaitingReset;
           scratchpadNumOfBytesReceived = 0;
           scratchpadWritePtr = 0;
-          //scratchpadReceivedFromMaster = true; // говорим, что мы получили скратчпад от мастера
+          scratchpadReceivedFromMaster = true; // говорим, что мы получили скратчпад от мастера
           // вычисляем новый интервал опроса
-          query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
+          //query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
         }
         
      break; // DS_ReadingScratchpad
@@ -1470,7 +1476,7 @@ void owReceive(OneWireSlave::ReceiveEvent evt, byte data)
       {
       case COMMAND_START_CONVERSION: // запустить конвертацию
         state = DS_WaitingReset;
-        if(!measureTimerEnabled) // только если она уже не запущена
+        if(!measureTimerEnabled && !needToMeasure) // только если она уже не запущена
           needToMeasure = true;
         break;
 
@@ -1489,6 +1495,11 @@ void owReceive(OneWireSlave::ReceiveEvent evt, byte data)
           state = DS_WaitingReset;
           WriteROM();
         break;
+
+        default:
+          state = DS_WaitingReset;
+        break;
+        
 
       } // switch (data)
       break; // case DS_WaitingCommand
@@ -1514,94 +1525,133 @@ void owReceive(OneWireSlave::ReceiveEvent evt, byte data)
 //----------------------------------------------------------------------------------------------------------------
 void loop()
 {
-//return;
 
-/*
-  if(scratchpadReceivedFromMaster) {
-    // скратч был получен от мастера, тут можно что-то делать
-    // вычисляем новый интервал опроса
-    query_interval = (scratchpadS.query_interval_min*60 + scratchpadS.query_interval_sec)*1000;
+  if(scratchpadReceivedFromMaster) 
+  {
     scratchpadReceivedFromMaster = false;
+
+    
+    // скратч был получен от мастера, тут можно что-то делать
+    memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
+    scratchpadToSend.crc8 = OneWireSlave::crc8((const byte*) &scratchpadToSend,sizeof(scratchpadS)-1);
+
+    // вычисляем новый интервал опроса
+    query_interval = (scratchpadToSend.query_interval_min*60 + scratchpadToSend.query_interval_sec)*1000;
+          
+     #ifdef _DEBUG
+        Serial.println(F("Scratch received from master!"));
+     #endif
       
   } // scratchpadReceivedFromMaster
-*/
+
   
   unsigned long curMillis = millis();
 
   // если попросили сбросить таймер получения последней команды по линии 1-Wire - делаем это
-  if(needResetOneWireLastCommandTimer) {
-    needResetOneWireLastCommandTimer = false;
+  if(needResetOneWireLastCommandTimer) 
+  {
     oneWireLastCommandTimer = curMillis;
+    needResetOneWireLastCommandTimer = false;
   }
 
   // проверяем - когда приходила последняя команда по 1-Wire: если её не было больше 15 секунд - активируем nRF и RS-485
-  if(connectedViaOneWire) {
-      if(oneWireLastCommandTimer - curMillis > 15000) {
+  if(connectedViaOneWire) 
+  {
+      if((curMillis - oneWireLastCommandTimer) > 15000) 
+      {
+         #ifdef _DEBUG
+            Serial.print(F("Last command at: "));
+            Serial.print(oneWireLastCommandTimer);
+            Serial.print(F("; curMillis: "));
+            Serial.print(curMillis);
+            Serial.print(F("; diff = "));
+            Serial.println((curMillis - oneWireLastCommandTimer));
+         #endif
+        
           connectedViaOneWire = false; // соединение через 1-Wire разорвано
       }
   }
   
 
 
-  if(((curMillis - last_measure_at) > query_interval) && !measureTimerEnabled && !needToMeasure) {
+  if(!connectedViaOneWire && ((curMillis - last_measure_at) > query_interval) && !measureTimerEnabled && !needToMeasure) 
+  {
     // чего-то долго не запускали конвертацию, запустим, пожалуй
-      if(!connectedViaOneWire) // и запустим только тогда, когда мы не подключены к 1-Wire, иначе - мастер сам запросит конвертацию.
-      {
+      // и запустим только тогда, когда мы не подключены к 1-Wire, иначе - мастер сам запросит конвертацию.
         needToMeasure = true;
         #ifdef _DEBUG
-          Serial.println(F("Want measure..."));
+          Serial.println(F("Want measure by timeout..."));
         #endif        
-      }
   }
 
   // только если ничего не делаем на линии 1-Wire и запросили конвертацию
-  if(needToMeasure) {
-    needToMeasure = false;
-    StartMeasure();
-    sensorsUpdateTimer = curMillis; // сбрасываем таймер обновления
-    measureTimerEnabled = true; // включаем флаг, что мы должны прочитать данные с датчиков
+  
+  if(needToMeasure && !measureTimerEnabled) 
+  {
+    #ifdef _DEBUG
+      Serial.println(F("Want measure..."));
+    #endif    
 
+    measureTimerEnabled = true; // включаем флаг, что мы должны прочитать данные с датчиков
+    sensorsUpdateTimer = curMillis; // сбрасываем таймер обновления
+    StartMeasure();
+
+    needToMeasure = false;
+    
     #ifdef _DEBUG
       Serial.println(F("Wait for measure complete..."));
     #endif    
   }
+ 
 
-  if(measureTimerEnabled) {
+  if(measureTimerEnabled) 
+  {
     UpdateSensors(); // обновляем датчики, если кому-то из них нужно периодическое обновление
   }
   
-  if(measureTimerEnabled && ((curMillis - sensorsUpdateTimer) > MEASURE_MIN_TIME)) {
+  if(measureTimerEnabled && ((curMillis - sensorsUpdateTimer) > MEASURE_MIN_TIME)) 
+  {
+    
+    if(state != DS_SendingScratchpad)
+    {
 
-  #ifdef _DEBUG
-    Serial.println(F("Measure completed, start read..."));
-  #endif
+          #ifdef _DEBUG
+            Serial.println(F("Measure completed, start read..."));
+          #endif
+        
+             // можно читать информацию с датчиков
+             ReadSensors();
+             
+             //noInterrupts();
+             memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
+             scratchpadToSend.crc8 = OneWireSlave::crc8((const byte*) &scratchpadToSend,sizeof(scratchpadS)-1);
+             //interrupts();
+        
 
-     sensorsUpdateTimer = curMillis;
-     measureTimerEnabled = false;
-     // можно читать информацию с датчиков
-     ReadSensors();
+          #ifdef _DEBUG
+            Serial.println(F("Sensors data readed."));
+          #endif     
+        
 
-  #ifdef _DEBUG
-    Serial.println(F("Sensors data readed."));
-  #endif     
-
-     // прочитали, всё в скратчпаде, вычисляем CRC
-     scratchpadS.crc8 = OneWireSlave::crc8((const byte*) scratchpad,sizeof(scratchpadS)-1);
-     // и копируем скратчпад в скратчпад для отсылки, чтобы данные оставались валидными до тех пор, пока мастер их не примет.
-     memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
-
-     // теперь усыпляем все датчики
-     PowerDownSensors();
-
-     // прочитали, отправляем
-     #ifdef USE_NRF
-      if(!connectedViaOneWire)
-        sendDataViaNRF();
-     #endif
-
-  #ifdef _DEBUG
-    Serial.println(F(""));
-  #endif        
+        
+        
+             // теперь усыпляем все датчики
+             PowerDownSensors();
+        
+             // прочитали, отправляем
+             #ifdef USE_NRF
+              if(!connectedViaOneWire)
+                sendDataViaNRF();
+             #endif
+        
+          #ifdef _DEBUG
+            Serial.println(F(""));
+          #endif 
+          
+             sensorsUpdateTimer = curMillis;
+             measureTimerEnabled = false;
+             
+      } // if(state != DS_SendingScratchpad)      
   }
 
   #ifdef USE_RS485_GATE
