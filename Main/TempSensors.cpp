@@ -289,7 +289,7 @@ void TempSensors::Setup()
    workMode = wmAutomatic; // автоматический режим работы по умолчанию
    
 #ifdef USE_WINDOWS_MANUAL_MODE_DIODE
-  blinker.begin(DIODE_WINDOWS_MANUAL_MODE_PIN);//,F("SM"));  // настраиваем блинкер на нужный пин
+  blinker.begin(DIODE_WINDOWS_MANUAL_MODE_PIN); // настраиваем блинкер на нужный пин
 #endif  
 
 

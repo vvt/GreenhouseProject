@@ -3,15 +3,14 @@
 
 InteropStream ModuleInterop;
 
-
-InteropStream::InteropStream()// : Stream()
+InteropStream::InteropStream()
 {
 }
 
 InteropStream::~InteropStream()
 {
 }
-bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand)//,bool wantAnwer)
+bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand)
 {
   
  
@@ -31,39 +30,16 @@ bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool
   
   Command cmd;
   cmd.Construct(moduleId,params,cType);
-
-  //data = F("");
-  
  
-    cmd.SetInternal(isInternalCommand); // устанавливаем флаг команды
-    /*
-    if(wantAnwer)
-    {
-      cmd.SetIncomingStream(this); // просим контроллер опубликовать ответ в нас - мы сохраним ответ в data
-    }
-    else
-      cmd.SetIncomingStream(NULL);
-    */
-
-   // cmd.SetIncomingStream(this); // просим контроллер опубликовать ответ в нас - мы сохраним ответ в data
-    MainController->ProcessModuleCommand(cmd,NULL);
-    return true;
+  cmd.SetInternal(isInternalCommand); // устанавливаем флаг команды
+  MainController->ProcessModuleCommand(cmd,NULL);
+  return true;
     
 }
-/*
-size_t InteropStream::write(uint8_t toWr)
-{
-//  data += (char) toWr;
-  return 1;
-}
-*/
 
 BlinkModeInterop::BlinkModeInterop()
 {
-  /*
-  lastBlinkInterval = 0xFFFF;
-  needUpdate = false;
-  */
+
   blinkInterval = 0;
   timer = 0;
   pinState = LOW;
@@ -80,13 +56,36 @@ void BlinkModeInterop::update(uint16_t dt)
 
   timer -= blinkInterval;
   pinState = pinState == LOW ? HIGH : LOW;
-  WORK_STATUS.PinWrite(pin,pinState);
   
+  //WORK_STATUS.PinWrite(pin,pinState);
+  #if INFO_DIODES_DRIVE_MODE == DRIVE_DIRECT
+    WORK_STATUS.PinWrite(pin,pinState);
+  #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23S17
+    #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+      WORK_STATUS.MCP_SPI_PinWrite(INFO_DIODES_MCP23S17_ADDRESS,pin,pinState);
+    #endif
+  #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23017
+    #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+      WORK_STATUS.MCP_I2C_PinWrite(INFO_DIODES_MCP23017_ADDRESS,pin,pinState);
+    #endif
+  #endif  
 }
-void BlinkModeInterop::begin(uint8_t p)//, const String& lName)
+void BlinkModeInterop::begin(uint8_t p)
 {
   pin = p;
-  WORK_STATUS.PinMode(pin,OUTPUT);
+  //WORK_STATUS.PinMode(pin,OUTPUT);
+  #if INFO_DIODES_DRIVE_MODE == DRIVE_DIRECT
+    WORK_STATUS.PinMode(pin,OUTPUT);
+  #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23S17
+    #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+      WORK_STATUS.MCP_SPI_PinMode(INFO_DIODES_MCP23S17_ADDRESS,pin,OUTPUT);
+    #endif
+  #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23017
+    #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+      WORK_STATUS.MCP_I2C_PinMode(INFO_DIODES_MCP23017_ADDRESS,pin,OUTPUT);
+    #endif
+  #endif
+  
 }
 void BlinkModeInterop::blink(uint16_t interval)
 {
@@ -94,7 +93,20 @@ void BlinkModeInterop::blink(uint16_t interval)
   blinkInterval = interval;
   
   if(!blinkInterval)
-    WORK_STATUS.PinWrite(pin,LOW);
+  {
+    //WORK_STATUS.PinWrite(pin,LOW);
+    #if INFO_DIODES_DRIVE_MODE == DRIVE_DIRECT
+      WORK_STATUS.PinWrite(pin,LOW);
+    #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23S17
+      #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+        WORK_STATUS.MCP_SPI_PinWrite(INFO_DIODES_MCP23S17_ADDRESS,pin,LOW);
+      #endif
+    #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23017
+      #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+        WORK_STATUS.MCP_I2C_PinWrite(INFO_DIODES_MCP23017_ADDRESS,pin,LOW);
+      #endif
+    #endif      
+  }
 
 }
 

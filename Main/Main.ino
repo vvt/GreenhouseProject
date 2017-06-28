@@ -558,10 +558,9 @@ void loop()
   #ifdef BLINK_READY_DIODE
    // static uint16_t ready_diode_timer = 0;
     static bool blink_ready_diode_inited = false;
-    //ready_diode_timer += dt;
-    if(/*ready_diode_timer > 2000 && */!blink_ready_diode_inited) {
+    if(!blink_ready_diode_inited) {
       blink_ready_diode_inited = true;
-      readyDiodeBlinker.begin(DIODE_READY_PIN);//,F("SD"));
+      readyDiodeBlinker.begin(DIODE_READY_PIN);
       readyDiodeBlinker.blink(READY_DIODE_BLINK_INTERVAL);
     }
 
