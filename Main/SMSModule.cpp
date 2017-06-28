@@ -3377,7 +3377,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
             PublishSingleton.Status = true;
             PublishSingleton = F("PROV");
             PublishSingleton << PARAM_DELIMITER << REG_SUCC;
-            s->Save();
+//            s->Save();
           }
           else
           {

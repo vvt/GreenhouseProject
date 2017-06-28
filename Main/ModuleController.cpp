@@ -41,7 +41,7 @@ void ModuleController::Setup()
 {  
   MainController = this;
 
-  settings.Load(); // загружаем настройки
+//  settings.Load(); // загружаем настройки
 
 #ifdef USE_DS3231_REALTIME_CLOCK
 _rtc.begin();

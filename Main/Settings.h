@@ -19,6 +19,8 @@ typedef struct
   uint8_t wateringWeekDays; // в какие дни недели управляем поливом на этом канале?
   uint16_t wateringTime; // время полива на этом канале
   uint16_t startWateringTime; // время начала полива для этого канала (в минутах от начала суток)
+  int8_t sensorIndex; // индекс датчика, который привязан к каналу
+  uint8_t stopBorder; // показания датчика, по достижению которых канал полива выключается
   
 } WateringChannelOptions; // настройки для отдельного канала полива
 
@@ -75,43 +77,55 @@ class GlobalSettings
 {
   private:
 
-  uint8_t controllerID;
+ // uint8_t controllerID;
 
-  uint8_t tempOpen; // температура открытия
-  uint8_t tempClose; // температура закрытия
-  unsigned long openInterval; // интервал для открытия окон
+  //uint8_t tempOpen; // температура открытия
+  //uint8_t tempClose; // температура закрытия
+  //unsigned long openInterval; // интервал для открытия окон
 
-  String smsPhoneNumber; // номер телефона для управления по SMS
-  byte gsmProvider; // оператор GSM
+  //String smsPhoneNumber; // номер телефона для управления по SMS
+  //byte gsmProvider; // оператор GSM
 
-  uint8_t wateringOption; // какая опция управления выбрана?
-  uint8_t wateringWeekDays; // в какие дни недели управляем поливом на всех каналах?
-  uint16_t wateringTime; // время полива на всех каналах
-  uint16_t startWateringTime; // время начала полива для всех каналов, в минутах от начала суток
-  uint8_t turnOnPump; // включать ли определённый канал реле при включенном поливе на любом из каналов (может использоваться для насоса)?
+  //uint8_t wateringOption; // какая опция управления выбрана?
+ // uint8_t wateringWeekDays; // в какие дни недели управляем поливом на всех каналах?
+  //uint16_t wateringTime; // время полива на всех каналах
+  //uint16_t startWateringTime; // время начала полива для всех каналов, в минутах от начала суток
+ // uint8_t turnOnPump; // включать ли определённый канал реле при включенном поливе на любом из каналов (может использоваться для насоса)?
 
-  WateringChannelOptions wateringChannelsOptions[WATER_RELAYS_COUNT]; // настройки каналов полива
+//  WateringChannelOptions wateringChannelsOptions[WATER_RELAYS_COUNT]; // настройки каналов полива
 
   // настройки Wi-Fi
-  uint8_t wifiState; // первый бит установлен - коннектиться к домашнему роутеру
-  String routerID; // название точки доступа домашнего роутера
-  String routerPassword; // пароль к точке доступа домашнего роутера
-  String stationID; // название точки доступа у модуля ESP
-  String stationPassword; // пароль к точке доступа модуля ESP
+  //uint8_t wifiState; // первый бит установлен - коннектиться к домашнему роутеру
+  //String routerID; // название точки доступа домашнего роутера
+  //String routerPassword; // пароль к точке доступа домашнего роутера
+  //String stationID; // название точки доступа у модуля ESP
+  //String stationPassword; // пароль к точке доступа модуля ESP
 
-   IoTSettings iotSettings;
+   //IoTSettings iotSettings;
+
+   uint8_t read8(uint16_t address, uint8_t defaultVal);
+   
+   uint16_t read16(uint16_t address, uint16_t defaultVal);
+   void write16(uint16_t address, uint16_t val);
+
+   unsigned long read32(uint16_t address, unsigned long defaultVal);
+   void write32(uint16_t address, unsigned long val);
+
+   String readString(uint16_t address, byte maxlength);
+   void writeString(uint16_t address, const String& v, byte maxlength);
  
   public:
     GlobalSettings();
 
-    void Load();
-    void Save();
-    void ResetToDefault();
+    //void Load();
+    //void Save();
+    //void ResetToDefault();
 
-    IoTSettings* GetIoTSettings() {return &iotSettings; }
+    IoTSettings GetIoTSettings();// {return &iotSettings; }
+    void SetIoTSettings(IoTSettings& sett);
 
-    byte GetGSMProvider() { return gsmProvider; }
-    bool SetGSMProvider(byte p) {
+    byte GetGSMProvider();// { return gsmProvider; }
+    bool SetGSMProvider(byte p);/* {
 
           if(p < Dummy_Last_Op) {
             gsmProvider = p;
@@ -119,61 +133,76 @@ class GlobalSettings
           }
           return false;
       }
+    */
       
-    uint8_t GetControllerID() {return controllerID;}
+    uint8_t GetControllerID();// {return controllerID;}
     void SetControllerID(uint8_t val);
 
     void ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, DeltaReadWriteFunction OnDeltaRead); // читаем настройки дельт 
     void WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, DeltaReadWriteFunction OnDeltaWrite); // пишем настройки дельт 
 
-    uint8_t GetWateringOption() {return wateringOption; }
-    void SetWateringOption(uint8_t val) {wateringOption = val; }
+    uint8_t GetWateringOption();// {return wateringOption; }
+    void SetWateringOption(uint8_t val);// {wateringOption = val; }
 
-    uint8_t GetChannelWateringWeekDays(uint8_t idx) {return wateringChannelsOptions[idx].wateringWeekDays;};
-    void SetChannelWateringWeekDays(uint8_t idx, uint8_t val) {wateringChannelsOptions[idx].wateringWeekDays = val;};
+     uint8_t GetWateringWeekDays();// {return wateringWeekDays; }
+     void SetWateringWeekDays(uint8_t val);// {wateringWeekDays = val;}
 
-     uint16_t GetChannelWateringTime(uint8_t idx) {return wateringChannelsOptions[idx].wateringTime;}
-     void SetChannelWateringTime(uint8_t idx,uint16_t val) {wateringChannelsOptions[idx].wateringTime = val;}
+     uint16_t GetWateringTime();// {return wateringTime;}
+     void SetWateringTime(uint16_t val);// {wateringTime = val;}
 
-     uint16_t GetChannelStartWateringTime(uint8_t idx) {return wateringChannelsOptions[idx].startWateringTime;}
-     void SetChannelStartWateringTime(uint8_t idx,uint16_t val) {wateringChannelsOptions[idx].startWateringTime = val;}
+     uint16_t GetStartWateringTime();// {return startWateringTime;}
+     void SetStartWateringTime(uint16_t val);// {startWateringTime = val;}
 
-     uint8_t GetWateringWeekDays() {return wateringWeekDays; }
-     void SetWateringWeekDays(uint8_t val) {wateringWeekDays = val;}
+     int8_t GetWateringSensorIndex();
+     void SetWateringSensorIndex(int8_t val);
 
-     uint16_t GetWateringTime() {return wateringTime;}
-     void SetWateringTime(uint16_t val) {wateringTime = val;}
+     uint8_t GetWateringStopBorder();
+     void SetWateringStopBorder(uint8_t val);
 
-     uint16_t GetStartWateringTime() {return startWateringTime;}
-     void SetStartWateringTime(uint16_t val) {startWateringTime = val;}
+    uint8_t GetTurnOnPump();// {return turnOnPump;}
+    void SetTurnOnPump(uint8_t val);// {turnOnPump = val;}
 
-    uint8_t GetTurnOnPump() {return turnOnPump;}
-    void SetTurnOnPump(uint8_t val) {turnOnPump = val;}
+    uint8_t GetChannelWateringWeekDays(uint8_t idx);// {return wateringChannelsOptions[idx].wateringWeekDays;};
+    void SetChannelWateringWeekDays(uint8_t idx, uint8_t val);// {wateringChannelsOptions[idx].wateringWeekDays = val;};
 
-    uint8_t GetOpenTemp() {return tempOpen;}
-    void SetOpenTemp(uint8_t val) {tempOpen = val;}
+     uint16_t GetChannelWateringTime(uint8_t idx);// {return wateringChannelsOptions[idx].wateringTime;}
+     void SetChannelWateringTime(uint8_t idx,uint16_t val);// {wateringChannelsOptions[idx].wateringTime = val;}
 
-    uint8_t GetCloseTemp() {return tempClose;}
-    void SetCloseTemp(uint8_t val) {tempClose = val;}
+     uint16_t GetChannelStartWateringTime(uint8_t idx);// {return wateringChannelsOptions[idx].startWateringTime;}
+     void SetChannelStartWateringTime(uint8_t idx,uint16_t val);// {wateringChannelsOptions[idx].startWateringTime = val;}
 
-    unsigned long GetOpenInterval() {return openInterval;}
-    void SetOpenInterval(unsigned long val) {openInterval = val;}
+     int8_t GetChannelWateringSensorIndex(uint8_t idx);
+     void SetChannelWateringSensorIndex(uint8_t idx,int8_t val);
 
-    String GetSmsPhoneNumber() const {return smsPhoneNumber; }
-    void SetSmsPhoneNumber(const String& v) {smsPhoneNumber = v;}
+     uint8_t GetChannelWateringStopBorder(uint8_t idx);
+     void SetChannelWateringStopBorder(uint8_t idx,uint8_t val);
 
-    uint8_t GetWiFiState() {return wifiState;}
-    void SetWiFiState(uint8_t st) {wifiState = st;}
+
+
+    uint8_t GetOpenTemp();// {return tempOpen;}
+    void SetOpenTemp(uint8_t val);// {tempOpen = val;}
+
+    uint8_t GetCloseTemp();// {return tempClose;}
+    void SetCloseTemp(uint8_t val);// {tempClose = val;}
+
+    unsigned long GetOpenInterval();// {return openInterval;}
+    void SetOpenInterval(unsigned long val);// {openInterval = val;}
+
+    String GetSmsPhoneNumber();// const {return smsPhoneNumber; }
+    void SetSmsPhoneNumber(const String& v);// {smsPhoneNumber = v;}
+
+    uint8_t GetWiFiState();// {return wifiState;}
+    void SetWiFiState(uint8_t st);// {wifiState = st;}
     
-    String GetRouterID() const {return routerID;}
-    void SetRouterID(const String& val) {routerID = val;}
-    String GetRouterPassword() const {return routerPassword;}
-    void SetRouterPassword(const String& val) {routerPassword = val;}
+    String GetRouterID();// const {return routerID;}
+    void SetRouterID(const String& val);// {routerID = val;}
+    String GetRouterPassword();// const {return routerPassword;}
+    void SetRouterPassword(const String& val);// {routerPassword = val;}
     
-    String GetStationID() const {return stationID;}
-    void SetStationID(const String& val) {stationID = val;}
-    String GetStationPassword() const {return stationPassword;}
-    void SetStationPassword(const String& val) {stationPassword = val;}
+    String GetStationID();// const {return stationID;}
+    void SetStationID(const String& val);// {stationID = val;}
+    String GetStationPassword();// const {return stationPassword;}
+    void SetStationPassword(const String& val);// {stationPassword = val;}
 
 
     String GetHttpApiKey();

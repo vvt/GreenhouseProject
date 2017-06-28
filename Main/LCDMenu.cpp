@@ -1402,7 +1402,7 @@ void SettingsMenuItem::setFocus(bool f)
     GlobalSettings* s = MainController->GetSettings();
     s->SetOpenTemp(openTemp);
     s->SetCloseTemp(closeTemp);
-    s->Save();
+    //s->Save();
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------

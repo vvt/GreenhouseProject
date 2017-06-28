@@ -600,7 +600,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
         sett->SetOpenTemp(tOpen);
         sett->SetCloseTemp(tClose);
-        sett->Save();
+//        sett->Save();
         
         PublishSingleton.Status = true;
         if(wantAnswer) 
@@ -662,7 +662,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
               {
                 //СОХРАНЕНИЕ ИНТЕРВАЛА В НАСТРОЙКАХ
                 sett->SetOpenInterval(newInt);
-                sett->Save();
+//                sett->Save();
                 
                 PublishSingleton.Status = true;
                 if(wantAnswer) 

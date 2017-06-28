@@ -762,7 +762,7 @@ void UniExecutionModuleClient::Update(UniRawScratchpad* scratchpad, bool isModul
 NextionUniClient::NextionUniClient()
 {
   updateTimer = 0;
-  tempChanged = false;
+  //tempChanged = false;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void NextionUniClient::Register(UniRawScratchpad* scratchpad)
@@ -892,7 +892,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
       ++tmp;  
 
     MainController->GetSettings()->SetOpenTemp(tmp);
-    tempChanged = true;
+    //tempChanged = true;
   }
 
   if(bitRead(ourScratch.nextionStatus2,5))
@@ -905,7 +905,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
       --tmp;  
 
     MainController->GetSettings()->SetOpenTemp(tmp);
-    tempChanged = true;
+   // tempChanged = true;
   }
 
   if(bitRead(ourScratch.nextionStatus2,6))
@@ -918,7 +918,7 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
       ++tmp;  
 
     MainController->GetSettings()->SetCloseTemp(tmp);
-    tempChanged = true;
+    //tempChanged = true;
   }
 
   if(bitRead(ourScratch.nextionStatus2,7))
@@ -931,17 +931,17 @@ void NextionUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
       --tmp;  
 
     MainController->GetSettings()->SetCloseTemp(tmp);
-    tempChanged = true;
+    //tempChanged = true;
   }
 
   if(bitRead(ourScratch.controllerStatus,6)) // дисплей заснул, можно сохранять настройки
   {
     bitWrite(ourScratch.controllerStatus,6,0); 
   //  Serial.println("enter sleep");
-    if(tempChanged)
-      MainController->GetSettings()->Save();
+    //if(tempChanged)
+  //   MainController->GetSettings()->Save();
 
-    tempChanged = false;
+  //  tempChanged = false;
   }
 
   // теперь проверяем, надо ли нам записывать настройки немедленно

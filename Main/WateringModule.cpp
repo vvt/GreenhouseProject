@@ -796,7 +796,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               settings->SetTurnOnPump(turnOnPump);
       
               // сохраняем настройки
-              settings->Save();
+//              settings->Save();
 
               if(oldWateringOption != wateringOption)
               {

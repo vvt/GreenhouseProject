@@ -560,7 +560,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
        {
           GlobalSettings* sett = MainController->GetSettings();
           sett->SetSmsPhoneNumber(command.GetArg(1));
-          sett->Save();
+//          sett->Save();
           PublishSingleton.Status = true;
           PublishSingleton = SMS_NUMBER_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;

@@ -65,7 +65,7 @@ void HttpModule::Setup()
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::CheckForIncomingCommands(byte wantedAction)
 {
-  HTTPQueryProvider* prov = providers[flags.currentProviderNumber];//MainController->GetHTTPProvider();
+  HTTPQueryProvider* prov = providers[flags.currentProviderNumber];
   if(!prov)
   {
    #ifdef HTTP_DEBUG
@@ -1084,35 +1084,49 @@ void HttpModule::Update(uint16_t dt)
     
   }
 
-  // мы здесь, потому что какой-то из провайдеров может выполнить запрос.
-  // проверяем, какой - и сохраняем его номер для последующей с ним работы
-  if(wifiReady)
-    flags.currentProviderNumber = 0;
-  else if(gsmReady)
-    flags.currentProviderNumber = 1;
-  
-  /*
-  HTTPQueryProvider* prov = MainController->GetHTTPProvider();
-  
-  if(!prov)
-    return;
-  
-  if(!prov->CanMakeQuery()) // провайдер не может выполнить запрос
+  // здесь мы не можем менять провайдера, поскольку он может поменяться по результатам вызова предыдущего.
+  // здесь мы можем только выяснить - готов ли текущий провайдер выполнить запрос, и если не готов - переключиться на следующего
+  // и попробовать через 5 секунд.
+  if(flags.currentProviderNumber == 0 && !wifiReady)
   {
-    #ifdef HTTP_DEBUG
-      Serial.println(F("HTTP - busy, try again after 5 seconds..."));
-    #endif 
-       
-    waitTimer = 5000; // через 5 секунд повторим
-    return;    
+    if(!gsmReady)
+    {
+      flags.currentProviderNumber = 1; // попробуем через GSM, он пока не готов, поэтому через 5 секунд
+      waitTimer = 5000;
+      return;
+    }
+    else
+      flags.currentProviderNumber = 1; // GSM уже готов
   }
-  */
+
+  if(flags.currentProviderNumber == 1 && !gsmReady)
+  {
+    if(!wifiReady)
+    {
+      flags.currentProviderNumber = 0; // попробуем через ESP, она пока не готова, поэтому - через 5 секунд
+      waitTimer = 5000;
+      return;
+    }
+    else
+      flags.currentProviderNumber = 0; // ESP готова
+  }
+
+  // тут надо проверить, есть ли провайдер вообще?
+  if(!providers[flags.currentProviderNumber])
+  {
+    // нет такого провайдера, переключаемся на другого
+    if(flags.currentProviderNumber == 1)
+      flags.currentProviderNumber = 0;
+    else
+      flags.currentProviderNumber = 1;
+  }
+  
 
     // а теперь проверяем, есть ли у нас репорт для команд
     if(commandsToReport.size())
     {
     #ifdef HTTP_DEBUG
-      Serial.println(F("WIFI - report to server..."));
+      Serial.println(F("HTTP - report to server..."));
     #endif      
       // есть, надо сперва разрулить это дело
       CheckForIncomingCommands(HTTP_REPORT_TO_SERVER);
@@ -1130,7 +1144,7 @@ void HttpModule::Update(uint16_t dt)
   {
 
     #ifdef HTTP_DEBUG
-      Serial.println(F("WIFI - check for commands..."));
+      Serial.println(F("HTTP - check for commands..."));
     #endif
         
     commandsCheckTimer = 0;

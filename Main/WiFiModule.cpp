@@ -10,10 +10,10 @@
 void WiFiModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone)
 {
     // тут смотрим, можем ли мы обработать запрос на отсыл данных в IoT
-    IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+    IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 
     //#if defined(THINGSPEAK_ENABLED) 
-    if(iotSettings->Flags.ThingSpeakEnabled && strlen(iotSettings->ThingSpeakChannelID)) // включен один сервис хотя бы
+    if(iotSettings.Flags.ThingSpeakEnabled && strlen(iotSettings.ThingSpeakChannelID)) // включен один сервис хотя бы
     {
 
      // сохраняем указатели на функции обратного вызова
@@ -38,7 +38,7 @@ void WiFiModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToS
 
           // формируем запрос
           *iotDataHeader = F("GET /update?api_key=");
-          *iotDataHeader += iotSettings->ThingSpeakChannelID;
+          *iotDataHeader += iotSettings.ThingSpeakChannelID;
           *iotDataHeader += F("&");
 
           *iotDataFooter = F(" HTTP/1.1\r\nAccept: */*\r\nUser-Agent: ");
@@ -484,7 +484,6 @@ void WiFiModule::ProcessAnswerLine(String& line)
 
         actionsQueue.pop(); // убираем последнюю обработанную команду
         currentAction = wfaIdle;
-
         
         // один из известных нам ответов
         if(line == F("OK"))
@@ -501,6 +500,7 @@ void WiFiModule::ProcessAnswerLine(String& line)
           WIFI_DEBUG_WRITE(F("IoT connection ERROR!"),currentAction);
          #endif
 
+            flags.inSendData = false;
           // всё плохо, вызываем коллбэк
             EnsureIoTProcessed();
         }
@@ -555,7 +555,6 @@ void WiFiModule::ProcessAnswerLine(String& line)
         currentAction = wfaIdle; // переходим в ждущий режим
         // поскольку мы законнекчены - надо закрыть соединение
         actionsQueue.push_back(wfaCloseIoTConnection);
-
         EnsureIoTProcessed();
       }
     }
@@ -677,7 +676,7 @@ void WiFiModule::ProcessAnswerLine(String& line)
     // клиент подсоединился
     String s = line.substring(0,idx);
     int clientID = s.toInt();
-    if(clientID >= 0 && clientID < MAX_WIFI_CLIENTS)
+    if(clientID >= 0 && clientID < MAX_WIFI_CLIENTS-1) // последнему клиенту не даём статус законнекченного
     {
    #ifdef WIFI_DEBUG
     WIFI_DEBUG_WRITE(String(F("[CLIENT CONNECTED] - ")) + s,currentAction);
@@ -775,7 +774,7 @@ void WiFiModule::ProcessCommand(int clientID, int dataLen, const char* command)
 #endif
   
   // работаем с клиентом
-  if(clientID >=0 && clientID < MAX_WIFI_CLIENTS)
+  if(clientID >=0 && clientID < MAX_WIFI_CLIENTS-1) // последний клиент - наш, для IoT и HTTP - в него не пишем
   {
 
 
@@ -938,6 +937,7 @@ void WiFiModule::ProcessQueue()
         {
           // надо поместить в очередь команду на обработку запроса к IoT
           flags.wantIoTToProcess = false;
+          flags.inSendData = true; // чтобы не дёргать очередь клиентов
           actionsQueue.push_back(wfaStartIoTSend);
           return;
         }
@@ -1557,7 +1557,7 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
           if(!routerID.length())
             Settings->SetWiFiState(0); // не коннектимся к роутеру
 
-          Settings->Save(); // сохраняем настройки
+//          Settings->Save(); // сохраняем настройки
 
           if(Settings->GetWiFiState() & 0x01) // коннектимся к роутеру
             actionsQueue.push_back(wfaCWJAP); // коннектимся к роутеру совсем в конце

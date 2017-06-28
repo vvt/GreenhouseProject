@@ -12,7 +12,7 @@ AlertModule::AlertModule() : AbstractModule("ALERT")
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertRule::~AlertRule()
 {
-  delete rawCommand;
+  delete[] rawCommand;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AlertRule::AlertRule()
@@ -951,6 +951,7 @@ bool AlertRule::Construct(AbstractModule* lm, const Command& command)
        {
         // так и не смогли разобрать команду, просто копируем все её параметры в сырую команду
         uint8_t len = strlen(tcParams);
+        delete[] rawCommand;
         rawCommand = new char[len+1];
         strcpy(rawCommand,tcParams);
         rawCommand[len] = 0;

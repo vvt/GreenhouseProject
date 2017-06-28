@@ -6,7 +6,7 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 GlobalSettings::GlobalSettings()
 {
-  ResetToDefault();
+ // ResetToDefault();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, DeltaReadWriteFunction OnDeltaWrite)
@@ -167,28 +167,371 @@ void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, Delta
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+/*
 void GlobalSettings::ResetToDefault()
 {
-  tempOpen = DEF_OPEN_TEMP;
-  tempClose = DEF_CLOSE_TEMP;
-  openInterval = DEF_OPEN_INTERVAL;
-  wateringOption = wateringOFF;
-  wateringWeekDays = 0;
-  wateringTime = 0;
-  startWateringTime = 0;
-  wifiState = 0x01; // первый бит устанавливаем, говорим, что мы коннектимся к роутеру
-  controllerID = 0; // по умолчанию 0 как ID контроллера
-  gsmProvider = MTS;
+ // tempOpen = DEF_OPEN_TEMP;
+  //tempClose = DEF_CLOSE_TEMP;
+  //openInterval = DEF_OPEN_INTERVAL;
+ // wateringOption = wateringOFF;
+ // wateringWeekDays = 0;
+  //wateringTime = 0;
+  //startWateringTime = 0;
+  //wifiState = 0x01; // первый бит устанавливаем, говорим, что мы коннектимся к роутеру
+ // controllerID = 0; // по умолчанию 0 как ID контроллера
+ // gsmProvider = MTS;
 
-  memset(&iotSettings,0,sizeof(iotSettings));
+//  memset(&iotSettings,0,sizeof(iotSettings));
+}
+*/
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::read8(uint16_t address, uint8_t defaultVal)
+{
+    uint8_t curVal = MemRead(address);
+    if(curVal == 0xFF)
+      curVal = defaultVal;
+
+   return curVal;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint16_t GlobalSettings::read16(uint16_t address, uint16_t defaultVal)
+{
+    uint16_t val = 0;
+    byte* b = (byte*) &val;
+    
+    for(byte i=0;i<2;i++)
+      *b++ = MemRead(address + i);
+
+   if(val == 0xFFFF)
+    val = defaultVal;
+
+    return val;  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::write16(uint16_t address, uint16_t val)
+{
+  byte* b = (byte*) &val;
+
+  for(byte i=0;i<2;i++)
+    MemWrite(address + i, *b++);
+      
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+unsigned long GlobalSettings::read32(uint16_t address, unsigned long defaultVal)
+{
+   unsigned long val = 0;
+    byte* b = (byte*) &val;
+    
+    for(byte i=0;i<4;i++)
+      *b++ = MemRead(address + i);
+
+   if(val == 0xFFFFFFFF)
+    val = defaultVal;
+
+    return val;    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::write32(uint16_t address, unsigned long val)
+{
+  byte* b = (byte*) &val;
+
+  for(byte i=0;i<4;i++)
+    MemWrite(address + i, *b++);  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::readString(uint16_t address, byte maxlength)
+{
+  String result;
+  for(byte i=0;i<maxlength;i++)
+  {
+    byte b = read8(address++,0);
+    if(b == 0)
+      break;
+
+    result += (char) b;
+  }
+
+  return result;  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::writeString(uint16_t address, const String& v, byte maxlength)
+{
+  for(byte i=0;i<maxlength;i++)
+    MemWrite(address++,v[i]);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetChannelWateringWeekDays(uint8_t idx)
+{
+    // вычисляем начало адреса
+    uint16_t readAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions);
+    return read8(readAddr,0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetChannelWateringWeekDays(uint8_t idx, uint8_t val)
+{
+    // вычисляем начало адреса
+    uint16_t writeAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions);
+    MemWrite(writeAddr, val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint16_t GlobalSettings::GetChannelWateringTime(uint8_t idx)
+{
+    uint16_t readAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 1; // со второго байта в структуре идёт время продолжительностиала полива
+    return read16(readAddr,0);  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetChannelWateringTime(uint8_t idx,uint16_t val)
+{
+    uint16_t writeAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 1; // со второго байта в структуре идёт время продолжительности полива
+    write16(writeAddr,val);  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint16_t GlobalSettings::GetChannelStartWateringTime(uint8_t idx)
+{
+    uint16_t readAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 3; // с четвёртого байта в структуре идёт время начала полива
+    return read16(readAddr,0);    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetChannelStartWateringTime(uint8_t idx,uint16_t val)
+{
+    uint16_t writeAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 3; // с четвёртого байта в структуре идёт время начала полива
+    write16(writeAddr,val);    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+int8_t GlobalSettings::GetChannelWateringSensorIndex(uint8_t idx)
+{
+   uint16_t readAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 5; // с шестого байта в структуре идёт индекс датчика
+  return (int8_t) read8(readAddr,-1);   
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetChannelWateringSensorIndex(uint8_t idx,int8_t val)
+{
+   uint16_t writeAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 5; // с шестого байта в структуре идёт индекс датчика
+  MemWrite(writeAddr,val);   
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetChannelWateringStopBorder(uint8_t idx)
+{
+  uint16_t readAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 6; // с седьмого байта в структуре идёт значение показаний датчика
+  return read8(readAddr,0);     
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetChannelWateringStopBorder(uint8_t idx,uint8_t val)
+{
+  uint16_t writeAddr = WATERING_CHANNELS_SETTINGS_EEPROM_ADDR + idx*sizeof(WateringChannelOptions) + 6; // с седьмого байта в структуре идёт значение показаний датчика
+  MemWrite(writeAddr,val);     
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::GetStationPassword()
+{
+  return readString(STATION_PASSWORD_EEPROM_ADDR,20);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetStationPassword(const String& v)
+{
+  writeString( STATION_PASSWORD_EEPROM_ADDR, v,  min(20,v.length()) ); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::GetStationID()
+{
+  return readString(STATION_ID_EEPROM_ADDR,20);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetStationID(const String& v)
+{
+  writeString( STATION_ID_EEPROM_ADDR, v,  min(20,v.length()) ); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::GetRouterPassword()
+{
+  return readString(ROUTER_PASSWORD_EEPROM_ADDR,20);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetRouterPassword(const String& v)
+{
+  writeString( ROUTER_PASSWORD_EEPROM_ADDR, v,  min(20,v.length()) ); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::GetRouterID()
+{
+  return readString(ROUTER_ID_EEPROM_ADDR,20);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetRouterID(const String& v)
+{
+  writeString( ROUTER_ID_EEPROM_ADDR, v,  min(20,v.length()) ); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String GlobalSettings::GetSmsPhoneNumber()
+{
+  return readString(SMS_NUMBER_EEPROM_ADDR,15);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetSmsPhoneNumber(const String& v)
+{
+    writeString( SMS_NUMBER_EEPROM_ADDR, v,  min(15,v.length()) ); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetIoTSettings(IoTSettings& sett)
+{
+    byte writePtr = IOT_SETTINGS_EEPROM_ADDR;
+    byte* readPtr = (byte*) &sett;
+
+     for(size_t i=0;i<sizeof(IoTSettings);i++)
+        MemWrite(writePtr++, *readPtr++);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+IoTSettings GlobalSettings::GetIoTSettings()
+{
+    uint16_t readPtr = IOT_SETTINGS_EEPROM_ADDR;
+    IoTSettings result;
+    memset(&result,0,sizeof(IoTSettings));
+
+    byte* writePtr = (byte*) &result;
+    for(size_t i=0;i<sizeof(IoTSettings);i++)
+      *writePtr++ = read8(readPtr++,0);
+
+   return result;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetWiFiState()
+{
+  return read8(WIFI_STATE_EEPROM_ADDR,0x01);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetWiFiState(uint8_t st)
+{
+  MemWrite(WIFI_STATE_EEPROM_ADDR,st);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+unsigned long GlobalSettings::GetOpenInterval()
+{
+  return read32(OPEN_INTERVAL_EEPROM_ADDR,DEF_OPEN_INTERVAL);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetOpenInterval(unsigned long val)
+{
+  write32(OPEN_INTERVAL_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetCloseTemp()
+{
+  return read8(CLOSE_TEMP_EEPROM_ADDR,DEF_CLOSE_TEMP);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetCloseTemp(uint8_t val)
+{
+  MemWrite(CLOSE_TEMP_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetOpenTemp()
+{
+    return read8(OPEN_TEMP_EEPROM_ADDR,DEF_OPEN_TEMP);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetOpenTemp(uint8_t val)
+{
+  MemWrite(OPEN_TEMP_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetTurnOnPump()
+{
+  return read8(TURN_PUMP_EEPROM_ADDR,0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetTurnOnPump(uint8_t val)
+{
+  MemWrite(TURN_PUMP_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetStartWateringTime(uint16_t val)
+{
+  write16(START_WATERING_TIME_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint16_t GlobalSettings::GetStartWateringTime()
+{
+  return read16(START_WATERING_TIME_EEPROM_ADDR,0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetWateringTime(uint16_t val)
+{
+  write16(WATERING_TIME_EEPROM_ADDR,val);    
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint16_t GlobalSettings::GetWateringTime()
+{
+  return read16(WATERING_TIME_EEPROM_ADDR,0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetWateringWeekDays(uint8_t val)
+{
+  MemWrite(WATERING_WEEKDAYS_EEPROM_ADDR, val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetWateringWeekDays()
+{
+  return read8(WATERING_WEEKDAYS_EEPROM_ADDR,0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetWateringStopBorder()
+{
+  return read8(WATERING_STOP_BORDER_EEPROM_ADDR, 0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetWateringStopBorder(uint8_t val)
+{
+  MemWrite(WATERING_STOP_BORDER_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+int8_t GlobalSettings::GetWateringSensorIndex()
+{
+  return (int8_t) read8(WATERING_SENSOR_EEPROM_ADDR, -1);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetWateringSensorIndex(int8_t val)
+{
+  MemWrite(WATERING_SENSOR_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void GlobalSettings::SetWateringOption(uint8_t val)
+{
+  MemWrite(WATERING_OPTION_EEPROM_ADDR,val);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetWateringOption()
+{
+  return read8(WATERING_OPTION_EEPROM_ADDR, wateringOFF);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+byte GlobalSettings::GetGSMProvider()
+{
+  return read8(GSM_PROVIDER_EEPROM_ADDR,MTS); 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool GlobalSettings::SetGSMProvider(byte p)
+{
+  if(p < Dummy_Last_Op) 
+  {
+    MemWrite(GSM_PROVIDER_EEPROM_ADDR,p);
+    return true;
+  }
+  return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t GlobalSettings::GetControllerID()
+{
+  return read8(CONTROLLER_ID_EEPROM_ADDR,0);  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetControllerID(uint8_t val)
 {
-  controllerID = val;
-  MemWrite(CONTROLLER_ID_EEPROM_ADDR,controllerID);
+  //controllerID = val;
+  MemWrite(CONTROLLER_ID_EEPROM_ADDR,val);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+/*
 void GlobalSettings::Load()
 {  
   uint16_t readPtr = 0; // сбрасываем указатель чтения на начало памяти
@@ -268,12 +611,7 @@ void GlobalSettings::Load()
   {
     startWateringTime = stwtime;
   }
-  /*
-  if(bOpt != 0xFF) // есть время начала полива
-  {
-    startWateringTime = bOpt;
-  } // if
-  */
+
   
  // читаем , включать ли насос во время полива?
   bOpt = MemRead(readPtr++);
@@ -516,6 +854,7 @@ void GlobalSettings::Save()
   // сохраняем другие настройки!
   
 }
+*/
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool GlobalSettings::IsHttpApiEnabled()
 {

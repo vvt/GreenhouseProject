@@ -191,8 +191,8 @@ void NextionModule::SetSleep(bool bSleep)
   rotationTimer = NEXTION_ROTATION_INTERVAL;
   
   //Сохраняем настройки, когда дисплей засыпает
-  if(bSleep)
-    sett->Save();
+ // if(bSleep)
+ //   sett->Save();
 }
 void NextionModule::Setup()
 {

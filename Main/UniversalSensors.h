@@ -339,7 +339,7 @@ class NextionUniClient : public AbstractUniClient
   private:
 
     unsigned long updateTimer;
-    bool tempChanged;
+   // bool tempChanged;
   
 };
 //-------------------------------------------------------------------------------------------------------------------------------------------------------

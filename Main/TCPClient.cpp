@@ -214,6 +214,7 @@ bool TCPClient::SendPacket(Stream* s)
 
  if(!packetsLeft) // нечего больше отсылать
  {
+  Clear();
   CloseSDFile();
   return false;
  }
@@ -280,7 +281,10 @@ bool TCPClient::SendPacket(Stream* s)
   nextPacketLength = (contentLength - sentContentLength);
 
   if(!packetsLeft) // пакеты закончились
+  {
+    Clear();
     CloseSDFile(); // закрываем и удаляем файл
+  }
   
   return (packetsLeft > 0); // если ещё есть пакеты - продолжаем отсылать
 }

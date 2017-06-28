@@ -1,5 +1,6 @@
 #include "IoTModule.h"
 #include "ModuleController.h"
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 #if defined(USE_IOT_MODULE)
 
@@ -12,6 +13,7 @@ IoTSensorData IOT_SENSORS_DATA[] =
 };
 */
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 #if defined(USE_IOT_MODULE) && defined(IOT_UNIT_TEST)
  
@@ -33,27 +35,33 @@ IoTSensorData IOT_SENSORS_DATA[] =
     
   }
 #endif // IOT_UNIT_TEST
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 #if defined(USE_IOT_MODULE)
 void iotWrite(Stream* writeTo) // вызывается, когда в поток можно писать, в этом обработчике можно писать в поток данные длиной dataLength
 {
   _thisIotModule->Write(writeTo);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 void iotDone(const IoTCallResult& result)
 {
 _thisIotModule->Done(result);
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::Write(Stream* writeTo)
 {
   if(!writeTo)
     return;
 
+#ifdef IOT_DEBUG
+  Serial.println(F("Write IOT DATA TO STREAM..."));
+#endif    
+
   writeTo->write(dataToSend->c_str(),dataToSend->length());
   
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 AbstractModule* IoTModule::FindModule(byte index)
 {
   switch(index)
@@ -73,29 +81,38 @@ AbstractModule* IoTModule::FindModule(byte index)
 
   return NULL;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::SwitchToWaitMode()
 {
+#ifdef IOT_DEBUG
+  Serial.println(F("IOT - switch to wait mode..."));
+#endif    
+  
      delete dataToSend;
      dataToSend = new String();
      inSendData = false;
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::CollectDataForThingSpeak()
 {
+#ifdef IOT_DEBUG
+  Serial.println(F("IOT - collect data for ThingSpeak..."));
+#endif    
+  
   // тут собираем данные для ThingSpeak, в понятном ему формате
   byte iter = 1;
   delete dataToSend;
   dataToSend = new String();
 
-  IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+  IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
   for(byte i=0;i<8;i++) // максимум 8 датчиков на канал
   {
-      AbstractModule* mod = FindModule(iotSettings->Sensors[i].ModuleID);
+      AbstractModule* mod = FindModule(iotSettings.Sensors[i].ModuleID);
       if(!mod) // не нашли связанный модуль
         continue;
 
-     OneState* os = mod->State.GetState((ModuleStates)iotSettings->Sensors[i].Type,iotSettings->Sensors[i].SensorIndex);
+     OneState* os = mod->State.GetState((ModuleStates)iotSettings.Sensors[i].Type,iotSettings.Sensors[i].SensorIndex);
      if(!os) // не нашли датчик с переданным индексом и нужного типа
       continue;
 
@@ -118,51 +135,16 @@ void IoTModule::CollectDataForThingSpeak()
       }    
   } // for
 
-  /*
-  
-  while(1) 
-  {
-     IoTSensorData* dt = &(IOT_SENSORS_DATA[iter]);
-     iter++;
-     
-     if(!dt) // нет ничего
-      break;
-
-     if(!dt->module) // список кончился
-      break;
-
-      AbstractModule* mod = MainController->GetModuleByID(dt->module);
-      if(!mod) // не нашли связанный модуль
-        continue;
-
-     OneState* os = mod->State.GetState((ModuleStates)dt->type,dt->index);
-     if(!os) // не нашли датчик с переданным индексом
-      continue;
-
-      if(os->HasData())
-      {
-        // с датчика есть показания, можно формировать данные
-        if(dataToSend->length())
-          *dataToSend += F("&");
-          
-        *dataToSend += F("field");
-        *dataToSend += String(iter);
-        *dataToSend += F("=");
-
-         String  sensorData = *os;
-
-        // ThingSpeak просит float с точкой, поэтому заменяем запятую на точку
-        sensorData.replace(',','.');
-        
-        *dataToSend += sensorData;
-      }
-      
-  } // while
-  */
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::SwitchToNextService()
 {
+#ifdef IOT_DEBUG
+  Serial.println(F("IOT - switch to next service..."));
+#endif    
+
+  
   if(!services.size()) // ничего нету для работы, переключаемся в режим ожидания
   {
     SwitchToWaitMode();
@@ -185,9 +167,14 @@ void IoTModule::SwitchToNextService()
    ProcessNextGate(); // обрабатываем следующий шлюз, уже с новым сервисом 
 }
 
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::Done(const IoTCallResult& result)
 {
   // выводим тестовые данные
+#ifdef IOT_DEBUG
+  Serial.print(F("IOT done, success: "));
+  Serial.println(result.success ? F("true") : F("false") );
+#endif    
 
  #ifdef IOT_UNIT_TEST
         Serial.println();
@@ -214,7 +201,7 @@ void IoTModule::Done(const IoTCallResult& result)
 }
 
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::Setup()
 {
  #if defined(USE_IOT_MODULE) 
@@ -232,18 +219,22 @@ void IoTModule::Setup()
   // настройка модуля тут
 
  }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_IOT_MODULE) 
  void IoTModule::SendDataToIoT()
  {
   if(inSendData) // уже что-то посылаем
     return;
 
- IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+#ifdef IOT_DEBUG
+  Serial.println(F("IOT - send data to IoT..."));
+#endif   
+
+ IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 
   services.Clear();
   
-  if(iotSettings->Flags.ThingSpeakEnabled) // ThingSpeak включен
+  if(iotSettings.Flags.ThingSpeakEnabled) // ThingSpeak включен
       services.push_back(iotThingSpeak);
       
   //TODO: СЮДА ДОБАВЛЯЕМ ПОДДЕРЖИВАЕМЫЕ СЕРВИСЫ
@@ -255,10 +246,13 @@ void IoTModule::Setup()
   SwitchToNextService(); // начинаем обработку первого сервиса
   
  }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
  void IoTModule::ProcessNextGate()
  {
-  
+#ifdef IOT_DEBUG
+  Serial.println(F("IOT - switch to next gate..."));
+#endif
+     
     currentGateIndex++; // переходим на следующий шлюз
     
     // тут получаем следующий шлюз в списке шлюзов
@@ -271,28 +265,36 @@ void IoTModule::Setup()
         return;
     } // !gate
 
+#ifdef IOT_DEBUG
+  Serial.println(F("IOT - ask gate for send data..."));
+#endif   
+
     // тут можем обрабатывать отсыл данных через выбранный шлюз
     gate->SendData(currentService,dataToSend->length(), iotWrite, iotDone);    
  }
 
  #endif
 
+//--------------------------------------------------------------------------------------------------------------------------------------
 void IoTModule::Update(uint16_t dt)
 { 
  #ifdef USE_IOT_MODULE  
   if(inSendData)
     return;
 
-  IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
-  bool canWork =   iotSettings->Flags.ThingSpeakEnabled;
+  IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
+  bool canWork =   iotSettings.Flags.ThingSpeakEnabled;
 
-  if(canWork && iotSettings->UpdateInterval > 0)
+  if(canWork && iotSettings.UpdateInterval > 0)
   {
   // обновление модуля тут
     updateTimer += dt;
-    if(updateTimer > iotSettings->UpdateInterval) 
+    if(updateTimer > iotSettings.UpdateInterval) 
     {
       updateTimer = 0;
+      #ifdef IOT_DEBUG
+        Serial.println(F("IOT - want to send data..."));
+      #endif         
       SendDataToIoT();
     }
   }
@@ -301,7 +303,7 @@ void IoTModule::Update(uint16_t dt)
 #endif
   
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
 {
  if(wantAnswer) 
@@ -332,36 +334,36 @@ bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
                 PublishSingleton.Status = true;
                 PublishSingleton = REG_SUCC;
                 
-                IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+                IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 
                 byte iter = 1;
                 
                 String strHelper = command.GetArg(iter++);
                 byte fl = (byte) strHelper.toInt();
-                memcpy(&(iotSettings->Flags),&fl,sizeof(byte));
+                memcpy(&(iotSettings.Flags),&fl,sizeof(byte));
 
                 strHelper = command.GetArg(iter++);
 
-                iotSettings->UpdateInterval = (unsigned long) strHelper.toInt();
+                iotSettings.UpdateInterval = (unsigned long) strHelper.toInt();
 
                 // теперь выцепляем настройки датчиков
                 for(byte i=0;i<8;i++)
                 {
                     strHelper = command.GetArg(iter++);
-                    iotSettings->Sensors[i].ModuleID = (byte) strHelper.toInt();
+                    iotSettings.Sensors[i].ModuleID = (byte) strHelper.toInt();
 
                     strHelper = command.GetArg(iter++);
-                    iotSettings->Sensors[i].Type = (byte) strHelper.toInt();
+                    iotSettings.Sensors[i].Type = (byte) strHelper.toInt();
 
                     strHelper = command.GetArg(iter++);
-                    iotSettings->Sensors[i].SensorIndex = (byte) strHelper.toInt();
+                    iotSettings.Sensors[i].SensorIndex = (byte) strHelper.toInt();
                 } // for
 
                 // теперь получаем ID канала thingspeak
-                strncpy(iotSettings->ThingSpeakChannelID,command.GetArg(iter++),sizeof(iotSettings->ThingSpeakChannelID)-1);
+                strncpy(iotSettings.ThingSpeakChannelID,command.GetArg(iter++),sizeof(iotSettings.ThingSpeakChannelID)-1);
 
 
-                MainController->GetSettings()->Save();
+                MainController->GetSettings()->SetIoTSettings(iotSettings);
               } // else
             
           } // if(param == F("T_SETT")) // T_SETT
@@ -387,29 +389,29 @@ bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
         {
           PublishSingleton.Status = true;
 
-          IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+          IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 
           byte fl = 0;
-          memcpy(&fl,&(iotSettings->Flags),sizeof(byte));
+          memcpy(&fl,&(iotSettings.Flags),sizeof(byte));
           PublishSingleton = fl;
           PublishSingleton << PARAM_DELIMITER;
-          PublishSingleton << iotSettings->UpdateInterval;
+          PublishSingleton << iotSettings.UpdateInterval;
 
           // теперь выводим настройки датчиков, поскольку настройки каналов лучше делать после датчиков (например, введение поддержки народного мониторинга)
           for(byte i=0;i<8;i++)
           {
             PublishSingleton << PARAM_DELIMITER;
-            PublishSingleton << iotSettings->Sensors[i].ModuleID;     
+            PublishSingleton << iotSettings.Sensors[i].ModuleID;     
 
             PublishSingleton << PARAM_DELIMITER;
-            PublishSingleton << iotSettings->Sensors[i].Type;     
+            PublishSingleton << iotSettings.Sensors[i].Type;     
 
             PublishSingleton << PARAM_DELIMITER;
-            PublishSingleton << iotSettings->Sensors[i].SensorIndex;     
+            PublishSingleton << iotSettings.Sensors[i].SensorIndex;     
           }
 
           PublishSingleton << PARAM_DELIMITER;
-          PublishSingleton << iotSettings->ThingSpeakChannelID;
+          PublishSingleton << iotSettings.ThingSpeakChannelID;
                 
         } // param == F("T_SETT")
         
@@ -420,4 +422,5 @@ bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
 
   return true;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 
