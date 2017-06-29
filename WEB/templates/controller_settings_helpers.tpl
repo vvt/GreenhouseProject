@@ -743,6 +743,8 @@ function editWateringChannel(channel, row)
       $('#watering_start_hour').val(parseInt(channel.StartTime/60)); 
       $('#watering_start_minute').val(parseInt(channel.StartTime%60)); 
       $('#watering_time').val(channel.WateringTime); 
+      $('#watering_sensor_index').val(channel.WateringSensorIndex); 
+      $('#watering_stop_border').val(channel.WateringStopBorder); 
 
 
 
@@ -770,6 +772,25 @@ function editWateringChannel(channel, row)
         watering_time = channel.WateringTime;
         
        channel.WateringTime = Math.abs(watering_time);
+
+      var watering_sensor_index = parseInt($('#watering_sensor_index').val());
+      if(isNaN(watering_sensor_index))
+        watering_sensor_index = channel.WateringSensorIndex;
+        
+       channel.WateringSensorIndex = (watering_sensor_index);
+
+      var watering_stop_border = parseInt($('#watering_stop_border').val());
+      if(isNaN(watering_stop_border))
+        watering_stop_border = channel.WateringStopBorder;
+        
+      if(watering_stop_border > 100)
+        watering_stop_border = 100;
+       
+       if(watering_stop_border < 0)
+        watering_stop_border = 0;
+        
+       channel.WateringStopBorder = (watering_stop_border);
+
         
        channel.WateringDays = 0;
         
@@ -1553,6 +1574,27 @@ function saveAllChannelsWateringOptions(watering_option)
         wateringSettings.WateringTime = Math.abs(wTime);
       else
         $('#all_watering_time').val(wateringSettings.WateringTime);
+
+      var wIndex = parseInt($('#all_watering_sensor_index').val());
+      if(!isNaN(wIndex))
+        wateringSettings.WateringSensorIndex = (wIndex);
+      else
+        $('#all_watering_sensor_index').val(wateringSettings.WateringSensorIndex);
+
+      var wBorder = parseInt($('#all_watering_stop_border').val());
+      if(!isNaN(wBorder))
+      {
+        if(wBorder < 0)
+          wBorder = 0;
+        
+        if(wBorder > 100)
+          wBorder = 100;
+          
+        wateringSettings.WateringStopBorder = (wBorder);
+      }
+      else
+        $('#all_watering_stop_border').val(wateringSettings.WateringStopBorder);
+
         
       var wStart = parseInt($('#all_watering_start_hour').val());
       var wStartMinute = parseInt($('#all_watering_start_minute').val());
@@ -1609,7 +1651,8 @@ function saveAllChannelsWateringOptions(watering_option)
      for(var i=0;i<wateringSettings.Channels.length;i++)
      {
         var channel = wateringSettings.Channels[i];
-        var cmd = "WATER|CH_SETT|" + i + '|' + channel.WateringDays + '|' + channel.WateringTime + '|' + channel.StartTime;
+        var cmd = "WATER|CH_SETT|" + i + '|' + channel.WateringDays + '|' + channel.WateringTime + '|' + channel.StartTime
+        + '|' + channel.WateringSensorIndex + '|' + channel.WateringStopBorder;
         
         controller.queryCommand(false,cmd,function(obj,answer){
                 
@@ -1636,7 +1679,8 @@ function saveAllChannelsWateringOptions(watering_option)
               
     // теперь можем загружать всё это добро в контроллер
     var cmd = "WATER|T_SETT|" + wateringSettings.WateringOption + '|' +   wateringSettings.WateringDays + '|' +
-               wateringSettings.WateringTime + '|' + wateringSettings.StartTime + '|' + wateringSettings.TurnOnPump;
+               wateringSettings.WateringTime + '|' + wateringSettings.StartTime + '|' + wateringSettings.TurnOnPump
+               + '|' + wateringSettings.WateringSensorIndex + '|' + wateringSettings.WateringStopBorder;
                                   
                 controller.queryCommand(false,cmd,function(obj,answer){
                 
@@ -2185,14 +2229,17 @@ controller.OnGetModulesList = function(obj)
               //$('#WATER_MENU').toggle(answer.IsOK);
               
               if(answer.IsOK)
-              {              
+              {           
+                 // console.log(answer);
               
-                  wateringSettings = new WateringSettings(answer.Params[2],answer.Params[3],answer.Params[4],answer.Params[5],answer.Params[6]);
+                  wateringSettings = new WateringSettings(answer.Params[2],answer.Params[3],answer.Params[4],answer.Params[5],answer.Params[6],answer.Params[7],answer.Params[8]);
                   
                   $('#all_watering_start_hour').val(parseInt(wateringSettings.StartTime/60));
                   $('#all_watering_start_minute').val(parseInt(wateringSettings.StartTime%60));
                   
                   $('#all_watering_time').val(wateringSettings.WateringTime);
+                  $('#all_watering_sensor_index').val(wateringSettings.WateringSensorIndex);
+                  $('#all_watering_stop_border').val(wateringSettings.WateringStopBorder);
                   
                   var lst = $('#all_watering_channels_days').find('div #all_watering_channels_day');
 
@@ -2220,7 +2267,7 @@ controller.OnGetModulesList = function(obj)
                             
                                 if(channelData.IsOK)
                                 {
-                                  var channel = new WaterChannelSettings(channelData.Params[3], channelData.Params[4], channelData.Params[5]);
+                                  var channel = new WaterChannelSettings(channelData.Params[3], channelData.Params[4], channelData.Params[5], channelData.Params[6], channelData.Params[7]);
                                   wateringSettings.Add(channel);
                                 } // if
                             
@@ -2982,7 +3029,7 @@ $(document).ready(function(){
     $('#iot_interval, #cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
     $('#all_watering_start_hour, #all_watering_start_minute, #all_watering_time, #ph_calibraton, #ph4Voltage, #ph7Voltage, #ph10Voltage, #phTemperatureSensor, #phCalibrationTemperature, #phTarget, #phHisteresis, #phMixPumpTime, #phReagentPumpTime').forceNumericOnly();
-    $('#watering_start_hour, #watering_start_minute, #watering_time').forceNumericOnly(); 
+    $('#watering_start_hour, #watering_start_minute, #watering_time, #watering_sensor_index, #watering_stop_border, #all_watering_sensor_index, #all_watering_stop_border').forceNumericOnly(); 
 
     $('#rule_work_time_input, #rule_start_time_input, #rule_sensor_value_input').forceNumericOnly();
     

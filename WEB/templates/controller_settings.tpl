@@ -513,6 +513,16 @@
       <input type='text' maxlength='5' id='watering_time' style='width:100%;'/>
     </div>    
 
+    <div>
+      Индекс датчика влажности почвы:<br/>
+      <input type='text' maxlength='5' id='watering_sensor_index' style='width:100%;'/>
+    </div>    
+
+    <div>
+      Порог выключения, %:<br/>
+      <input type='text' maxlength='5' id='watering_stop_border' style='width:100%;'/>
+    </div>    
+
   
 </div>
 
@@ -856,6 +866,17 @@
                                       Продолжительность полива, минут:<br/>
                                       <input type='text' maxlength='5' id='all_watering_time' style='width:100%;'/>
                                     </div>
+                                    
+                                    <div>
+                                      Датчик влажности почвы:<br/>
+                                      <input type='text' maxlength='5' id='all_watering_sensor_index' style='width:100%;'/>
+                                    </div>
+                                                                        
+                                    <div>
+                                      Порог выключения, %:<br/>
+                                      <input type='text' maxlength='5' id='all_watering_stop_border' style='width:100%;'/>
+                                    </div>
+
                                   </div>
 
                                 </div>

@@ -4,13 +4,15 @@
 SHORT_WEEKDAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 LONG_WEEKDAYS = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 //-----------------------------------------------------------------------------------------------------
-var WaterChannelSettings = function(wateringDays,wateringTime,startTime)
+var WaterChannelSettings = function(wateringDays,wateringTime,startTime, sensorIndex, stopBorder)
 {
   this.Parent = null;
   
   this.WateringDays = parseInt(wateringDays);
   this.WateringTime = parseInt(wateringTime);
   this.StartTime = parseInt(startTime);
+  this.WateringSensorIndex = parseInt(sensorIndex);
+  this.WateringStopBorder = parseInt(stopBorder);
   
   return this;
 }
@@ -30,16 +32,21 @@ WaterChannelSettings.prototype.getWateringDaysString = function(shortFormat)
     }
   } // for
   
+  if(result == '')
+    result = '&lt;не задано&gt;'
+  
   return result;
 }
 //-----------------------------------------------------------------------------------------------------
-var WateringSettings = function(wateringOption, wateringDays, wateringTime, startTime, turnOnPump)
+var WateringSettings = function(wateringOption, wateringDays, wateringTime, startTime, turnOnPump, sensorIndex, stopBorder)
 {
   this.WateringOption = parseInt(wateringOption);
   this.WateringDays = parseInt(wateringDays);
   this.WateringTime = parseInt(wateringTime);
   this.StartTime = parseInt(startTime);
   this.TurnOnPump = parseInt(turnOnPump);
+  this.WateringSensorIndex = parseInt(sensorIndex);
+  this.WateringStopBorder = parseInt(stopBorder);
 
   this.Channels = new Array();
   
