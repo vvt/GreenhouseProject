@@ -25,6 +25,9 @@ typedef struct
   bool isON : 1; // включен ли канал ?
   bool lastIsON: 1; // последнее состояние канала
   byte index : 6; // индекс канала
+
+  int8_t lastSavedStateMinute; // крайняя минута, когда мы сохраняли статус полива на канале
+  
   unsigned long wateringTimer; // таймер полива для канала
   unsigned long wateringDelta; // дельта дополива    
   
@@ -41,7 +44,7 @@ class WateringChannel
     void SignalToHardware(); // записывает текущее состояние канала в пин управления
 
     void DoLoadState(byte addressOffset); // загружает состояние
-    void DoSaveState(byte addressOffset); // сохраняет состояние
+    void DoSaveState(byte addressOffset, unsigned long wateringTimer = 0); // сохраняет состояние
   
   public:
     WateringChannel();
@@ -51,7 +54,7 @@ class WateringChannel
     void Off(); // выключаем канал
 
     void LoadState(); // загружаем состояние из EEPROM
-    void SaveState(); // сохраняем настройки в EEPROM
+    void SaveState(unsigned long wateringTimer = 0); // сохраняем настройки в EEPROM
     
     bool IsChanged(); // изменилось ли состояние канала после вызова On() или Off() ?
     bool IsActive(); // активен ли полив на канале ?

@@ -10,7 +10,7 @@ class LCDModule : public AbstractModule // модуль поддержки эк�
 {
   private:
 
-  unsigned long waitInitCounter;
+  uint16_t waitInitCounter;
   bool inited;
   
   public:

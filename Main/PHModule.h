@@ -31,9 +31,13 @@ class PhModule : public AbstractModule // модуль контроля pH
 {
   private:
 
+    //TODO: К ОПТИМИЗАЦИИ !!!
+    bool inMeasure;
+    bool isMixPumpOn;
+    bool isInAddReagentsMode;
+
     byte phSensorPin;
     unsigned long measureTimer;
-    bool inMeasure;
     byte samplesDone;
     byte samplesTimer;
 
@@ -55,14 +59,10 @@ class PhModule : public AbstractModule // модуль контроля pH
     void SaveSettings();
 
     bool isLevelSensorTriggered(byte data);
-    uint16_t updateDelta;
-
-    bool isMixPumpOn;
-    unsigned long mixPumpTimer;
-
-    unsigned long phControlTimer;
     
-    bool isInAddReagentsMode;
+    uint16_t updateDelta;
+    unsigned long mixPumpTimer;
+    unsigned long phControlTimer;
     unsigned long reagentsTimer;
     uint16_t targetReagentsTimer;
     byte targetReagentsChannel;

@@ -113,7 +113,7 @@ void WateringChannel::LoadState()
     DoLoadState(offset);
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void WateringChannel::SaveState()
+void WateringChannel::SaveState(unsigned long wateringTimer)
 {
     WTR_LOG(F("Save state: channel - "));
     WTR_LOG(flags.index);
@@ -138,7 +138,7 @@ void WateringChannel::SaveState()
       break;
     }  
 
-    DoSaveState(offset);
+    DoSaveState(offset, wateringTimer);
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void WateringChannel::On()
@@ -244,6 +244,17 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
       // можем работать, смотрим, не вышли ли мы за пределы установленного интервала
 
       flags.wateringTimer += dt; // прибавляем время работы
+
+      // тут смотрим, не надо ли сохранить время полива, по шагам (например, каждую минуту)
+      if(flags.lastSavedStateMinute != -1  && flags.lastSavedStateMinute != currentTime.minute && !(currentTime.minute % WATERING_STATUS_SAVE_INTERVAL))
+      {       
+        // надо сохранить время полива
+        if(IsActive())
+        {
+          flags.lastSavedStateMinute = currentTime.minute;
+          SaveState(flags.wateringTimer);
+        }
+      }
   
       // проверяем, можем ли мы ещё работать
       // если полив уже отработал, и юзер прибавит минуту - мы должны поливать ещё минуту,
@@ -277,6 +288,7 @@ void WateringChannel::DoLoadState(byte addressOffset)
 {
    // сперва сбрасываем настройки времени полива и дополива
    flags.wateringTimer = flags.wateringDelta = 0;
+   flags.lastSavedStateMinute = -1;
   
 #ifdef USE_DS3231_REALTIME_CLOCK
 
@@ -284,6 +296,8 @@ void WateringChannel::DoLoadState(byte addressOffset)
     DS3231Clock watch =  MainController->GetClock();
     DS3231Time t =   watch.getTime();
     uint8_t today = t.dayOfWeek; // текущий день недели
+
+    flags.lastSavedStateMinute = t.minute;
   
     WTR_LOG(F("[WTR] - load state for channel "));
     WTR_LOG(flags.index);
@@ -319,7 +333,7 @@ void WateringChannel::DoLoadState(byte addressOffset)
 
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void WateringChannel::DoSaveState(byte addressOffset)
+void WateringChannel::DoSaveState(byte addressOffset,unsigned long wateringTimer)
 {  
 #ifdef USE_DS3231_REALTIME_CLOCK
 
@@ -336,7 +350,15 @@ void WateringChannel::DoSaveState(byte addressOffset)
 
     // получаем время полива на канале. Логика простая: если addressOffset == 0 - у нас опция полива по дням недели, все каналы одновременно,
     // иначе - раздельное управление каналами по дням недели. Соответственно, мы либо получаем время полива для всех каналов, либо - для нужного.
-    unsigned long timeToWatering = addressOffset == 0 ? settings->GetWateringTime() : settings->GetChannelWateringTime(flags.index); // время полива (в минутах!)
+    unsigned long timeToWatering = 0;
+    
+    if(wateringTimer > 0) // если передали время полива - сохраняем
+      timeToWatering = wateringTimer;
+    else // иначе - пишем полное время полива
+    {
+      timeToWatering = addressOffset == 0 ? settings->GetWateringTime() : settings->GetChannelWateringTime(flags.index); // время полива (в минутах!)
+      timeToWatering *= 60000;
+    }
 
      //Тут сохранение в EEPROM статуса, что мы на сегодня уже полили сколько-то времени на канале
     uint16_t wrAddr = WATERING_STATUS_EEPROM_ADDR + addressOffset*5; // адрес записи
@@ -345,8 +367,7 @@ void WateringChannel::DoSaveState(byte addressOffset)
     MemWrite(wrAddr++,today);
     
     // сохраняем в EEPROM значение таймера канала
-    unsigned long ttw = timeToWatering*60000; // запишем полное время полива на сегодня
-    byte* readAddr = (byte*) &ttw;
+    byte* readAddr = (byte*) &timeToWatering;
     for(int i=0;i<4;i++)
       MemWrite(wrAddr++,*readAddr++);
     
