@@ -137,9 +137,9 @@ void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToSt
     }
   
     // тут смотрим, можем ли мы обработать запрос на отсыл данных в IoT
-    IoTSettings* iotSettings = MainController->GetSettings()->GetIoTSettings();
+    IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 
-    if(iotSettings->Flags.ThingSpeakEnabled && strlen(iotSettings->ThingSpeakChannelID)) // включен один сервис хотя бы
+    if(iotSettings.Flags.ThingSpeakEnabled && strlen(iotSettings.ThingSpeakChannelID)) // включен один сервис хотя бы
     {
 
      // сохраняем указатели на функции обратного вызова
@@ -164,7 +164,7 @@ void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToSt
 
           // формируем запрос
           *iotDataHeader = F("GET /update?api_key=");
-          *iotDataHeader += iotSettings->ThingSpeakChannelID;
+          *iotDataHeader += iotSettings.ThingSpeakChannelID;
           *iotDataHeader += F("&");
 
           *iotDataFooter = F(" HTTP/1.1\r\nAccept: */*\r\nUser-Agent: ");
