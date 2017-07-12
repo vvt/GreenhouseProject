@@ -684,6 +684,19 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
   // ищем - не пришёл ли конец команды, если пришёл - говорим, что нам хватит
   enough = line.startsWith(F("[CMDEND]")) || line.endsWith(F("CLOSED"));
 
+  if(line.startsWith(F("HTTP/")) && line.indexOf(F("200 OK")) == -1)
+  {
+    enough = true;
+    // пытаемся сменить провайдера
+    flags.currentProviderNumber = flags.currentProviderNumber == 0 ? 1 : 0;
+
+     #ifdef HTTP_DEBUG
+      Serial.println(F("HTTP - no 200 OK, change provider!"));
+     #endif
+
+     return;
+  }
+
   if(!line.length()) // пустая строка, нечего обрабатывать
     return;
 
@@ -1038,7 +1051,7 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
     } // if  
 
   } // status bad
-  
+
   
   flags.currentAction = HTTP_ASK_FOR_COMMANDS;
 }

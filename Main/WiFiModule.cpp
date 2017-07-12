@@ -444,23 +444,12 @@ void WiFiModule::ProcessAnswerLine(String& line)
           CHECK_QUEUE_TAIL(wfaActualSendIoTData);
          #endif
 
-          if(isIpd)
-          {
             #ifdef WIFI_DEBUG
               WIFI_DEBUG_WRITE(F("IoT SUCCESS!"),currentAction);
             #endif
             // хорошо
             EnsureIoTProcessed(true);
-          }
-          else
-          {
-            #ifdef WIFI_DEBUG
-              WIFI_DEBUG_WRITE(F("IoT FAIL!"),currentAction);
-            #endif
-            // плохо
-            EnsureIoTProcessed();
-          }
-
+         
           // в любом случае - завершаем обработку
           actionsQueue.pop(); // убираем последнюю обработанную команду
           currentAction = wfaIdle;         
@@ -468,6 +457,15 @@ void WiFiModule::ProcessAnswerLine(String& line)
           // поскольку мы законнекчены - надо закрыть соединение
           actionsQueue.push_back(wfaCloseIoTConnection);          
        }
+       else
+       {
+          if(line.endsWith(F("SEND FAIL"))) // не удалось послать данные
+          {
+              actionsQueue.pop(); // убираем последнюю обработанную команду
+              currentAction = wfaIdle;         
+              EnsureIoTProcessed();
+          }
+       } // else
     }
     break;
 
@@ -696,6 +694,11 @@ void WiFiModule::ProcessAnswerLine(String& line)
    WIFI_DEBUG_WRITE(String(F("[CLIENT DISCONNECTED] - ")) + s,currentAction);
    #endif     
       clients[clientID].SetConnected(false);
+
+      if(clientID == MAX_WIFI_CLIENTS-1)
+      {
+        EnsureIoTProcessed();
+      }
       
     }
   } // if
@@ -796,7 +799,9 @@ void WiFiModule::Setup()
   // настройка модуля тут
 
  // сообщаем, что мы провайдер HTTP-запросов
- MainController->SetHTTPProvider(0,this); 
+ #ifdef USE_WIFI_MODULE_AS_HTTP_PROVIDER
+  MainController->SetHTTPProvider(0,this); 
+ #endif
   
   for(uint8_t i=0;i<MAX_WIFI_CLIENTS;i++)
     clients[i].Setup(i, WIFI_PACKET_LENGTH);

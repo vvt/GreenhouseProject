@@ -205,7 +205,9 @@ void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToSt
 void SMSModule::Setup()
 {
  // сообщаем, что мы провайдер HTTP-запросов
- MainController->SetHTTPProvider(1,this); 
+ #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
+  MainController->SetHTTPProvider(1,this); 
+ #endif
 
   smsToSend = new String();
   cusdSMS = NULL;
@@ -397,6 +399,7 @@ void SMSModule::ProcessAnswerLine(String& line)
              #endif
 
              actionsQueue.push_back(smaTCPWaitAnswer);
+             currentAction = smaTCPWaitAnswer;
 
          }
          else
@@ -674,6 +677,7 @@ void SMSModule::ProcessAnswerLine(String& line)
              #endif
 
              actionsQueue.push_back(smaWaitForIoTAnswer);
+             currentAction = smaWaitForIoTAnswer;
            }
          
         }
@@ -692,10 +696,11 @@ void SMSModule::ProcessAnswerLine(String& line)
              #endif  
 
              // говорим, что мы всё послали
-             EnsureIoTProcessed(true);
+             EnsureIoTProcessed(line.indexOf(F("200 OK")) != -1);
              
              actionsQueue.push_back(smaCloseGPRSConnection);                  
       }
+
     }
     break;      
 
@@ -888,6 +893,7 @@ void SMSModule::ProcessAnswerLine(String& line)
              #endif
 
              actionsQueue.push_back(smaHttpTCPWaitAnswer);
+             currentAction = smaHttpTCPWaitAnswer;
 
          }
          else
@@ -1165,6 +1171,7 @@ void SMSModule::ProcessAnswerLine(String& line)
              #endif
 
              actionsQueue.push_back(smaHttpWaitForServiceAnswer);
+             currentAction = smaHttpWaitForServiceAnswer;
            }
          
         }
