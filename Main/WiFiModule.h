@@ -58,7 +58,8 @@ typedef struct
   bool wantIoTToProcess : 1; // нас попросили отправить данные в IoT
   bool wantHTTPRequest : 1; // нас попросили запросить URI по HTTP и получить ответ
   bool inHTTPRequestMode: 1; // мы в процессе работы с HTTP-запросом
-  byte pad : 2;
+  bool isConnected: 1; 
+  bool wantReconnect : 1;
       
 } WiFiModuleFlags;
 

@@ -109,6 +109,24 @@ void WiFiModule::ProcessAnswerLine(String& line)
     return;
   } 
 
+  // тут проверяем, законнекчены ли мы к роутеру или нет
+  if(line == F("WIFI DISCONNECT"))
+  {
+    #ifdef WIFI_DEBUG
+      WIFI_DEBUG_WRITE(F("Disconnected from router :("),currentAction);
+    #endif
+    flags.isConnected = false;
+  }
+  else
+  if(line == F("WIFI CONNECTED"))
+  {
+    #ifdef WIFI_DEBUG
+      WIFI_DEBUG_WRITE(F("Connected to router :)"),currentAction);
+    #endif
+    flags.isConnected = true;
+  }
+  
+
   // здесь может придти ответ от сервера, или - запрос от клиента
   if(
  #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
@@ -141,7 +159,8 @@ void WiFiModule::ProcessAnswerLine(String& line)
     case wfaCheckModemHang:
     {
       // проверяли, отвечает ли модем
-      if(IsKnownAnswer(line)) {
+      if(IsKnownAnswer(line)) 
+      {
          #ifdef WIFI_DEBUG
           WIFI_DEBUG_WRITE(F("[OK] => ESP answered and available."),currentAction);
           CHECK_QUEUE_TAIL(wfaCheckModemHang);
@@ -150,7 +169,26 @@ void WiFiModule::ProcessAnswerLine(String& line)
          actionsQueue.pop(); // убираем последнюю обработанную команду     
          currentAction = wfaIdle;
 
+         if(flags.wantReconnect)
+         {
+    
+           #ifdef WIFI_DEBUG
+            WIFI_DEBUG_WRITE(F("No connection, try to reconnect..."),currentAction);
+           #endif
+                     
+            flags.wantReconnect = false;
+            InitQueue();
+            needToWaitTimer = 5000; // попробуем через 5 секунд подконнеститься
+         }
+
       }
+
+      if(line == F("No AP"))
+      {
+        // никуда не подсоединены, пытаемся переподключиться, как только придёт OK
+        flags.wantReconnect = true;
+      }
+      
     }
     break;    
 
@@ -724,7 +762,7 @@ bool WiFiModule::CanMakeQuery() // тестирует, может ли моду�
     return false;
   }
 
-  return true;
+  return flags.isConnected;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void WiFiModule::MakeQuery(HTTPRequestHandler* handler) // начинаем запрос по HTTP
@@ -867,6 +905,7 @@ void WiFiModule::InitQueue(bool addRebootCommand)
   nextClientIDX = 0;
   currentClientIDX = 0;
   flags.inSendData = false;
+  flags.isConnected = false;
 
   // инициализируем время отсылки команды и получения ответа
   sendCommandTime = millis();
@@ -950,7 +989,8 @@ void WiFiModule::ProcessQueue()
       #endif
   
       // тут проверяем - можем ли мы протестировать доступность модема?
-      if(millis() - sendCommandTime > WIFI_AVAILABLE_CHECK_TIME) {
+      if(millis() - sendCommandTime > WIFI_AVAILABLE_CHECK_TIME) 
+      {
           // раз в минуту можно проверить доступность модема,
           // и делаем мы это ТОЛЬКО тогда, когда очередь пуста как минимум WIFI_AVAILABLE_CHECK_TIME мс, т.е. все текущие команды отработаны.
           actionsQueue.push_back(wfaCheckModemHang);
@@ -1155,7 +1195,9 @@ void WiFiModule::ProcessQueue()
         #ifdef WIFI_DEBUG
           Serial.println(F("Check if modem available..."));
         #endif
-        SendCommand(F("AT"));
+
+        flags.wantReconnect = false;
+        SendCommand(F("AT+CWJAP?")); // проверяем, подконнекчены ли к роутеру
       }
       break;
 
