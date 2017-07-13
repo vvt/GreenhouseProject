@@ -175,7 +175,13 @@ void WiFiModule::ProcessAnswerLine(String& line)
            #ifdef WIFI_DEBUG
             WIFI_DEBUG_WRITE(F("No connection, try to reconnect..."),currentAction);
            #endif
-                     
+
+            #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+              EnsureIoTProcessed();
+            #endif
+
+            EnsureHTTPProcessed(ERROR_CANT_ESTABLISH_CONNECTION);
+                             
             flags.wantReconnect = false;
             InitQueue();
             needToWaitTimer = 5000; // попробуем через 5 секунд подконнеститься
@@ -735,7 +741,9 @@ void WiFiModule::ProcessAnswerLine(String& line)
 
       if(clientID == MAX_WIFI_CLIENTS-1)
       {
-        EnsureIoTProcessed();
+        #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
+          EnsureIoTProcessed();
+        #endif
       }
       
     }
