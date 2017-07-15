@@ -132,6 +132,17 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
     break;
   } // switch
  
+  if(answer.Humidity < 0 || answer.Humidity > 100)
+  {
+    answer.Humidity = NO_TEMPERATURE_DATA;
+    answer.HumidityDecimal = 0;
+  }
+
+  if(answer.Temperature < -40 || answer.Temperature > 80)
+  {
+    answer.Temperature = NO_TEMPERATURE_DATA;
+    answer.TemperatureDecimal = 0;
+  }
   
   answer.IsOK = true;
   return answer;
