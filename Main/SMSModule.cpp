@@ -848,16 +848,16 @@ void SMSModule::ProcessAnswerLine(String& line)
 
     case smaHttpTCPWaitAnswer:
     {
-      if(line.startsWith(F("+TCPRECV:")))
+      //if(line.startsWith(F("+TCPRECV:")))
       {
-           
+                       
           bool enough = false;
           httpHandler->OnAnswerLineReceived(line,enough);
           if(enough)
           {
 
              #ifdef GSM_DEBUG_MODE
-                Serial.println(F("HTTP answer received, closing connection..."));
+                Serial.println(F("HTTP answer completed, closing connection..."));
              #endif
              
              actionsQueue.pop(); // убираем последнюю обработанную команду     
@@ -964,12 +964,72 @@ void SMSModule::ProcessAnswerLine(String& line)
          else
          {
              #ifdef GSM_DEBUG_MODE
-                Serial.println(F("Unable to connect to IoT!"));
+                Serial.println(F("Unable to connect to service!"));
              #endif
            // не удалось законнектиться
             EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
          }
       }
+    }
+    break;
+
+    case smaHttpDnsAddress:
+    {
+
+       if(line.startsWith(F("+DNS:")))
+       {
+        String sIP = line.substring(5);
+        sIP.toUpperCase();
+
+          if(sIP == F("ERROR")) // +DNS:Error
+          {
+            // не удалось получить DNS-адрес
+             actionsQueue.pop(); // убираем последнюю обработанную команду     
+             currentAction = smaIdle;
+             #ifdef GSM_DEBUG_MODE
+                Serial.println(F("Unable to get DNS address!!!"));
+             #endif
+
+             EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+           }
+           else
+           if(sIP == F("OK")) //+DNS:OK
+           {
+             actionsQueue.pop(); // убираем последнюю обработанную команду     
+             currentAction = smaIdle;
+
+              if(httpData->length()) // есть данные по DNS-записи сервиса
+              {
+               #ifdef GSM_DEBUG_MODE
+                  Serial.println(F("DNS retrieved, start connection..."));
+               #endif
+                  actionsQueue.push_back(smaHttpTCPSETUP);
+              }
+              else
+              {
+                // no DNS
+               #ifdef GSM_DEBUG_MODE
+                  Serial.println(F("Unable to get DNS address!!!"));
+               #endif
+               EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
+              }
+           }
+           else
+           {
+             // тут пришёл IP сервиса
+               #ifdef GSM_DEBUG_MODE
+                  Serial.print(F("Found DNS record: "));
+                  Serial.println(sIP);
+               #endif
+               
+             delete httpData;
+             httpData = new String();
+             *httpData = sIP;
+           }
+        
+        
+       } // тут наши действия
+
     }
     break;
 
@@ -983,10 +1043,11 @@ void SMSModule::ProcessAnswerLine(String& line)
          if(flags.isIPAssigned) 
          {
              #ifdef GSM_DEBUG_MODE
-                Serial.println(F("IP assigned, start TCP connection..."));
+                Serial.println(F("IP assigned, get DNS address of service..."));
              #endif
 
-          actionsQueue.push_back(smaHttpTCPSETUP);
+          //actionsQueue.push_back(smaHttpTCPSETUP);
+          actionsQueue.push_back(smaHttpDnsAddress);
                           
          }
          else
@@ -2250,6 +2311,27 @@ void SMSModule::ProcessQueue()
       }
       break;
 
+
+      case smaHttpDnsAddress: // получаем адрес сервиса
+      {
+         #ifdef GSM_DEBUG_MODE
+          Serial.println(F("Get DNS address..."));
+        #endif
+
+        delete httpData;
+        httpData = new String();        
+
+        String command = F("AT+DNS=\"");
+        String host;
+        httpHandler->OnAskForHost(host);
+        command += host;
+
+        command += F("\"");
+        
+        SendCommand(command);           
+      }
+      break;
+
       case smaHttpTCPSETUP: // устанавливаем TCP-соединение
       {
          #ifdef GSM_DEBUG_MODE
@@ -2257,11 +2339,12 @@ void SMSModule::ProcessQueue()
         #endif
 
         String command = F("AT+TCPSETUP=0,");
-        String host;
-        httpHandler->OnAskForHost(host);
-        command += host;
+        command += *httpData;
 
         command += F(",80");
+
+        delete httpData;
+        httpData = new String();
         
         SendCommand(command);        
       }

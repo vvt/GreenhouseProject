@@ -68,6 +68,7 @@ typedef enum
   smaHttpTCPSendData, // отсылаем данные
   smaHttpTCPClose, // закрываем соединение
   smaHttpTCPWaitAnswer, // ждём ответа
+  smaHttpDnsAddress, // получаем адрес сервиса
 
   // команды, специфичные для SIM800L
   smaHttpStartGPRSConnection,

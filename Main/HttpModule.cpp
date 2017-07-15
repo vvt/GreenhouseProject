@@ -682,7 +682,7 @@ void HttpModule::OnAskForData(String* data)
 void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
 { 
   // ищем - не пришёл ли конец команды, если пришёл - говорим, что нам хватит
-  enough = line.startsWith(F("[CMDEND]")) || line.endsWith(F("CLOSED"));
+  enough = line.startsWith(F("[CMDEND]")) || line.endsWith(F("CLOSED")) || line.endsWith(F("Link Closed"));
 
   if(line.startsWith(F("HTTP/")) && line.indexOf(F("200 OK")) == -1)
   {
@@ -699,6 +699,32 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
 
   if(!line.length()) // пустая строка, нечего обрабатывать
     return;
+
+  if(line.startsWith(F("+TCPRECV")))
+  {
+
+    int idx = line.indexOf(F("HTTP/"));
+  
+    if(idx != -1)
+    {
+       // есть в ответе HTTP/ - это для Neoway
+       if(!line.endsWith(F("200 OK")))
+       {
+         // не 200 OK
+            enough = true;
+          // пытаемся сменить провайдера
+          flags.currentProviderNumber = flags.currentProviderNumber == 0 ? 1 : 0;
+      
+           #ifdef HTTP_DEBUG
+            Serial.println(F("HTTP - no 200 OK, change provider!"));
+           #endif
+      
+           return;
+         
+       }
+    }
+    
+  }
 
 /*
  Ситуация крайне занимательная: если мы выполняем команды сразу по приходу, да даже и не сразу, неважно,
