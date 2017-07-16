@@ -224,7 +224,12 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
         if(bitRead(weekDays,currentTime.dayOfWeek-1)) // можем работать в этот день недели, значит, надо скорректировать значение таймера
         {
           // вычисляем разницу между полным и отработанным временем
-            unsigned long wateringDelta = ((timeToWatering*60000) - flags.wateringTimer);
+            unsigned long thisTimeToWatering = timeToWatering*60000;
+            unsigned long wateringDelta = 0;//((timeToWatering*60000) - flags.wateringTimer);
+            
+            if(thisTimeToWatering > flags.wateringTimer) // только если время полива больше, чем уже поливалось - в этом случае нужна дельта дополива
+              wateringDelta = thisTimeToWatering - flags.wateringTimer;
+              
             // запоминаем для канала дополнительную дельту для работы
             flags.wateringDelta = wateringDelta;
         }
