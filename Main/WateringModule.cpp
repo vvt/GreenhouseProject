@@ -291,10 +291,13 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
       // вне зависимости от показания таймера. Поэтому мы при срабатывании условия окончания полива
       // просто отнимаем дельту времени из таймера, таким образом оставляя его застывшим по времени
       // окончания полива
+
+      unsigned long maxTimeToWatering = ((timeToWatering*60000) + flags.wateringDelta + dt);
   
-      if(flags.wateringTimer > ((timeToWatering*60000) + flags.wateringDelta + dt)) // приплыли, надо выключать полив
+      if(flags.wateringTimer > maxTimeToWatering) // приплыли, надо выключать полив
       {
-        flags.wateringTimer -= (dt + flags.wateringDelta);// оставляем таймер застывшим на окончании полива, плюс маленькая дельта
+        unsigned long diff = flags.wateringDelta + dt;
+        flags.wateringTimer -=  diff;// оставляем таймер застывшим на окончании полива, плюс маленькая дельта
         flags.wateringDelta = 0; // сбросили дельту дополива
 
         if(IsActive()) // если канал был включён, значит, он будет выключен, и мы однократно запишем в EEPROM нужное значение
