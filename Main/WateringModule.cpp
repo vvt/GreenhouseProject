@@ -54,14 +54,14 @@ WateringChannel::WateringChannel()
 {
   flags.isON = flags.lastIsON = false;
   flags.index = 0;
-  flags.wateringTimer = flags.wateringDelta = 0;
+  flags.wateringTimer = /*flags.wateringDelta =*/ 0;
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void WateringChannel::Setup(byte index)
 {
     flags.index = index;
     flags.isON = flags.lastIsON = false;
-    flags.wateringTimer = flags.wateringDelta = 0;
+    flags.wateringTimer = /*flags.wateringDelta =*/ 0;
   
     WTR_LOG(F("[WTR] - setup channel "));
     WTR_LOG(flags.index);
@@ -214,6 +214,7 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
       
       if(savedDayOfWeek != currentTime.dayOfWeek)  // сначала проверяем, не другой ли день недели уже?
       {
+        /*
         // начался другой день недели. Для одного дня недели у нас установлена
         // продолжительность полива, поэтому, если мы поливали 28 минут вместо 30, например, во вторник, и перешли на среду,
         // то в среду надо полить ещё 2 мин. Поэтому таймер полива переводим в нужный режим:
@@ -236,6 +237,7 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
             // запоминаем для канала дополнительную дельту для работы
             flags.wateringDelta = wateringDelta;
         }
+        */
 
         flags.wateringTimer = 0; // сбрасываем таймер полива, т.к. начался новый день недели
         
@@ -292,13 +294,13 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
       // просто отнимаем дельту времени из таймера, таким образом оставляя его застывшим по времени
       // окончания полива
 
-      unsigned long maxTimeToWatering = ((timeToWatering*60000) + flags.wateringDelta + dt);
+      unsigned long maxTimeToWatering = ((timeToWatering*60000) /*+ flags.wateringDelta*/ + dt);
   
       if(flags.wateringTimer > maxTimeToWatering) // приплыли, надо выключать полив
       {
-        unsigned long diff = flags.wateringDelta + dt;
-        flags.wateringTimer -=  diff;// оставляем таймер застывшим на окончании полива, плюс маленькая дельта
-        flags.wateringDelta = 0; // сбросили дельту дополива
+        //unsigned long diff = flags.wateringDelta + dt;
+        flags.wateringTimer -=  dt;// оставляем таймер застывшим на окончании полива, плюс маленькая дельта
+//        flags.wateringDelta = 0; // сбросили дельту дополива
 
         if(IsActive()) // если канал был включён, значит, он будет выключен, и мы однократно запишем в EEPROM нужное значение
         {
@@ -320,7 +322,7 @@ void WateringChannel::Update(uint16_t _dt,WateringWorkMode currentWorkMode, cons
 void WateringChannel::DoLoadState(byte addressOffset)
 {
    // сперва сбрасываем настройки времени полива и дополива
-   flags.wateringTimer = flags.wateringDelta = 0;
+   flags.wateringTimer = /*flags.wateringDelta =*/ 0;
    flags.lastSavedStateMinute = -1;
   
 #ifdef USE_DS3231_REALTIME_CLOCK
