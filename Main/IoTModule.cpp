@@ -101,7 +101,9 @@ void IoTModule::CollectDataForThingSpeak()
 #endif    
   
   // тут собираем данные для ThingSpeak, в понятном ему формате
-  byte iter = 1;
+  // Следует учесть один момент: поскольку у нас датчики привязаны к полям канала ThingSpeak,
+  // мы должны ВСЕГДА итерировать индекс поля канала!
+  
   delete dataToSend;
   dataToSend = new String();
 
@@ -123,7 +125,8 @@ void IoTModule::CollectDataForThingSpeak()
           *dataToSend += F("&");
           
         *dataToSend += F("field");
-        *dataToSend += String(iter++);
+        byte fieldIndex = i+1; // индекс поля канала ThingSpeak начинается с 1, поэтому добавляем 1
+        *dataToSend += String(fieldIndex);
         *dataToSend += F("=");
 
          String  sensorData = *os;
