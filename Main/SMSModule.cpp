@@ -204,6 +204,12 @@ void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToSt
 //--------------------------------------------------------------------------------------------------------------------------------  
 void SMSModule::Setup()
 {
+#ifdef GSM_DEBUG_MODE
+  Serial.print(F("SAVED PHONE: "));
+  GlobalSettings* gs = MainController->GetSettings();
+  Serial.println(gs->GetSmsPhoneNumber());
+#endif
+
  // сообщаем, что мы провайдер HTTP-запросов
  #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
   MainController->SetHTTPProvider(1,this); 
@@ -2096,7 +2102,8 @@ void SMSModule::ProcessIncomingCall(const String& line) // обрабатыва�
       #endif
 
   GlobalSettings* Settings = MainController->GetSettings();
-  if(ring != Settings->GetSmsPhoneNumber()) // не наш номер
+  //if(ring != Settings->GetSmsPhoneNumber()) // не наш номер
+  if(!Settings->GetSmsPhoneNumber().startsWith(ring)) // не наш номер
   {
     #ifdef GSM_DEBUG_MODE
       Serial.print(F("UNKNOWN NUMBER: ")); Serial.print(ring); Serial.println(F("!"));
@@ -3203,7 +3210,8 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
   #endif
 
   GlobalSettings* Settings = MainController->GetSettings();
-  if(phoneNum != Settings->GetSmsPhoneNumber()) // не наш номер
+  //if(phoneNum != Settings->GetSmsPhoneNumber()) // не наш номер
+  if(!Settings->GetSmsPhoneNumber().startsWith(phoneNum)) // не наш номер
   {
     #ifdef GSM_DEBUG_MODE
       Serial.println("NOT RIGHT NUMBER: " + phoneNum + "!");

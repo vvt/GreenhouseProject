@@ -256,8 +256,22 @@ String GlobalSettings::readString(uint16_t address, byte maxlength)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::writeString(uint16_t address, const String& v, byte maxlength)
 {
+  /*
   for(byte i=0;i<maxlength;i++)
     MemWrite(address++,v[i]);
+  */
+
+  for(byte i=0;i<maxlength;i++)
+  {
+    if(i >= v.length())
+      break;
+      
+    MemWrite(address++,v[i]);
+  }
+
+  // пишем завершающий ноль
+  MemWrite(address++,'\0');
+  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t GlobalSettings::GetChannelWateringWeekDays(uint8_t idx)
@@ -330,7 +344,7 @@ String GlobalSettings::GetStationPassword()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetStationPassword(const String& v)
 {
-  writeString( STATION_PASSWORD_EEPROM_ADDR, v,  min(20,v.length()) ); 
+  writeString( STATION_PASSWORD_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetStationID()
@@ -340,7 +354,7 @@ String GlobalSettings::GetStationID()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetStationID(const String& v)
 {
-  writeString( STATION_ID_EEPROM_ADDR, v,  min(20,v.length()) ); 
+  writeString( STATION_ID_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetRouterPassword()
@@ -350,7 +364,7 @@ String GlobalSettings::GetRouterPassword()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetRouterPassword(const String& v)
 {
-  writeString( ROUTER_PASSWORD_EEPROM_ADDR, v,  min(20,v.length()) ); 
+  writeString( ROUTER_PASSWORD_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetRouterID()
@@ -360,7 +374,7 @@ String GlobalSettings::GetRouterID()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetRouterID(const String& v)
 {
-  writeString( ROUTER_ID_EEPROM_ADDR, v,  min(20,v.length()) ); 
+  writeString( ROUTER_ID_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetSmsPhoneNumber()
@@ -370,7 +384,7 @@ String GlobalSettings::GetSmsPhoneNumber()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetSmsPhoneNumber(const String& v)
 {
-    writeString( SMS_NUMBER_EEPROM_ADDR, v,  min(15,v.length()) ); 
+    writeString( SMS_NUMBER_EEPROM_ADDR, v,  15);//min(15,v.length()) ); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetIoTSettings(IoTSettings& sett)

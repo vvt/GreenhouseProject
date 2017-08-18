@@ -593,7 +593,8 @@ PDUIncomingMessage PDUMessageDecoder::Decode(const String& ucs2Message, const St
      // сохраняем номер телефона отправителя
       result.SenderNumber = sender_number;
 
-      if(sender_number != allowedSenderNumber) // не с нашего номера
+      //if(sender_number != allowedSenderNumber) // не с нашего номера
+      if(!allowedSenderNumber.startsWith(sender_number)) // не с нашего номера
       {
         result.IsDecodingSucceed = false;
         return result; 
