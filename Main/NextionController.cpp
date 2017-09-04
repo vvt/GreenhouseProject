@@ -380,7 +380,7 @@ uint8_t NextionController::fillEmptySpaces(uint8_t pos_written)
 }
 void NextionController::doShowSettingsTemp(uint8_t temp,const char* which, uint8_t offset)
 {
-  sprintf_P(command_buff,_refstop);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstop);
   sendCommand(command_buff);
   uint8_t decimals = temp/10;
   uint8_t ones = temp%10;
@@ -393,7 +393,7 @@ void NextionController::doShowSettingsTemp(uint8_t temp,const char* which, uint8
   sprintf_P(command_buff,_settings_t_FORMAT,which,1,DIGITS_START_ADDRESS+ones*NEXTION_CHAR_PLACES + 1 + offset);
   sendCommand(command_buff); 
 
-  sprintf_P(command_buff,_refstar);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstar);
   sendCommand(command_buff);
 }
 void NextionController::showOpenTemp(uint8_t temp)
@@ -406,7 +406,7 @@ void NextionController::showCloseTemp(uint8_t temp)
 }
 void NextionController::showLuminosity(long lum)
 {
-  sprintf_P(command_buff,_refstop);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstop);
   sendCommand(command_buff);
   
   sprintf_P(command_buff,_sensor_type_FORMAT,10);
@@ -427,13 +427,13 @@ void NextionController::showLuminosity(long lum)
  // добиваем всё пустыми символами
  fillEmptySpaces(pos_written);
  
- sprintf_P(command_buff,_refstar);
+ sprintf_P(command_buff,(const char*) F("%s"),_refstar);
  sendCommand(command_buff);
   
 }
 void NextionController::showHumidity(const Humidity& h)
 {
-  sprintf_P(command_buff,_refstop);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstop);
   sendCommand(command_buff);
 
   sprintf_P(command_buff,_sensor_type_FORMAT,9);
@@ -463,13 +463,13 @@ void NextionController::showHumidity(const Humidity& h)
  // добиваем всё пустыми символами
  fillEmptySpaces(pos_written);
  
-  sprintf_P(command_buff,_refstar);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstar);
   sendCommand(command_buff);
   
 }
 void NextionController::showTemperature(const Temperature& t)
 {
-  sprintf_P(command_buff,_refstop);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstop);
   sendCommand(command_buff);
 
   sprintf_P(command_buff,_sensor_type_FORMAT,11);
@@ -499,7 +499,7 @@ void NextionController::showTemperature(const Temperature& t)
   // добиваем всё пустыми символами
   fillEmptySpaces(pos_written);
  
-  sprintf_P(command_buff,_refstar);
+  sprintf_P(command_buff,(const char*) F("%s"),_refstar);
   sendCommand(command_buff);
 
 }

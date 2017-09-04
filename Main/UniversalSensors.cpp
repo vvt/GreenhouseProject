@@ -89,7 +89,13 @@ byte UniRS485Gate::crc8(const byte *addr, byte len)
 void UniRS485Gate::waitTransmitComplete()
 {
   // ждём завершения передачи по UART
+ #if (TARGET_BOARD == MEGA_BOARD) 
   while(!(RS_485_UCSR & _BV(RS_485_TXC) ));
+ #elif (TARGET_BOARD == DUE_BOARD) 
+  while((RS_485_UCSR->US_CSR & RS_485_TXC) != RS_485_TXC);
+ #else
+  #error "Unknown target board!"
+ #endif
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::Update(uint16_t dt)

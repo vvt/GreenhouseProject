@@ -17,8 +17,24 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   const uint32_t mstcc = ( F_CPU / 40000 ); // сторож таймаута - 100us
 
   uint8_t bit = digitalPinToBitMask(pin);
-  uint8_t port = digitalPinToPort(pin);
-  volatile uint8_t *PIR = portInputRegister(port);
+  #if (TARGET_BOARD == MEGA_BOARD)
+  uint8_t 
+  #elif (TARGET_BOARD == DUE_BOARD)
+  Pio* 
+  #else
+    #error "Unknown target board!"
+  #endif
+  port = digitalPinToPort(pin);
+  
+  volatile 
+  #if (TARGET_BOARD == MEGA_BOARD)
+  uint8_t*
+  #elif (TARGET_BOARD == DUE_BOARD)
+  RoReg* 
+  #else
+    #error "Unknown target board!"
+  #endif  
+  PIR = portInputRegister(port);
 
   // начинаем читать с датчика
   pinMode(pin,OUTPUT);

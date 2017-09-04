@@ -1,12 +1,32 @@
 #include "StatModule.h"
 #include "ModuleController.h"
 
+#if (TARGET_BOARD == DUE_BOARD)
+    #include <malloc.h>
+    #include <stdlib.h>
+    #include <stdio.h>
+#endif
+
 // выводит свободную память
 int freeRam() 
 {
-  extern int __heap_start, *__brkval;
-  int v;
-  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+  #if (TARGET_BOARD == MEGA_BOARD)
+  
+    extern int __heap_start, *__brkval;
+    int v;
+    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+    
+ #elif (TARGET_BOARD == DUE_BOARD)
+
+    struct mallinfo mi = mallinfo();
+    char* heapend = _sbrk(0);
+    register char* stack_ptr asm("sp");
+
+    return (stack_ptr - heapend + mi.fordblks);
+    
+ #else
+  #error "Unknown target board!"
+ #endif
 }
 
 

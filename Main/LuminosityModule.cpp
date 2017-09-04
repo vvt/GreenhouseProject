@@ -23,7 +23,8 @@ void BH1750Support::ChangeMode(BH1750Mode mode) // смена режима ра�
 {
    currentMode = mode; // сохраняем текущий режим опроса
    writeByte((uint8_t)currentMode);
-  _delay_ms(10);
+  //_delay_ms(10);
+  delay(10);
 }
 void BH1750Support::ChangeAddress(BH1750Address newAddr)
 {

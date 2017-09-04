@@ -1985,12 +1985,12 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
           #endif            
             // нашли такой файл, будем читать с него данные
             String answerMessage, commandToExecute;
-            char ch = 0;
+            signed char ch = 0;
     
             // в первой строке у нас лежит сообщение, которое надо послать после выполнения команды.
             while(1)
             {
-              ch = (char) smsFile.read();
+              ch = (signed char) smsFile.read();
               if(ch == -1)
                 break;
                 
@@ -2007,7 +2007,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
             // во второй строке - команда
             while(1)
             {
-              ch = (char) smsFile.read();
+              ch = (signed char) smsFile.read();
               if(ch == -1 || ch =='\r' || ch == '\n')
                 break;
     

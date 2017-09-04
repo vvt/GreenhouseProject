@@ -808,7 +808,7 @@ void PhModule::Update(uint16_t dt)
               PH_DEBUG_OUT(F("Target pH: "), phTarget);
             #endif
 
-            if(accumulatedData >= (phTarget - phHisteresis) && accumulatedData <= (phTarget + phHisteresis))
+            if(accumulatedData >= (unsigned long) (phTarget - phHisteresis) && accumulatedData <= (unsigned long) (phTarget + phHisteresis))
             {
               // находимся в пределах гистерезиса
             #ifdef PH_DEBUG
