@@ -86,9 +86,9 @@ void WaterflowModule::Setup()
   // регистрируем датчики
   #if WATERFLOW_SENSORS_COUNT > 0
   // первый
-  WORK_STATUS.PinMode(2,INPUT,false);
+  WORK_STATUS.PinMode(FIRST_WATERFLOW_PIN,INPUT,false);
   pin2FlowPulses = 0;
-  pin2Interrupt = digitalPinToInterrupt(2);
+  pin2Interrupt = digitalPinToInterrupt(FIRST_WATERFLOW_PIN);
   State.AddState(StateWaterFlowInstant,0);
   State.AddState(StateWaterFlowIncremental,0);
   
@@ -98,9 +98,9 @@ void WaterflowModule::Setup()
 
   #if WATERFLOW_SENSORS_COUNT > 1
   // второй
-  WORK_STATUS.PinMode(3,INPUT,false);
+  WORK_STATUS.PinMode(SECOND_WATERFLOW_PIN,INPUT,false);
   pin3FlowPulses = 0;
-  pin3Interrupt = digitalPinToInterrupt(3);
+  pin3Interrupt = digitalPinToInterrupt(SECOND_WATERFLOW_PIN);
   State.AddState(StateWaterFlowInstant,1);
   State.AddState(StateWaterFlowIncremental,1);
 
