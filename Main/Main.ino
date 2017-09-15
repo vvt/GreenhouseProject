@@ -326,7 +326,12 @@ AlertModule alertsModule;
 #endif
 
 void setup() 
-{ 
+{
+
+#if (TARGET_BOARD == DUE_BOARD)
+  while(!Serial); // ждём инициализации Serial
+#endif
+   
   // инициализируем память (EEPROM не надо, а вот I2C - надо)
   MemInit();
   
