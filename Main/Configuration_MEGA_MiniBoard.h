@@ -1,5 +1,5 @@
-#ifndef _CONFIGURATION_MEGA_H
-#define _CONFIGURATION_MEGA_H
+#ifndef _CONFIGURATION_MEGA_MINIBOARD_H
+#define _CONFIGURATION_MEGA_MINIBOARD_H
 
 #if (TARGET_BOARD != MEGA_BOARD)
   #error "Target board MUST BE MEGA_BOARD for this configuration!"
@@ -542,8 +542,8 @@
 // настройки энкодера
 // энкодер подключается так: средний вывод - к питанию.
 // левый и правый - к пинам, дополнительно притянуты к земле резисторами на 10К
-#define ENCODER_A_PIN A0 // пин МК, на котором сигнал с левой ноги энкодера
-#define ENCODER_B_PIN A1 // пин МК, на котором сигнал с правой ноги энкодера
+#define ENCODER_A_PIN A1 // пин МК, на котором сигнал с левой ноги энкодера
+#define ENCODER_B_PIN A0 // пин МК, на котором сигнал с правой ноги энкодера
 #define ENCODER_PULSES_PER_CLICK 20 // сколько импульсов приходится на один клик энкодера, подбирать опытным путём, для удобства
 
 // настройки экрана ожидания
