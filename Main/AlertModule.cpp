@@ -294,10 +294,15 @@ bool AlertRule::HasAlert()
      if(!os) // не срослось
       return false;
 
-       TemperaturePair tp = *os; 
-       int8_t curTemp = tp.Current.Value;
+       TemperaturePair tp = *os;
 
+       #ifdef ALERT_INCLUDE_COMMA_VALUES
+       int curTemp = tp.Current.Value*100 + tp.Current.Fract;
+       int tAlert = (int8_t) Settings.DataAlert*100; // следим за переданной температурой
+       #else 
+       int8_t curTemp = tp.Current.Value;
        int8_t tAlert = (int8_t) Settings.DataAlert; // следим за переданной температурой
+       #endif
 
        if(curTemp == NO_TEMPERATURE_DATA) // нет датчика на линии
        {
@@ -308,7 +313,12 @@ bool AlertRule::HasAlert()
         else // есть зарезервированный датчик с показаниями
         {
           TemperaturePair tp = *reservedState; 
+         
+          #ifdef ALERT_INCLUDE_COMMA_VALUES
+          curTemp = tp.Current.Value*100 + tp.Current.Fract;
+          #else
           curTemp = tp.Current.Value;
+          #endif
         } // else
        }
  
@@ -391,7 +401,13 @@ bool AlertRule::HasAlert()
         return false;
 
        HumidityPair hp = *os;
+       #ifdef ALERT_INCLUDE_COMMA_VALUES
+       int curHumidity = hp.Current.Value*100 + hp.Current.Fract;
+       int humidityAlert = Settings.DataAlert*100;
+       #else
        int8_t curHumidity = hp.Current.Value;
+       int8_t humidityAlert = Settings.DataAlert;
+       #endif
 
        if(curHumidity == NO_TEMPERATURE_DATA) // нет датчика на линии
        {
@@ -401,18 +417,23 @@ bool AlertRule::HasAlert()
             return (curHumidity == Settings.DataAlert); // на случай, если правило следит за отсутствием показаний с датчика
           else // есть зарезервированный датчик с показаниями
           {
-            HumidityPair tp = *reservedState; 
+            HumidityPair tp = *reservedState;
+            
+            #ifdef ALERT_INCLUDE_COMMA_VALUES
+            curHumidity = tp.Current.Value*100 + tp.Current.Fract;
+            #else 
             curHumidity = tp.Current.Value;
+            #endif
           } // else
              
        }
 
        switch(Settings.Operand)
        {
-          case roLessThan: return curHumidity < Settings.DataAlert;
-          case roLessOrEqual: return curHumidity <= Settings.DataAlert;
-          case roGreaterThan: return curHumidity > Settings.DataAlert;
-          case roGreaterOrEqual: return curHumidity >= Settings.DataAlert;
+          case roLessThan: return curHumidity < humidityAlert;
+          case roLessOrEqual: return curHumidity <= humidityAlert;
+          case roGreaterThan: return curHumidity > humidityAlert;
+          case roGreaterOrEqual: return curHumidity >= humidityAlert;
           default: return false;
        } // switch
       
@@ -429,7 +450,14 @@ bool AlertRule::HasAlert()
         return false;
        
        HumidityPair hp = *os;
+
+       #ifdef ALERT_INCLUDE_COMMA_VALUES
+       int curHumidity = hp.Current.Value*100 + hp.Current.Fract;
+       int humidityAlert = Settings.DataAlert*100;
+       #else
        int8_t curHumidity = hp.Current.Value;
+       int8_t humidityAlert = Settings.DataAlert;
+       #endif
 
        if(curHumidity == NO_TEMPERATURE_DATA) // нет датчика на линии
        {
@@ -439,17 +467,21 @@ bool AlertRule::HasAlert()
             return (curHumidity == Settings.DataAlert); // на случай, если правило следит за отсутствием показаний с датчика
           else // есть зарезервированный датчик с показаниями
           {
-            HumidityPair tp = *reservedState; 
+            HumidityPair tp = *reservedState;
+            #ifdef ALERT_INCLUDE_COMMA_VALUES
+            curHumidity = tp.Current.Value*100 + tp.Current.Fract;
+            #else 
             curHumidity = tp.Current.Value;
+            #endif
           } // else
         }
 
        switch(Settings.Operand)
        {
-          case roLessThan: return curHumidity < Settings.DataAlert;
-          case roLessOrEqual: return curHumidity <= Settings.DataAlert;
-          case roGreaterThan: return curHumidity > Settings.DataAlert;
-          case roGreaterOrEqual: return curHumidity >= Settings.DataAlert;
+          case roLessThan: return curHumidity < humidityAlert;
+          case roLessOrEqual: return curHumidity <= humidityAlert;
+          case roGreaterThan: return curHumidity > humidityAlert;
+          case roGreaterOrEqual: return curHumidity >= humidityAlert;
           default: return false;
        } // switch
       
@@ -466,7 +498,13 @@ bool AlertRule::HasAlert()
         return false;
 
        HumidityPair hp = *os;
+       #ifdef ALERT_INCLUDE_COMMA_VALUES
+       int curHumidity = hp.Current.Value*100 + hp.Current.Fract;
+       int phAlert = Settings.DataAlert*100;
+       #else
        int8_t curHumidity = hp.Current.Value;
+       int8_t phAlert = Settings.DataAlert;
+       #endif
 
        if(curHumidity == NO_TEMPERATURE_DATA) // нет датчика на линии
        {
@@ -476,18 +514,22 @@ bool AlertRule::HasAlert()
             return (curHumidity == Settings.DataAlert); // на случай, если правило следит за отсутствием показаний с датчика
          else // есть зарезервированный датчик с показаниями
           {
-            HumidityPair tp = *reservedState; 
+            HumidityPair tp = *reservedState;
+            #ifdef ALERT_INCLUDE_COMMA_VALUES
+            curHumidity = tp.Current.Value*100 + tp.Current.Fract;
+            #else 
             curHumidity = tp.Current.Value;
+            #endif
           } // else
             
        }
 
        switch(Settings.Operand)
        {
-          case roLessThan: return curHumidity < Settings.DataAlert;
-          case roLessOrEqual: return curHumidity <= Settings.DataAlert;
-          case roGreaterThan: return curHumidity > Settings.DataAlert;
-          case roGreaterOrEqual: return curHumidity >= Settings.DataAlert;
+          case roLessThan: return curHumidity < phAlert;
+          case roLessOrEqual: return curHumidity <= phAlert;
+          case roGreaterThan: return curHumidity > phAlert;
+          case roGreaterOrEqual: return curHumidity >= phAlert;
           default: return false;
        } // switch
       
