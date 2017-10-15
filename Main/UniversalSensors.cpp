@@ -157,6 +157,7 @@ void UniRS485Gate::Update(uint16_t dt)
             RS485QueueItem qi;
             qi.sensorType = sensorType;
             qi.sensorIndex = k;
+            qi.badReadingAttempts = 0;
             queue.push_back(qi);
           } // for
           
@@ -192,12 +193,13 @@ void UniRS485Gate::Update(uint16_t dt)
         // поэтому мы сбрасываем состояния только тех датчиков, которые хотя бы однажды
         // откликнулись по шине RS-495.
 
-        if(isInOnlineQueue(*qi))
+        if(isInOnlineQueue(*qi) && qi->badReadingAttempts >= RS485_RESET_SENSOR_AFTER_N_BAD_READINGS)
         {
           byte sType = qi->sensorType;
           byte sIndex = qi->sensorIndex;
           // датчик был онлайн, сбрасываем его показания в "нет данных" перед опросом
           UniDispatcher.AddUniSensor((UniSensorType)sType,sIndex);
+          qi->badReadingAttempts = 0;
 
                     // проверяем тип датчика, которому надо выставить "нет данных"
                     switch(qi->sensorType)
@@ -329,6 +331,9 @@ void UniRS485Gate::Update(uint16_t dt)
         {
           if( micros() - startReadingTime > readTimeout)
           {
+
+            qi->badReadingAttempts++; // поймали таймаут, увеличиваем кол-во неудачных попыток чтения
+            
             #ifdef RS485_DEBUG
               Serial.println(F("TIMEOUT REACHED!!!"));
             #endif
@@ -405,6 +410,9 @@ void UniRS485Gate::Update(uint16_t dt)
                   // добавляем датчик в список онлайн-датчиков
                   if(!isInOnlineQueue(*qi))
                     sensorsOnlineQueue.push_back(*qi);
+
+                  // сбрасываем кол-во неудачных попыток чтения
+                  qi->badReadingAttempts = 0;
 
                     // проверяем тип датчика, с которого читали показания
                     switch(sType)
