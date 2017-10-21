@@ -1,7 +1,7 @@
 {* Smarty *}
 
-<div class='ui-state-highlight ui-corner-all hdn' style='padding:10px;padding-top:0px;margin-bottom:0px;float:right;' id='controller_stats'>
-  <div class='controller_stats'>
+<div class='ui-state-highlight ui-corner-all hdn' style='padding:10px;padding-top:0px;margin-bottom:0px;padding-bottom:0px;float:right;' id='controller_stats'>
+  <div class='controller_stats' style="padding-bottom:5px;">
     
     <div class='freeram hdn' id='freeram_box'>
       Память: <span class='bold' id='controller_freeram'></span> байт

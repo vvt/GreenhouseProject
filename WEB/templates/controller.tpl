@@ -224,8 +224,8 @@
                     
                     <div id='windows_controller_status' class='hdn'>
                     
-                      <div class='ui-widget-header ui-corner-all padding_around8px'>Окна</div>   
-                      <div class='ui-widget-content ui-corner-all padding_around8px'>
+                      <div class='ui-widget-header ui-corner-top padding_around8px'>Окна</div>   
+                      <div class='ui-widget-content ui-corner-bottom padding_around8px'>
                       
                        <table border='0' width='100%' cellspacing='0' cellpadding='0'>
                        <tr>
@@ -261,8 +261,8 @@
                      
                     <div id='water_controller_status' class='hdn'>
                                        
-                    <div class='ui-widget-header ui-corner-all padding_around8px'>Полив</div> 
-                    <div class='ui-widget-content ui-corner-all padding_around8px'>
+                    <div class='ui-widget-header ui-corner-top padding_around8px'>Полив</div> 
+                    <div class='ui-widget-content ui-corner-bottom padding_around8px'>
                     
                     <table border='0' width='100%' cellspacing='0' cellpadding='0'>
                        <tr>
@@ -298,8 +298,8 @@
                     
                     <div id='light_controller_status' class='hdn'>
 
-                    <div class='ui-widget-header ui-corner-all padding_around8px'>Досветка</div>
-                    <div class='ui-widget-content ui-corner-all padding_around8px'>
+                    <div class='ui-widget-header ui-corner-top padding_around8px'>Досветка</div>
+                    <div class='ui-widget-content ui-corner-bottom padding_around8px'>
                     
                         <div class='padding_around8px'>
                             Статус: <span class='bold' id='light_state'></span><br/>
@@ -317,8 +317,8 @@
                   
                   <div id='ph_controller_status' class='hdn'>
                   
-                    <div class='ui-widget-header ui-corner-all padding_around8px'>PH</div>
-                    <div class='ui-widget-content ui-corner-all padding_around8px'>
+                    <div class='ui-widget-header ui-corner-top padding_around8px'>PH</div>
+                    <div class='ui-widget-content ui-corner-bottom padding_around8px'>
                     
                          <div class='padding_around8px'>
                             Насос подачи воды: <span class='bold' id='ph_flow_add'></span><br/>
