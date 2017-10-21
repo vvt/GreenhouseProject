@@ -622,6 +622,9 @@
                         <div class='button_menu_spacer'>
                           <input type='checkbox' id='http_send_status'><label for='http_send_status'>Посылать данные датчиков на сервис?</label>
                         </div>                    
+                        <div class='button_menu_spacer'>
+                          <input type='checkbox' id='http_send_state'><label for='http_send_state'>Посылать статус контроллера на сервис?</label>
+                        </div>                    
                     
                         <div class='button_menu_spacer'>
                           Ключ доступа к сервису:<br/><input type='text' id='http_api_key' value='' maxlength='32'/>

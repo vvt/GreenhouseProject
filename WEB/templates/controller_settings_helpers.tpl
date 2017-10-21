@@ -2045,6 +2045,8 @@ controller.OnGetModulesList = function(obj)
                 $('#http_api_enabled').get(0).checked = parseInt(answer.Params[3]) == 1;
                 $('#http_timezone').val(answer.Params[4]);
                 $('#http_send_status').get(0).checked = parseInt(answer.Params[5]) == 1;
+                $('#http_send_state').get(0).checked = parseInt(answer.Params[6]) == 1;
+                
                 
                 $('#http_timezone').spinner({
                     min: -1000,
@@ -2410,6 +2412,7 @@ function saveHTTPSettings()
 {
   var httpEnabled = $('#http_api_enabled').get(0).checked ? 1 : 0;
   var sendSensors = $('#http_send_status').get(0).checked ? 1 : 0;
+  var sendState = $('#http_send_state').get(0).checked ? 1 : 0;
   
   var apiKey = $('#http_api_key').val().trim();
   var rawTimezoneVal = $('#http_timezone').val().trim();
@@ -2435,7 +2438,7 @@ function saveHTTPSettings()
     return;
   }
   
-  var full_command = "HTTP|KEY|" + apiKey + '|' + httpEnabled + '|' + timezone + '|' + sendSensors;
+  var full_command = "HTTP|KEY|" + apiKey + '|' + httpEnabled + '|' + timezone + '|' + sendSensors + '|' + sendState;
   
   showWaitDialog();
   
