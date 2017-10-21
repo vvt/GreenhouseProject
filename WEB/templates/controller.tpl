@@ -225,7 +225,7 @@
                     <div id='windows_controller_status' class='hdn'>
                     
                       <div class='ui-widget-header ui-corner-top padding_around8px'>Окна</div>   
-                      <div class='ui-widget-content ui-corner-bottom padding_around8px'>
+                      <div class='ui-widget-content  padding_around8px'>
                       
                        <table border='0' width='100%' cellspacing='0' cellpadding='0'>
                        <tr>
@@ -237,8 +237,6 @@
                                 Режим: <span class='bold' id='window_mode'></span>
                               </div>
                               
-                              <button id='toggler_windows' onclick='controller.toggleWindows();updateWindowsState();'></button>
-                              <button id='toggler_windows_mode' onclick='controller.toggleWindowsMode();updateWindowsState();'></button>
                             
                             </td>
                             
@@ -255,6 +253,11 @@
                          
 
                       </div>
+                      
+                      <div class='ui-widget-footer padding_around8px ui-corner-bottom'>
+                              <button id='toggler_windows' onclick='controller.toggleWindows();updateWindowsState();'></button>
+                              <button id='toggler_windows_mode' onclick='controller.toggleWindowsMode();updateWindowsState();'></button>
+                      </div>
                        
                     <br/><br/>
                      </div>
@@ -262,7 +265,7 @@
                     <div id='water_controller_status' class='hdn'>
                                        
                     <div class='ui-widget-header ui-corner-top padding_around8px'>Полив</div> 
-                    <div class='ui-widget-content ui-corner-bottom padding_around8px'>
+                    <div class='ui-widget-content padding_around8px'>
                     
                     <table border='0' width='100%' cellspacing='0' cellpadding='0'>
                        <tr>
@@ -274,8 +277,6 @@
                                 Режим: <span class='bold' id='water_mode'></span>
                              </div>
                               
-                              <button id='toggler_water' onclick='controller.toggleWater();updateWaterState();'></button>
-                              <button id='toggler_water_mode' onclick='controller.toggleWaterMode();updateWaterState();'></button>
                               
                             </td>
                             
@@ -292,6 +293,11 @@
                          </table>                                 
                         
                     </div>
+
+                    <div class='ui-widget-footer padding_around8px ui-corner-bottom'>
+                              <button id='toggler_water' onclick='controller.toggleWater();updateWaterState();'></button>
+                              <button id='toggler_water_mode' onclick='controller.toggleWaterMode();updateWaterState();'></button>
+                    </div>
                     
                     <br/><br/>
                     </div>
@@ -299,13 +305,16 @@
                     <div id='light_controller_status' class='hdn'>
 
                     <div class='ui-widget-header ui-corner-top padding_around8px'>Досветка</div>
-                    <div class='ui-widget-content ui-corner-bottom padding_around8px'>
+                    <div class='ui-widget-content upadding_around8px'>
                     
                         <div class='padding_around8px'>
                             Статус: <span class='bold' id='light_state'></span><br/>
                             Режим: <span class='bold' id='light_mode'></span>
                         </div>
                         
+                    </div>
+                    
+                    <div class='ui-widget-footer padding_around8px ui-corner-bottom'>
                         <button id='toggler_light' onclick='controller.toggleLight();updateLightState();'></button>
                         <button id='toggler_light_mode' onclick='controller.toggleLightMode();updateLightState();'></button>
                     </div>
