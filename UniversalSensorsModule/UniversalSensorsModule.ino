@@ -3,6 +3,7 @@
 #include <avr/power.h>
 #include <OneWire.h>
 #include "BH1750.h"
+#include "Max44009.h"
 #include "UniGlobals.h"
 #include "Si7021Support.h"
 #include "DHTSupport.h"
@@ -86,6 +87,8 @@ const SensorSettings Sensors[3] = {
   {mstDHT11, 5, 0} - датчик DHT11 на пине 5
   {mstPHMeter,A0, 0} // датчик pH на пине A0
   {mstSHT10,10,11} // датчик SHT10 на пине 10 (линия данных) и пине 11 (строб)
+  {mstMAX44009,MAX44009_ADDRESS1,0} - датчик освещённости MAX44009 на шине I2C, его первый адрес I2C
+  {mstMAX44009,MAX44009_ADDRESS2,0} - датчик освещённости MAX44009 на шине I2C, его второй адрес I2C
 
   // Частотные датчики влажности почвы должны на выходе выдавать ШИМ, по заполнению которого рассчитывается влажность почвы !!! Максимальный коэффициент заполнения - 254, минимальный - 1.
   {mstFrequencySoilMoistureMeter,A5, 0} - частотный датчик влажности почвы на аналоговом пине A5
@@ -392,6 +395,7 @@ byte GetSensorType(const SensorSettings& sett)
       return uniTemp;
       
     case mstBH1750:
+    case mstMAX44009:
       return uniLuminosity;
 
     case mstSi7021:
@@ -430,6 +434,7 @@ void SetDefaultValue(const SensorSettings& sett, byte* data)
     break;
       
     case mstBH1750:
+    case mstMAX44009:
     {
     long lum = NO_LUMINOSITY_DATA;
     memcpy(data,&lum,sizeof(lum));
@@ -468,6 +473,9 @@ void* InitSensor(const SensorSettings& sett)
       
     case mstBH1750:
       return InitBH1750(sett);
+
+   case mstMAX44009:
+    return InitMax44009(sett);
 
     case mstSi7021:
       return InitSi7021(sett);
@@ -613,6 +621,13 @@ void WakeUpSensor(const SensorSettings& sett, void* sensorDefinedData)
     }
     break;
 
+    case mstMAX44009:
+    {
+      Max44009* bh = (Max44009*) sensorDefinedData;
+      bh->begin((MAX44009_ADDRESS) sett.Pin);
+    }
+    break;
+
     case mstSi7021:
     {
       Si7021* si = (Si7021*) sensorDefinedData;
@@ -701,7 +716,16 @@ void* InitFrequencySoilMoistureMeter(const SensorSettings& sett)
     return NULL;  
 }
 //----------------------------------------------------------------------------------------------------------------
-void* InitBH1750(const SensorSettings& sett) // инициализируем датчик освещённости
+void* InitMax44009(const SensorSettings& sett) // инициализируем датчик освещённости MAX44009
+{
+  Max44009* bh = new Max44009();
+  
+  bh->begin((MAX44009_ADDRESS)sett.Pin);
+  
+  return bh;
+}
+//----------------------------------------------------------------------------------------------------------------
+void* InitBH1750(const SensorSettings& sett) // инициализируем датчик освещённости BH1750
 {
   BH1750Support* bh = new BH1750Support();
   
@@ -872,7 +896,19 @@ void ReadFrequencySoilMoistureMeter(const SensorSettings& sett, void* sensorDefi
  
 }
 //----------------------------------------------------------------------------------------------------------------
-void ReadBH1750(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика освещённости
+void ReadMax44009(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика освещённости MAX44009
+{
+  UNUSED(sett);
+  Max44009* bh = (Max44009*) sensorDefinedData;
+
+  unsigned long sensLum = (unsigned long) bh->readLuminosity();
+  long lum = map(sensLum,0,188000,0,65535);
+  
+  memcpy(s->data,&lum,sizeof(lum));
+
+}
+//----------------------------------------------------------------------------------------------------------------
+void ReadBH1750(const SensorSettings& sett, void* sensorDefinedData, struct sensor* s) // читаем данные с датчика освещённости BH1750
 {
   UNUSED(sett);
   BH1750Support* bh = (BH1750Support*) sensorDefinedData;
@@ -1046,6 +1082,10 @@ void ReadSensor(const SensorSettings& sett, void* sensorDefinedData, struct sens
     ReadBH1750(sett,sensorDefinedData,s);
     break;
 
+    case mstMAX44009:
+    ReadMax44009(sett,sensorDefinedData,s);
+    break;
+
     case mstSi7021:
     ReadSi7021(sett,sensorDefinedData,s);
     break;
@@ -1131,6 +1171,7 @@ bool HasI2CSensors()
     {
       case mstBH1750:
       case mstSi7021:
+      case mstMAX44009:
         return true;
     }
     
@@ -1181,6 +1222,7 @@ void MeasureSensor(const SensorSettings& sett,void* sensorDefinedData) // зап
     break;
 
     case mstBH1750:
+    case mstMAX44009:
     case mstSi7021:
     case mstChinaSoilMoistureMeter:
     case mstDHT11:
@@ -1227,6 +1269,7 @@ void UpdateSensor(const SensorSettings& sett,void* sensorDefinedData, unsigned l
     case mstNone:    
     case mstDS18B20:
     case mstBH1750:
+    case mstMAX44009:
     case mstSi7021:
     case mstChinaSoilMoistureMeter:
     case mstDHT11:
