@@ -1,5 +1,5 @@
 {* Smarty *}
-{include file='controller_head.tpl' additional_text=', графики'}
+{include file='controller_head.tpl' additional_text=', графики' room='charts'}
 
 <!--[if lte IE 8]><script language="javascript" type="text/javascript" src="js/excanvas.min.js"></script><![endif]-->
 <script language="javascript" type="text/javascript" src="js/jquery.flot.js"></script>
@@ -14,7 +14,7 @@
 
 <div class='ui-widget ui-widget-content ui-corner-all padding_around8px' style='margin-bottom:8px;text-align:right;'>
  Показать графики за:
-  <select id='interval_select' onchange="doRequest(this,false);">
+  <select id='interval_select' onchange="doRequest(this,false);" style='width:auto;'>
     <option value="0">Последний час</option>
     <option value="1" selected>Текущий день</option>
     <option value="2">Последние сутки</option>
@@ -31,7 +31,7 @@
 
    <div style='text-align:right;padding:4px;'>
     Дискретность: 
-      <select id='ticks_select' onchange="changeTicks(this);">
+      <select id='ticks_select' onchange="changeTicks(this);"  style='width:auto;'>
         <option value='15,minute'>15 минут</option>
         <option value='30,minute'>30 минут</option>
         <option value='1,hour' selected>1 час</option>

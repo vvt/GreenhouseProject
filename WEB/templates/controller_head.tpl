@@ -1,6 +1,27 @@
 {* Smarty *}
 
-<div class='ui-state-highlight ui-corner-all hdn' style='padding:10px;padding-top:0px;margin-bottom:0px;padding-bottom:0px;float:right;' id='controller_stats'>
+
+
+<div id="reset_controller_prompt" title="Перезагрузка" class='hdn'>
+  <p>Вы уверены, что хотите перезагрузить контроллер?</p>
+</div>
+
+<div id="reset_in_process" title="Перезагрузка" class='hdn'>
+  <p>Подождите, пока контроллер перезагрузится...</p>
+</div>
+
+<ul class='navbar'>
+<li><a href="/" id='back_link'>На главную</a>
+<li {if $room=='status'}class='active'{/if}><a href="/controller.php?id={$selected_controller.controller_id}" id='view_link'>Показания</a></li>
+<li {if $room=='settings'}class='active'{/if}><a href="/controller_settings.php?id={$selected_controller.controller_id}" id='settings_link'>Настройки</a></li>
+<li {if $room=='charts'}class='active'{/if}><a href="/controller_charts.php?id={$selected_controller.controller_id}" id='charts_link'>Графики</a></li>
+<li style="float:right;"><a href="javascript:resetController();" id='reset_controller_link' style='color:coral;'>Перезагрузить</a></li>
+</ul>
+
+<h1 style="margin-bottom:0px;">Контроллер "{$selected_controller.controller_name}"{$additional_text} <div class='right_float' id='controller_date_time'></div></h1>
+
+
+<div class='info-success hdn' id='controller_stats'>
   <div class='controller_stats' style="padding-bottom:5px;">
     
     <div class='freeram hdn' id='freeram_box'>
@@ -14,28 +35,13 @@
   </div>
 </div>
 
-<div id="reset_controller_prompt" title="Перезагрузка" class='hdn'>
-  <p>Вы уверены, что хотите перезагрузить контроллер?</p>
-</div>
-
-<div id="reset_in_process" title="Перезагрузка" class='hdn'>
-  <p>Подождите, пока контроллер перезагрузится...</p>
-</div>
-
-<p>
-<a href="/" id='back_link'>На главную</a>
-<a href="/controller.php?id={$selected_controller.controller_id}" id='view_link'>Показания</a>
-<a href="/controller_settings.php?id={$selected_controller.controller_id}" id='settings_link'>Настройки</a>
-<a href="/controller_charts.php?id={$selected_controller.controller_id}" id='charts_link'>Графики</a>
-<a href="javascript:resetController();" id='reset_controller_link'>Перезагрузить</a>
-</p>
+<div style="margin-bottom:20px;"></div>
 
 
-<h2 class='ui-widget-header ui-corner-all'>Контроллер "{$selected_controller.controller_name}"{$additional_text} <div class='right_float' id='controller_date_time'></div></h2>
 
 <script type='text/javascript'>
 $(document).ready(function(){ldelim}
-
+/*
   $( "#back_link" ).button({ldelim}
       icons: {ldelim}
         primary: "ui-icon-seek-prev"
@@ -65,7 +71,7 @@ $(document).ready(function(){ldelim}
         primary: "ui-icon-refresh"
       {rdelim}
     {rdelim}).css('background','#ff794d').hide();            
-    
+  */  
     if(typeof(controller) != 'undefined')
     {ldelim}
       if(controller.IsOnline())

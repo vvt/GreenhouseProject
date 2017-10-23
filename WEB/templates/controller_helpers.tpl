@@ -90,12 +90,52 @@ function promptMessage(message, yesFunc, cancelFunc)
   ] });     
 }
 //-----------------------------------------------------------------------------------------------------
+function setWindowChannelButtonState(button, channelNumber,bHigh, bLow)
+{
+
+  var buttonCaption = "";//"Окно №" + channelNumber + ' ';
+  var channelEnabled = false;
+
+  // проверяем комбинации
+  if (!bLow && !bHigh)
+  {
+      buttonCaption = "ОТКРЫТЬ №" + channelNumber;
+  }
+  else
+  if (!bHigh && bLow)
+  {
+      buttonCaption = "открывается...";
+  }
+  else
+  if (bHigh && !bLow)
+  {
+      buttonCaption = "закрывается...";
+  }
+  else
+  if (bHigh && bLow)
+  {
+      buttonCaption = "ЗАКРЫТЬ №" + channelNumber;
+      channelEnabled = true;
+  }
+
+  
+  if(channelEnabled)
+    button.addClass('water-on').removeClass('water-off');
+  else
+    button.addClass('water-off').removeClass('water-on');
+    
+   button.html(buttonCaption);
+
+                    
+}
+//-----------------------------------------------------------------------------------------------------
 function setWaterChannelButtonState(button, channelNumber, channelEnabled)
 {
   //button.removeAttr('disabled').removeClass('water-intermediate');
 
-  var buttonCaption = "Канал #" + channelNumber;
-  buttonCaption += channelEnabled ? " включен. Выключить!" : " выключен. Включить!";
+  var buttonCaption = channelEnabled ? "ВЫКЛ " : "ВКЛ "; 
+  buttonCaption += "канал №" + channelNumber;;
+  
   if(channelEnabled)
     button.addClass('water-on').removeClass('water-off');
   else
@@ -220,13 +260,15 @@ controller.OnStatus = function(obj)
   
   controller.queryCommand(true,'STATE|WINDOW|STATEMASK',function(obj,answer){
     
+        var list = $('#windowsChannelsState');
+    
         if(!answer.IsOK)
          {
-          $('#windowsChannelsState').toggle(false);
+          list.toggle(false);
           return;
          }
          
-          $('#windowsChannelsState').toggle(true);
+          list.toggle(true);
          
           var totalWindows = parseInt(answer.Params[3]);
           var byteHolder = answer.Params[4];
@@ -237,15 +279,24 @@ controller.OnStatus = function(obj)
           if (numBits % 8 > 0)
               numBytes++;
               
-           
-           var optionsCount = $('#windowsChannelsState').find("option").length;
-           
-           while(optionsCount < totalWindows)
-           {
-              $("<option/>", { 'value' : optionsCount, 'style' : 'padding:2px;padding-left:8px;padding-right:8px;'}).appendTo('#windowsChannelsState');
-              optionsCount++;
-           }
-           
+            
+      var buttons = list.children('button');
+      var countButtons = buttons.length;
+      
+      if(countButtons > totalWindows)
+      {
+        list.empty();
+        countButtons = 0;
+      }
+      
+      while(countButtons < totalWindows)
+      {
+        var button = $("<button/>",{'data-channel-id' : countButtons, 'class' : 'window-channel-button'});
+        button.appendTo(list);
+        countButtons++;
+      }
+      
+
            var windowIndex = 0; // текущая позиция записи в массив состояний окон
            
             for (var i = 0; i < numBytes; i++)
@@ -264,39 +315,55 @@ controller.OnStatus = function(obj)
                     // получаем старший бит
                     var bHigh = BitIsSet(bState, (bitPos+1));
 
-                    var wCapt = "Окно номер #" + (windowIndex+1) + ': ';
-                    var ws = "<нет данных>";
                     
-                    var optionClass = '';
+                  // сохраняем состояние
+
+                  var button = list.find("[data-channel-id=" + windowIndex + "]");
+                  button.button();
+
+                  button.attr('data-state-high', bHigh ? 1 : 0);
+                  button.attr('data-state-low', bLow ? 1 : 0);
+
+                  
+                  setWindowChannelButtonState(button,(windowIndex+1),bHigh, bLow);
+                        
+                  button.off('click').click(function(){
+                  
+                    var btn = $(this);
+                    var channelId = parseInt(btn.attr('data-channel-id'));
+                      
+                      var bHigh = parseInt(btn.attr('data-state-high')) == 1;
+                      var bLow = parseInt(btn.attr('data-state-low')) == 1;
+                      
+
+                      
+                      var isOpen = (bHigh && bLow);
+                      var isClosed = (!bHigh && !bLow);
+                      
+                      var canDrive =  isOpen || isClosed;
+                      
+                      if(!canDrive)
+                        return;
                     
-                    // проверяем комбинации
-                    if (!bLow && !bHigh)
+
+                                        
+                    var command = "STATE|WINDOW|";
+                    command += channelId;
+                    
+                    if(isOpen)
                     {
-                        ws = "закрыто";
+                      setWindowChannelButtonState(btn,(channelId+1),true,false);
+                      command += "|CLOSE";
                     }
                     else
-                    if (!bHigh && bLow)
                     {
-                        ws = "открывается";
-                    }
-                    else
-                    if (bHigh && !bLow)
-                    {
-                        ws = "закрывается";
-                    }
-                    else
-                    if (bHigh && bLow)
-                    {
-                        ws = "открыто";
-                        optionClass = 'auto_mode';
-                    }
-                    
-                    // сохраняем состояние
-                    var opt = $('#windowsChannelsState').find("option")[windowIndex];
-                    $(opt).text(wCapt + ws).removeClass();
-                    
-                    if(optionClass != '')
-                      $(opt).addClass(optionClass);
+                      setWindowChannelButtonState(btn,(channelId+1),false,true);
+                      command += "|OPEN";
+                    }                
+                      
+                      controller.queryCommand(false,command,function(o,a){});
+                  
+                  });                    
                     
                     windowIndex++; // переходим на следующее окно
                 } // for
@@ -426,6 +493,12 @@ function updateWindowsState()
   $('#windows_controller_status').toggle(controller.Modules.includes('STATE'));
 
     $('#window_state').html( controller.IsWindowsOpen ? $('#window_state_on').html() : $('#window_state_off').html());
+    
+    if(controller.IsWindowsOpen)
+      $('#window_state').removeClass('state_off').addClass('state_on');
+    else
+      $('#window_state').removeClass('state_on').addClass('state_off');
+    
     $('#window_mode').html( controller.IsWindowsAutoMode ? $('#mode_auto').html() : $('#mode_manual').html());
     $('#toggler_windows_mode').button({ label: !controller.IsWindowsAutoMode ? $('#mode_auto_switch').html() : $('#mode_manual_switch').html() });
     $('#toggler_windows').button({ label: controller.IsWindowsOpen ? $('#toggle_close').html() : $('#toggle_open').html() } );
@@ -436,6 +509,12 @@ function updateWaterState()
   $('#water_controller_status').toggle(controller.Modules.includes('WATER'));
 
     $('#water_state').html( controller.IsWaterOn ? $('#water_state_on').html() : $('#water_state_off').html());
+    
+    if(controller.IsWaterOn)
+      $('#water_state').removeClass('state_off').addClass('state_on');
+    else
+      $('#water_state').removeClass('state_on').addClass('state_off');    
+    
     $('#water_mode').html( controller.IsWaterAutoMode ? $('#mode_auto').html() : $('#mode_manual').html());
     $('#toggler_water_mode').button({ label: !controller.IsWaterAutoMode ? $('#mode_auto_switch').html() : $('#mode_manual_switch').html() });
     $('#toggler_water').button({ label:controller.IsWaterOn ? $('#toggle_off').html() : $('#toggle_on').html() });
@@ -447,6 +526,12 @@ function updateLightState()
  $('#light_controller_status').toggle(controller.Modules.includes('LIGHT'));
 
     $('#light_state').html( controller.IsLightOn ? $('#light_state_on').html() : $('#light_state_off').html());
+    
+    if(controller.IsLightOn)
+      $('#light_state').removeClass('state_off').addClass('state_on');
+    else
+      $('#light_state').removeClass('state_on').addClass('state_off');     
+    
     $('#light_mode').html( controller.IsLightAutoMode ? $('#mode_auto').html() : $('#mode_manual').html());
     $('#toggler_light_mode').button({ label: !controller.IsLightAutoMode ? $('#mode_auto_switch').html() : $('#mode_manual_switch').html() });
     $('#toggler_light').button({ label:controller.IsLightOn ? $('#toggle_off').html() : $('#toggle_on').html() } );
@@ -490,7 +575,7 @@ window.setInterval(updateControllerData,5000); // повторяем опрос 
     });
 
 
-  $( "#toggler_windows, #toggler_light, #toggler_water, #temp_motors_settings" ).button({
+  $( "#toggler_windows, #toggler_light, #toggler_water" ).button({
       icons: {
         primary: "ui-icon-gear"
       }

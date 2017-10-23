@@ -1,6 +1,6 @@
 {* Smarty *}
 
-<div class='ui-widget-header ui-corner-top'>Таймер №{$num}</div>
+<div class='ui-widget-header ui-corner-top padding_around8px'>Таймер №{$num}</div>
 <div class='ui-widget-content ui-corner-bottom' style='text-align:left;padding:8px;'> 
 
   <table border='0' width='100%'>

@@ -9,11 +9,11 @@
   <p id='message_dialog_message'></p>
 </div>
 
-<div id="temp_settings_dialog" title="Настройки температур и моторов" class='hdn'>
+<div id="temp_settings_dialog" title="Уставки" class='hdn'>
   <form>
-  T открытия:<br/>
+  T открытия фрамуг:<br/>
   <input type='text' id='edit_t_open' maxlength='5' value='' style='width:100%;'/><br/>
-  Т закрытия:<br/>
+  Т закрытия фрамуг:<br/>
   <input type='text' id='edit_t_close' maxlength='50' value='' style='width:100%;'/><br/>
   Время работы моторов, с:<br/>
   <input type='text' id='edit_motor_time' maxlength='100' value='' style='width:100%;'/><br/>
@@ -28,7 +28,7 @@
 </div>
 
 
-{include file='controller_head.tpl' additional_text=', показания'}
+{include file='controller_head.tpl' additional_text=', показания' room='status'}
 
 <div id='wait_block' style='padding-left:20px;'>
 <img src='images/wait.gif'/ align='absmiddle'> Подождите, идёт обработка данных...
@@ -41,15 +41,15 @@
 <div id='online_block' class='hdn'>
 
   <div class='left_menu'>
-      <div class='menuitem ui-corner-all hdn' id='WELCOME_MENU' onclick="content(this);">Виджеты</div>      
-      <div class='menuitem ui-corner-all hdn' id='STATUS_MENU' onclick="content(this);">Статус</div>      
-      <div class='menuitem ui-corner-all hdn' id='TEMPERATURE_MENU' onclick="content(this);">Температура</div>
-      <div class='menuitem ui-corner-all hdn' id='HUMIDITY_MENU' onclick="content(this);">Влажность</div>
-      <div class='menuitem ui-corner-all hdn' id='LIGHT_MENU' onclick="content(this);">Освещенность</div>
-      <div class='menuitem ui-corner-all hdn' id='SOIL_MENU' onclick="content(this);">Влажность почвы</div>
-      <div class='menuitem ui-corner-all hdn' id='PH_MENU' onclick="content(this);">Показания pH</div>
-      <div class='menuitem ui-corner-all hdn' id='FLOW_MENU' onclick="content(this);">Расход воды</div>
-      <div class='ui-corner-all hdn' id='temp_motors_settings' onclick="editTempSettings();">Температуры и моторы</div>
+      <div class='menuitem hdn' id='WELCOME_MENU' onclick="content(this);">Виджеты</div>      
+      <div class='menuitem hdn' id='STATUS_MENU' onclick="content(this);">Статус</div>      
+      <div class='menuitem hdn' id='TEMPERATURE_MENU' onclick="content(this);">Температура</div>
+      <div class='menuitem hdn' id='HUMIDITY_MENU' onclick="content(this);">Влажность</div>
+      <div class='menuitem hdn' id='LIGHT_MENU' onclick="content(this);">Освещенность</div>
+      <div class='menuitem hdn' id='SOIL_MENU' onclick="content(this);">Влажность почвы</div>
+      <div class='menuitem hdn' id='PH_MENU' onclick="content(this);">Показания pH</div>
+      <div class='menuitem hdn' id='FLOW_MENU' onclick="content(this);">Расход воды</div>
+      <div class='menuitem hdn' id='temp_motors_settings' onclick="editTempSettings();">Уставки</div>
 
   </div>
 
@@ -57,7 +57,7 @@
 
                   <div class='content hdn' id='TEMPERATURE_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Показания датчиков температуры</h3>
+                    <h1><span class='innerh'>Показания датчиков температуры</span></h1>
                     <div class='row' id='TEMPERATURE_HEADER'>
                       <div class='row_item ui-widget-header'>Название модуля</div>
                       <div class='row_item ui-widget-header'>Индекс датчика</div>
@@ -71,7 +71,7 @@
 
                   <div class='content hdn' id='HUMIDITY_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Показания датчиков влажности</h3>
+                    <h1><span class='innerh'>Показания датчиков влажности</span></h1>
                     <div class='row' id='HUMIDITY_HEADER'>
                       <div class='row_item ui-widget-header'>Название модуля</div>
                       <div class='row_item ui-widget-header'>Индекс датчика</div>
@@ -85,7 +85,7 @@
                   
                   <div class='content hdn' id='LIGHT_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Показания датчиков освещенности</h3>
+                    <h1><span class='innerh'>Показания датчиков освещенности</span></h1>
                     <div class='row' id='LUMINOSITY_HEADER'>
                       <div class='row_item ui-widget-header'>Название модуля</div>
                       <div class='row_item ui-widget-header'>Индекс датчика</div>
@@ -98,7 +98,7 @@
 
                   <div class='content hdn' id='SOIL_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Показания датчиков влажности почвы</h3>
+                    <h1><span class='innerh'>Показания датчиков влажности почвы</span></h1>
                     <div class='row' id='SOIL_HEADER'>
                       <div class='row_item ui-widget-header'>Индекс датчика</div>
                       <div class='row_item ui-widget-header'>Влажность почвы</div>
@@ -111,7 +111,7 @@
 
                   <div class='content hdn' id='PH_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Показания датчиков pH</h3>
+                    <h1><span class='innerh'>Показания датчиков pH</span></h1>
                     <div class='row' id='PH_HEADER'>
                       <div class='row_item ui-widget-header'>Индекс датчика</div>
                       <div class='row_item ui-widget-header'>Показания pH</div>
@@ -126,19 +126,19 @@
                   <div class='content hdn' id='FLOW_MENU_CONTENT'>
                   
 
-                    <h3 class='ui-widget-header ui-corner-all'>Расход воды</h3> 
+                    <h1><span class='innerh'>Расход воды</span></h1> 
                     
-                  <div style='margin-bottom:10px;'>
+                  <div style='margin-bottom:20px;'>
                    <a href="javascript:resetFlowData();" id='reset_flow_btn'>Сбросить показания счётчиков</a>
                   </div>
                     
                     <div id='flow1_box' class='hdn'>
-                      <h4 class='ui-widget-header ui-corner-all' style='margin-bottom:0px;'>Первый расходомер</h4>
+                      <h2><span class='innerh'>Первый расходомер</span></h2>
                       
                         <div class='half'>
                             <div class='half_box half_left'>
-                                <div class='ui-widget-header ui-corner-all'>Мгновенный</div>
-                                <div class='ui-widget-content'> 
+                                <div class='ui-widget-header ui-corner-top padding_around8px'>Мгновенный</div>
+                                <div class='ui-widget-content ui-corner-bottom'> 
                                 
                                   <div><img src='/images/water_meter_icon.png'/></div>
                                   <span id='flow_instant' class='bold big'>0</span><br/>литров<br/><br/>
@@ -148,8 +148,8 @@
                       
                         <div class='half'>
                           <div class='half_box half_right'>
-                              <div class='ui-widget-header ui-corner-all'>Накопительный</div>
-                              <div class='ui-widget-content'>
+                              <div class='ui-widget-header ui-corner-top padding_around8px'>Накопительный</div>
+                              <div class='ui-widget-content ui-corner-bottom'>
                                 <div><img src='/images/water_meter_icon.png'/></div>
                                 <span id='flow_incremental' class='bold big'>0</span><br/>литров<br/><br/>
                               </div>
@@ -160,12 +160,12 @@
                      
                     <br clear='left'/><br/> 
                     <div id='flow2_box' class='hdn'>
-                      <h4 class='ui-widget-header ui-corner-all' style='margin-bottom:0px;'>Второй расходомер</h4>
+                      <h2><span class='innerh'>Второй расходомер</span></h2>
                       
                         <div class='half'>
                             <div class='half_box half_left'>
-                                <div class='ui-widget-header ui-corner-all'>Мгновенный</div>
-                                <div class='ui-widget-content'> 
+                                <div class='ui-widget-header ui-corner-top padding_around8px'>Мгновенный</div>
+                                <div class='ui-widget-content ui-corner-bottom'> 
                                 
                                   <div><img src='/images/water_meter_icon.png'/></div>
                                   <span id='flow_instant2' class='bold big'>0</span><br/>литров<br/><br/>
@@ -175,8 +175,8 @@
                       
                         <div class='half'>
                           <div class='half_box half_right'>
-                              <div class='ui-widget-header ui-corner-all'>Накопительный</div>
-                              <div class='ui-widget-content'>
+                              <div class='ui-widget-header ui-corner-top padding_around8px'>Накопительный</div>
+                              <div class='ui-widget-content ui-corner-bottom'>
                                 <div><img src='/images/water_meter_icon.png'/></div>
                                 <span id='flow_incremental2' class='bold big'>0</span><br/>литров<br/><br/>
                               </div>
@@ -193,63 +193,54 @@
 
                   <div class='content hdn' id='STATUS_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Состояние контроллера</h3>
+                    <h1><span class='innerh'>Состояние контроллера</span></h1>
+                    
+                     <div class='info-info bottom-spacer'>
+                      <span class='ui-icon ui-icon-info' style='float:left;margin-right:10px;'></span>
+                      Обратите внимание, что обновление статуса контроллера происходит раз в 5 секунд: например, если вы нажали кнопку
+                      "Закрыть все фрамуги", то актуальное состояние фрамуг может отобразиться с некоторой задержкой.
+                     </div>
+                                         
                     
 
-                        <span id='mode_auto' class='hdn'><span class='auto_mode'>автоматический</span></span>
-                        <span id='mode_manual' class='hdn'><span class='manual_mode'>ручной</span></span>
+                     <div id='mode_auto' class='hdn'><span class='auto_mode'>автоматический</span></div>
+                     <div id='mode_manual' class='hdn'><span class='manual_mode'>ручной</span></div>
                       
 
-                    <span id='mode_auto_switch' class='hdn'>Автоматический режим</span>
-                    <span id='mode_manual_switch' class='hdn'>Ручной режим</span>
+                    <div id='mode_auto_switch' class='hdn'>Автоматический режим</div>
+                    <div id='mode_manual_switch' class='hdn'>Ручной режим</div>
 
-                    <span id='toggle_open' class='hdn'>Открыть</span>
-                    <span id='toggle_close' class='hdn'>Закрыть</span>
+                    <div id='toggle_open' class='hdn'>Открыть все</div>
+                    <div id='toggle_close' class='hdn'>Закрыть все</div>
 
-                    <span id='toggle_on' class='hdn'>Включить</span>
-                    <span id='toggle_off' class='hdn'>Выключить</span>
+                    <div id='toggle_on' class='hdn'>Включить все</div>
+                    <div id='toggle_off' class='hdn'>Выключить все</div>
                     
-                    <span id='window_state_on' class='hdn'>открыты</span>
-                    <span id='window_state_off' class='hdn'>закрыты</span>
+                    <div id='window_state_on' class='hdn'>открыты <img src='images/on.png' align='absmiddle'></div>
+                    <div id='window_state_off' class='hdn'>закрыты  <img src='images/off.png' align='absmiddle'></div>
 
-                    <span id='water_state_on' class='hdn'>включён</span>
-                    <span id='water_state_off' class='hdn'>выключен</span>
+                    <div id='water_state_on' class='hdn'>включён <img src='images/on.png' align='absmiddle'></div>
+                    <div id='water_state_off' class='hdn'>выключен <img src='images/off.png' align='absmiddle'></div>
 
-                    <span id='ph_state_on' class='hdn'><span class='auto_mode'>включён</span></span>
-                    <span id='ph_state_off' class='hdn'><span class='manual_mode'>выключен</span></span>
+                    <div id='ph_state_on' class='hdn'><span class='auto_mode'>включён</span> <img src='images/on.png' align='absmiddle'></div>
+                    <div id='ph_state_off' class='hdn'><span class='manual_mode'>выключен</span> <img src='images/off.png' align='absmiddle'></div>
 
-                    <span id='light_state_on' class='hdn'>включёна</span>
-                    <span id='light_state_off' class='hdn'>выключена</span>
+                    <div id='light_state_on' class='hdn'>включёна <img src='images/on.png' align='absmiddle'></div>
+                    <div id='light_state_off' class='hdn'>выключена <img src='images/off.png' align='absmiddle'></div>
                     
                     
                     <div id='windows_controller_status' class='hdn'>
                     
-                      <div class='ui-widget-header ui-corner-top padding_around8px'>Окна</div>   
+                      <div class='ui-widget-header ui-corner-top padding_around8px'>Окна <span class='bold right_float' id='window_state'></span></div>   
                       <div class='ui-widget-content  padding_around8px'>
                       
-                       <table border='0' width='100%' cellspacing='0' cellpadding='0'>
-                       <tr>
-                      
-                            <td valign='top'>
-
                               <div class='padding_around8px'>
-                                Статус: <span class='bold' id='window_state'></span><br/>
                                 Режим: <span class='bold' id='window_mode'></span>
-                              </div>
+                              </div> 
                               
-                            
-                            </td>
-                            
-                            <td valign='top' align='right'>
-                              <div class='padding_around8px'>
-                                <select id='windowsChannelsState' class='hdn' size='4'>
-                                </select>
-                                
-                              </div>
-                            </td>
-                         
-                         </tr>
-                         </table>   
+                              <div id='windowsChannelsState' class='hdn bottom-spacer'>
+                              </div>                                                   
+                      
                          
 
                       </div>
@@ -264,33 +255,19 @@
                      
                     <div id='water_controller_status' class='hdn'>
                                        
-                    <div class='ui-widget-header ui-corner-top padding_around8px'>Полив</div> 
+                    <div class='ui-widget-header ui-corner-top padding_around8px'>Полив <span class='bold right_float' id='water_state'></span></div> 
                     <div class='ui-widget-content padding_around8px'>
                     
-                    <table border='0' width='100%' cellspacing='0' cellpadding='0'>
-                       <tr>
-                      
-                            <td valign='top'>
-
-                             <div class='padding_around8px'>
-                                Статус: <span class='bold' id='water_state'></span><br/>
+                        <div class='padding_around8px'>
                                 Режим: <span class='bold' id='water_mode'></span>
-                             </div>
-                              
-                              
-                            </td>
-                            
-                            <td valign='top' align='right'>
-                              <div class='padding_around8px'>
-                                <div id='waterChannelsState' class='hdn' style='overflow-y:scroll;max-height:100px;'>
-                                 
-                                </div>
-                                
-                              </div>
-                            </td>
+                         </div>
+                             
+            
+                         <div id='waterChannelsState' class='hdn bottom-spacer'>
                          
-                         </tr>
-                         </table>                                 
+                         </div>
+                    
+                               
                         
                     </div>
 
@@ -304,11 +281,10 @@
                     
                     <div id='light_controller_status' class='hdn'>
 
-                    <div class='ui-widget-header ui-corner-top padding_around8px'>Досветка</div>
+                    <div class='ui-widget-header ui-corner-top padding_around8px'>Досветка <span class='bold right_float' id='light_state'></span></div>
                     <div class='ui-widget-content upadding_around8px'>
                     
                         <div class='padding_around8px'>
-                            Статус: <span class='bold' id='light_state'></span><br/>
                             Режим: <span class='bold' id='light_mode'></span>
                         </div>
                         
@@ -345,7 +321,7 @@
 
                   <div class='content hdn' id='WELCOME_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Виджеты</h3>
+                    <h1><span class='innerh'>Виджеты</span></h1>
                     
                     {include file='controller_widgets.tpl'}
 

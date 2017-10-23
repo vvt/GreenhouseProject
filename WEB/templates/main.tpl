@@ -82,7 +82,7 @@ addController({$controller.controller_id},'{$controller.controller_name}','{$con
 
 </script>
 
-<h1 class='ui-widget-header ui-corner-all'>Список контроллеров</h1>
+<h1><span class='innerh'>Список контроллеров</span></h1>
 <div id='controllers_list'>
 {foreach key=k item=controller from=$controllers}
 {include file='controller_info.tpl'}

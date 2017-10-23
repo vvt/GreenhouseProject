@@ -39,7 +39,7 @@
     Ваш номер телефона:<br/>
     <input type='text' id='edit_phone_number' maxlength='20' value='' style='width:100%;'/><br/>
     
-    Оператор:<br/>
+    Оператор SIM контроллера:<br/>
     <select id='gsm_provider' style='width:100%;'>
       <option value='0' selected>МТС (Россия)</option>
       <option value='1'>Билайн (Россия)</option>
@@ -421,7 +421,7 @@
             
           </div>
 
-            <div>
+            <div style='clear:left;'>
               Выполнить действие:
             </div>
             <div class='button_menu_spacer'>
@@ -528,7 +528,7 @@
 
 
 
-{include file='controller_head.tpl' additional_text=', настройки'}
+{include file='controller_head.tpl' additional_text=', настройки' room='settings'}
 
 <div id='wait_block' style='padding-left:20px;'>
 <img src='images/wait.gif'/ align='absmiddle'> Подождите, идёт обработка данных...
@@ -542,23 +542,23 @@
 
     <div class='left_menu'>
     
-      <div class='menuitem ui-corner-all hdn' id='DELTA_MENU' onclick="content(this);">Список дельт</div>
-      <div class='menuitem ui-corner-all hdn' id='CC_MENU' onclick="content(this);">Составные команды</div>
-      <div class='menuitem ui-corner-all hdn' id='RESERVATION_MENU' onclick="content(this);">Резервирование</div>
-      <div class='menuitem ui-corner-all hdn' id='RULES_MENU' onclick="content(this);">Правила</div>
-      <div class='menuitem ui-corner-all hdn' id='WATER_MENU' onclick="content(this);">Настройки полива</div>
-      <div class='menuitem ui-corner-all hdn' id='TIMERS_MENU' onclick="content(this);">Таймеры</div>
-      <div class='menuitem ui-corner-all hdn' id='SMS_MENU' onclick="content(this);">Список SMS</div>
-      <div class='menuitem ui-corner-all hdn' id='IOT_MENU' onclick="content(this);">IoT</div>
-      <div class='menuitem ui-corner-all hdn' id='HTTP_MENU' onclick="content(this);">HTTP API</div>
-      <div class='menuitem ui-corner-all' id='COMMAND_PROMPT_MENU' onclick="content(this);">Командная строка</div>
+      <div class='menuitem hdn' id='DELTA_MENU' onclick="content(this);">Список дельт</div>
+      <div class='menuitem hdn' id='CC_MENU' onclick="content(this);">Составные команды</div>
+      <div class='menuitem hdn' id='RESERVATION_MENU' onclick="content(this);">Резервирование</div>
+      <div class='menuitem hdn' id='RULES_MENU' onclick="content(this);">Правила</div>
+      <div class='menuitem hdn' id='WATER_MENU' onclick="content(this);">Настройки полива</div>
+      <div class='menuitem hdn' id='TIMERS_MENU' onclick="content(this);">Таймеры</div>
+      <div class='menuitem hdn' id='SMS_MENU' onclick="content(this);">Список SMS</div>
+      <div class='menuitem hdn' id='IOT_MENU' onclick="content(this);">IoT</div>
+      <div class='menuitem hdn' id='HTTP_MENU' onclick="content(this);">HTTP API</div>
+      <div class='menuitem' id='COMMAND_PROMPT_MENU' onclick="content(this);">Командная строка</div>
 
-      <div class='ui-corner-all button_menu_spacer hdn' id='ph_calibration_button' onclick="editPHCalibration();">Настройки PH</div>
-      <div class='ui-corner-all button_menu_spacer hdn' id='flow_calibration_button' onclick="editFlowCalibration();">Расходомеры</div>
-      <div class='ui-corner-all button_menu_spacer hdn' id='controller_time_button' onclick="setControllerTime();">Дата/время</div>
+      <div class='menuitem hdn' id='ph_calibration_button' onclick="editPHCalibration();">Настройки PH</div>
+      <div class='menuitem hdn' id='flow_calibration_button' onclick="editFlowCalibration();">Расходомеры</div>
+      <div class='menuitem hdn' id='controller_time_button' onclick="setControllerTime();">Дата/время</div>
 
-      <div class='ui-corner-all button_menu_spacer hdn' id='wifi_menu' onclick="editWiFiSettings();">Настройки Wi-Fi</div>
-      <div class='ui-corner-all button_menu_spacer hdn' id='sensors_info_button' onclick="showSensorsInfo();">О датчиках</div>
+      <div class='menuitem hdn' id='wifi_menu' onclick="editWiFiSettings();">Настройки Wi-Fi</div>
+      <div class='menuitem hdn' id='sensors_info_button' onclick="showSensorsInfo();">О датчиках</div>
 
     </div>
     
@@ -566,7 +566,7 @@
     <div class="page_content">
       
             <div class='content hdn' id='TIMERS_MENU_CONTENT'>
-             <h3 class='ui-widget-header ui-corner-all' style='padding:4px;'>Настройки периодических таймеров</h3>
+             <h1><span class='innerh'>Настройки периодических таймеров</span></h1>
               
               <div class='button_menu_spacer'>
               <a href='javascript:saveTimers();' id='save_timers_button'>Сохранить в контроллер</a>
@@ -614,8 +614,16 @@
             
             <div class='content hdn' id='HTTP_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Настройки HTTP API сервиса gardenboss.ru</h3>
+                    <h1><span class='innerh'>HTTP API сервиса gardenboss.ru</span></h1>
                     
+                        <div class='button_menu_spacer'>
+                          Ключ доступа к сервису:<br/><input type='text' id='http_api_key' value='' maxlength='32'/>
+                        </div>                    
+
+                        <div class='button_menu_spacer'>
+                          Ваш часовой пояс (в минутах от UTC): <input type='text' id='http_timezone' value='' maxlength='32'/>
+                        </div>        
+                               
                         <div class='button_menu_spacer'>
                           <input type='checkbox' id='http_api_enabled'><label for='http_api_enabled'>HTTP API активно?</label>
                         </div>                    
@@ -626,13 +634,8 @@
                           <input type='checkbox' id='http_send_state'><label for='http_send_state'>Посылать статус контроллера на сервис?</label>
                         </div>                    
                     
-                        <div class='button_menu_spacer'>
-                          Ключ доступа к сервису:<br/><input type='text' id='http_api_key' value='' maxlength='32'/>
-                        </div>                    
 
-                        <div class='button_menu_spacer'>
-                          Ваш часовой пояс (в минутах от UTC):<br/><input type='text' id='http_timezone' value='' maxlength='32'/>
-                        </div> 
+
                         
                     <div style='margin-top:10px;'>
                         <button id='save_http_button' onclick='saveHTTPSettings();'>Сохранить</button>                        
@@ -643,7 +646,7 @@
             
                   <div class='content hdn' id='IOT_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Настройки IoT</h3>
+                    <h1><span class='innerh'>Настройки IoT</span></h1>
                     
                         <div class='button_menu_spacer'>
                           <input type='checkbox' id='thingspeak_enabled'><label for='thingspeak_enabled'>Отправлять данные на ThingSpeak?</label>
@@ -655,7 +658,7 @@
                           Ключ канала ThingSpeak:<br/><input type='text' id='thingspeak_channel' value='' maxlength='19'/>
                         </div>                    
                     
-                     <div class='ui-state-highlight ui-corner-all' style='margin-top:10px;margin-bottom:10px;padding:4px;'>
+                     <div class='info-info bottom-spacer'>
                       <span class='ui-icon ui-icon-info' style='float:left;margin-right:10px;'></span>Датчики можно перетаскивать между списками.
                      </div>
                      
@@ -665,14 +668,14 @@
                       
                         <tr>
                         <td valign='top' width='50%'>
-                           <h4 class='ui-widget-header ui-corner-all'>Доступные датчики</h4>
+                           <h2><span class='innerh'>Доступные датчики</span></h2>
                            
                            <div class='iot_sortable' style='height:300px;overflow:auto;' id='iot_all_sensors'>
                           </div>
 
                         </td>
                         <td valign='top'>
-                          <h4 class='ui-widget-header ui-corner-all'>Выбранные датчики (максимум 8)</h4>
+                          <h2><span class='innerh'>Выбранные датчики (максимум 8)</span></h2>
                           
                           <div class='iot_sortable' style='height:300px;overflow:auto;' id='iot_selected_sensors'>
                           </div>
@@ -694,7 +697,7 @@
       
                   <div class='content hdn' id='DELTA_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Список виртуальных датчиков дельт</h3>
+                    <h1><span class='innerh'>Список виртуальных датчиков дельт</span></h1>
                     
                     <div id='DELTA_LIST'></div>
                     <br clear='left'/>
@@ -710,7 +713,7 @@
                   
                    <div class='content hdn' id='COMMAND_PROMPT_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Командная строка контроллера</h3>
+                    <h1><span class='innerh'>Командная строка контроллера</span></h1>
                     
                     <div class='button_menu_spacer' style='margin-right:10px;'>
                     Текст команды:<br/>
@@ -734,7 +737,7 @@
                                    
                   <div class='content hdn' id='SMS_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Список SMS для управления контроллером</h3>
+                    <h1><span class='innerh'>Список SMS для управления контроллером</span></h1>
                     
                     <div id='SMS_LIST'></div>
                     <br clear='left'/>
@@ -751,7 +754,7 @@
                   
                   <div class='content hdn' id='RESERVATION_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Список резервирования датчиков</h3>
+                    <h1><span class='innerh'>Список резервирования датчиков</span></h1>
                     
                     <div class="row" id="RESERVATION_LIST_HEADER">
                       <div class="row_item ui-widget-header">#</div>
@@ -769,7 +772,7 @@
                     </div>
                     
                     <br/><br/>
-                    <h4 class='ui-widget-header ui-corner-all'>Что такое список резервирования?</h4>
+                    <h2><span class='innerh'>Что такое список резервирования?</span></h2>
                     <div class='button_menu_spacer' style='font-size:80%;'>
                     Список резервирования - это горячая замена показаний одного датчика показаниями другого. Если два датчика 
                     находятся в одном списке резервирования и один из них вышел из строя, то для такого датчика будут браться показания 
@@ -783,7 +786,7 @@
                   
                   <div class='content hdn' id='RULES_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Список правил</h3>
+                    <h1><span class='innerh'>Список правил</span></h1>
                     
                     <div id='RULES_LIST'></div>
                     <br clear='left'/>
@@ -799,7 +802,7 @@
 
                   <div class='content hdn' id='CC_MENU_CONTENT'>
                   
-                    <h3 class='ui-widget-header ui-corner-all'>Список составных команд</h3>
+                    <h1><span class='innerh'>Список составных команд</span></h1>
                     <div id='cc_lists_box' class='hdn'>
                         <select id='cc_lists' style='width:100%'></select>
                         <div class='padding_top8px'>
@@ -823,7 +826,7 @@
 
                   <div class='content hdn' id='WATER_MENU_CONTENT'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Настройки полива</h3>
+                    <h1><span class='innerh'>Настройки полива</span></h1>
                     
                     
                     
@@ -841,7 +844,7 @@
                            
                             <div class='half'>
                                 <div class='half_box half_left'>
-                                  <div class='ui-widget-header ui-corner-all'>Дни недели</div>
+                                  <div class='ui-widget-header ui-corner-top'>Дни недели</div>
                                   <div class='ui-widget-content padding_around8px left_align'id='all_watering_channels_days'>
                                       <div><input type='checkbox' id='all_watering_channels_day' value='1'/>Понедельник</div>
                                       <div><input type='checkbox' id='all_watering_channels_day' value='2'/>Вторник</div>
@@ -857,7 +860,7 @@
                             <div class='half'>
                                 <div class='half_box half_right'>
 
-                                  <div class='ui-widget-header ui-corner-all'>Настройки</div>
+                                  <div class='ui-widget-header ui-corner-top'>Настройки</div>
                                   <div class='ui-widget-content padding_around8px left_align'>
                                     <div>
                                       Начало работы (чч:мм):<br/>
@@ -908,7 +911,7 @@
     
                   <div class='content' id='welcome'>
 
-                    <h3 class='ui-widget-header ui-corner-all'>Настройки контроллера</h3>
+                    <h1><span class='innerh'>Настройки контроллера</span></h1>
                     
                       Для редактирования настроек контроллера выберите пункт меню слева.
  

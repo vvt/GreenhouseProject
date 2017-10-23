@@ -1760,6 +1760,21 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
         PublishSingleton << PARAM_DELIMITER << apCurrentIP << PARAM_DELIMITER << stationCurrentIP;
         } // else not busy
       } // IP_COMMAND
+      else
+      if(t == WIFI_SETTINGS_COMMAND)
+      {
+         // получить настройки Wi-Fi
+
+        GlobalSettings* Settings = MainController->GetSettings();  
+
+        PublishSingleton.Status = true;
+        PublishSingleton = t; 
+        PublishSingleton << PARAM_DELIMITER << Settings->GetWiFiState() << PARAM_DELIMITER << Settings->GetRouterID()
+        << PARAM_DELIMITER << Settings->GetRouterPassword()
+        << PARAM_DELIMITER << Settings->GetStationID()
+        << PARAM_DELIMITER << Settings->GetStationPassword();
+        
+      } // WIFI_SETTINGS_COMMAND
     }
     else
       PublishSingleton = PARAMS_MISSED; // мало параметров

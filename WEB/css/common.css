@@ -5,12 +5,99 @@ BODY {
   padding-right:20px;
 }
 
+input[type=text]:not(.ui-spinner-input), select, textarea {
+    width: 100%; /* Full width */
+    padding: 8px; /* Some padding */  
+    border: 1px solid #ccc; /* Gray border */
+    border-radius: 4px; /* Rounded borders */
+    box-sizing: border-box; /* Make sure that padding and width stays in place */
+    margin-top: 4px; /* Add a top margin */
+    margin-bottom: 12px; /* Bottom margin */
+    resize: vertical /* Allow the user to vertically resize the textarea (not horizontally) */
+}
+
+
+.state_off {
+  color:#808080;
+}
+
+.state_on {
+  color:#4caf50;
+}
+
+#controller_date_time {
+  font-family: Courier;
+  font-size:14px;
+  line-height:40px;
+  vertical-align:bottom;
+}
+
+.info-success {
+background-color: #ddffdd;
+border-left: 6px solid #4caf50;
+padding:6px;
+padding-left:12px;
+
+}
+
+.info-info {
+background-color: #e7f3fe;
+border-left: 6px solid #2196f3;
+padding:6px;
+padding-left:12px;
+
+}
+
+.bottom-spacer {
+  margin-bottom:20px;
+}
+
+ul.navbar {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #333;
+    margin-bottom:20px;
+}
+
+ul.navbar > li {
+    float: left;
+}
+
+ul.navbar > li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+}
+
+ul.navbar >li a:hover:not(.active) {
+    background-color: #111;
+}
+
+ul.navbar > li.active {
+    background-color: #4CAF50;
+}
+
+
+.innerh {
+  color:#fff;
+  background-color:#555;
+  padding: 0px 12px 1px 12px;
+}
+
 H1, H2, H3, H4, H5, H6 {
 margin-top: 0px;
-padding:6px;
+/*padding:8px;
 background-color: #F0F0F0;
 padding-left:10px;
+*/
+border-bottom: 1px solid #d0d0d0;
+font-family: Arial;
 }
+
 
 LEGEND {
 font-weight:bold;
@@ -35,9 +122,18 @@ LABEL {
 
 .water-channel-button 
 {
-  display: block !important;
+  /*display: block !important;*/
   padding:4px !important;
-  margin-bottom:2px !important;
+  margin-right:4px !important;
+  margin-top:4px !important;
+}
+
+.window-channel-button 
+{
+  /*display: block !important;*/
+  padding:4px !important;
+  margin-right:4px !important;
+  margin-top:4px !important;
 }
 
 .water-on
@@ -185,14 +281,14 @@ margin-bottom:6px;
 /* класс пункта меню слева */
 .menuitem {
 cursor: pointer;
-border:1px solid #D0D0F0;
-margin-bottom:6px;
-padding:4px;
+/*border:1px solid #D0D0F0;
+margin-bottom:6px;*/
+padding:8px;
 }
 
 .menuitem:hover {
 
-background-color:#b0b0b0;
+background-color:#a0a0a0;
 color:#FFFFFF;
 
 
@@ -200,7 +296,7 @@ color:#FFFFFF;
 
 /* класс выделенного пункта меню слева */
 .menuitem_selected {
-background-color:#b0b0b0;
+background-color:#555;
 font-weight:bold;
 color:#FFFFFF;
 }

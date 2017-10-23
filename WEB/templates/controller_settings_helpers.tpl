@@ -2014,6 +2014,7 @@ controller.OnGetModulesList = function(obj)
     
     if(hasWIFIModule) // если в прошивке есть модуль wi-fi
     {
+    /*
         controller.queryServerScript("/x_get_wifi_settings.php",{}, function(obj,result){
            
           $('#wifi_menu').toggle(true);
@@ -2032,6 +2033,30 @@ controller.OnGetModulesList = function(obj)
               $('#connect_to_router').attr('checked', 'checked');
         
         });
+        
+        */
+          controller.queryCommand(true,'WIFI|T_SETT',function(obj,answer){
+                     
+          if(answer.IsOK)
+          {
+            $('#wifi_menu').toggle(true);
+             
+            var checked = false;
+            if(answer.Params[2] == "1")
+              checked = true;
+              
+            $('#router_id').val(answer.Params[3]);
+            $('#router_pass').val(answer.Params[4]);
+            $('#station_id').val(answer.Params[5]);
+            $('#station_pass').val(answer.Params[6]);
+            if(checked)
+              $('#connect_to_router').attr('checked', 'checked');
+            else
+              $('#connect_to_router').removeAttr('checked');
+          }
+        
+        });               
+        
     }
     
     if(controller.Modules.includes('HTTP') && hasWIFIModule)
@@ -2976,25 +3001,26 @@ $(document).ready(function(){
         primary: "ui-icon-note"
       }
     });
-    
+    /*
       $( "#sensors_info_button" ).button({
       icons: {
         primary: "ui-icon-info"
       }
     }).hide().css('width','100%');
-    
+    */
     
     $('#new_cc_list').button({
       icons: {
         primary: "ui-icon-note"
       }
     });
-    
+    /*
     $('#flow_calibration_button, #ph_calibration_button').button({
       icons: {
         primary: "ui-icon-note"
       }
-    }).hide().css('width','100%');    
+    }).hide().css('width','100%'); 
+    */   
     
     $('#delete_cc_list').button({
       icons: {
@@ -3015,19 +3041,20 @@ $(document).ready(function(){
     });
     exec_command_button
       
-    
+  /*     
     $( "#controller_time_button" ).button({
       icons: {
         primary: "ui-icon-clock"
       }
     }).hide().css('width','100%');       
       
-    
+ 
  $( "#wifi_menu" ).button({
       icons: {
         primary: "ui-icon-signal-diag"
       }
     }).hide().css('width','100%');       
+*/
     
     $('#iot_interval, #cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
