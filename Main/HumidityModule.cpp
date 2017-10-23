@@ -10,6 +10,8 @@ void HumidityModule::Setup()
 {
   // настройка модуля тут
 
+  lastSi7021StrobeBreakPin = 0;
+
 
   #if SUPPORTED_HUMIDITY_SENSORS > 0
 
@@ -22,6 +24,14 @@ void HumidityModule::Setup()
     State.AddState(StateTemperature,i); // и температуру
     // запускаем конвертацию с датчиков при старте, через 2 секунды нам вернётся измеренная влажность и температура
    // QuerySensor(i, HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].pin2, HUMIDITY_SENSORS_ARRAY[i].type);
+
+     // проверяем на стробы для Si7021
+     if(HUMIDITY_SENSORS_ARRAY[i].type == SI7021 && HUMIDITY_SENSORS_ARRAY[i].pin > 0)
+     {
+       // есть привязанный пин для разрыва строба - настраиваем его
+       WORK_STATUS.PinMode(HUMIDITY_SENSORS_ARRAY[i].pin,OUTPUT);
+     }
+   
    }
    #endif  
  }
@@ -55,6 +65,40 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
       
       Si7021 si7021;
 
+      // сначала смотрим - не надо ли разорвать строб у предыдущего Si7021 ?
+
+      if(lastSi7021StrobeBreakPin && pin != lastSi7021StrobeBreakPin)
+      {
+         // предыдущему датчику был назначен пин для разрыва строба - рвём ему строб
+         WORK_STATUS.PinWrite(lastSi7021StrobeBreakPin,STROBE_OFF_LEVEL);
+         lastSi7021StrobeBreakPin = 0; // сбрасываем статус, т.к. мы уже разорвали этот строб
+      }
+
+      // тут смотрим - не назначен ли у нас пин для разрыва строба?
+      if(pin)
+      {
+            // нам назначена линия разрыва строба - мы должны её включить
+            lastSi7021StrobeBreakPin = pin; // запоминаем, какую линию включали
+            // включаем её
+            WORK_STATUS.PinWrite(pin,STROBE_ON_LEVEL);
+      }
+
+      // теперь смотрим - проинициализирован ли датчик?
+      if(!pin2)
+      {
+         // датчик не проинициализирован
+         HUMIDITY_SENSORS_ARRAY[sensorNumber].pin2 = 1; // запоминаем, что мы проинициализировали датчик
+
+         // и инициализируем его
+         si7021.begin();
+      }
+
+      // теперь мы можем читать с датчика - предыдущий строб, если был - разорван, текущий, если есть - включен
+      return si7021.read();
+     
+      
+      /*
+
       static bool isSI7021Inited = false;
       
       if(!isSI7021Inited)
@@ -64,6 +108,7 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
       }
       
       return si7021.read();
+      */
     }
     break;
 

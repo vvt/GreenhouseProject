@@ -28,6 +28,8 @@ class HumidityModule : public AbstractModule // модуль управлени�
 
     uint16_t lastUpdateCall;
 
+    uint8_t lastSi7021StrobeBreakPin;
+
     
   public:
     HumidityModule() : AbstractModule("HUMIDITY")
