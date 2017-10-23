@@ -230,9 +230,11 @@ void LuminosityModule::Update(uint16_t dt)
            case MAX44009_SENSOR:
            {
               Max44009* bh = (Max44009*) lightSensors[i];
-              float lumFloat = bh->readLuminosity();
+              unsigned long lumUnsigned = (unsigned long) bh->readLuminosity();
+              if(lumUnsigned > 65535)
+                lumUnsigned = 65535; // обрезаем, не вмещаемся
 
-              lum = map((unsigned long)lumFloat,0,188000,0,65535);
+              lum = lumUnsigned;
            }
            break;
                   
