@@ -43,7 +43,9 @@ float Max44009::readLuminosity()
     data[0] = Wire.read();
     data[1] = Wire.read();
   }
-
+  else
+    return -1.0;
+    
   // Convert the data to lux
   int exponent = (data[0] & 0xF0) >> 4;
   int mantissa = ((data[0] & 0x0F) << 4) | (data[1] & 0x0F);
