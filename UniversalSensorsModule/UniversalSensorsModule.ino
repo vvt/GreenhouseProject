@@ -901,11 +901,19 @@ void ReadMax44009(const SensorSettings& sett, void* sensorDefinedData, struct se
   UNUSED(sett);
   Max44009* bh = (Max44009*) sensorDefinedData;
 
-  unsigned long sensLum = (unsigned long) bh->readLuminosity();
-  if(sensLum > 65535)
-    sensLum = 65535;
-    
-  long lum = sensLum;
+  long lum;
+  float curLum =  bh->readLuminosity();
+
+   if(curLum < 0)
+      lum = NO_LUMINOSITY_DATA;
+    else
+    {
+      unsigned long ulLum = (unsigned long) curLum;
+      if(ulLum > 65535)
+        ulLum = 65535;
+
+      lum = ulLum;
+    }
   
   memcpy(s->data,&lum,sizeof(lum));
 
