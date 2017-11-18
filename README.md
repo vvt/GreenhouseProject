@@ -5,6 +5,6 @@ Need volunteers to help with translating the interface into English (configurato
 <h1>About (О проекте)</h1>
 
 <ul>
- <li><a href="README_EN.md"></a>English description of the project</li>
- <li><a href="README_RU.md"></a>Русская версия описания проекта</li>
+ <li><a href="README_EN.md">English description of the project</a></li>
+ <li><a href="README_RU.md">Русская версия описания проекта</a></li>
  </ul>
