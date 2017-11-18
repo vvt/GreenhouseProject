@@ -2,7 +2,7 @@
 
 Arduino based smart greenhouse - is the project, intended to provide fully automatic way to control your greenhouse with many tasty features, like MQTT, Wi-Fi, Web-based interface, IoT (ThingSpeak), configuration software and so on.
 
-Умная теплица на Arduino - проект прошивки, позволяющей вам полностью автоматизировать вашу теплицу, и включающий в себя многие вкусные плюшки, такие как поддержка MQTT, работу черезе Wi-Fi, работу с IoT, веб-интерфейс, конфигуратор, и многое другое.
+Умная теплица на Arduino - проект прошивки, позволяющей вам полностью автоматизировать вашу теплицу, и включающий в себя многие вкусные плюшки, такие как поддержка MQTT, работу через Wi-Fi, работу с IoT, веб-интерфейс, конфигуратор, и многое другое.
 
 
 <h1>NB: to english readers</h1>
