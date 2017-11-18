@@ -1,8 +1,8 @@
 <h1>NB: to english readers</h1>
 <p>
-Need volunteers to translate the interface into English (configurator, web-interface, firmware settings and so on). For details, write to spywarrior@gmail.com.
+Need volunteers to help with translating the interface into English (configurator, web-interface, firmware settings, project description on github, and so on). For details, please write to spywarrior@gmail.com - english is not my native language, I can translate from russian to it, but with permanent bad results :(.
 
-<h1>Контроллер теплицы на Arduino Mega</h1>
+<h1>Контроллер теплицы на Arduino</h1>
 <p>
 Когда возник вопрос - <a href="https://github.com/Porokhnya/GreenhouseProject/wiki">здесь уже может быть половина ответа</a>. Вторая половина ответа, как правило, <a href="https://www.forumhouse.ru/threads/367227">расположена тут</a>.
 
