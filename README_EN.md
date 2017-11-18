@@ -6,31 +6,31 @@ Project WIKI is located <a href="https://github.com/Porokhnya/GreenhouseProject/
 <p>
  <ul>
   <li>Send data to IoT (ThingSpeak and <a href="http://gardenboss.ru" target="_blank">GardenBoss.ru</a>);</li>
-  <li>Able to control and configure through configuration software and web-based interface;</li>
-  <li>Receive and execure external commands from <a href="http://gardenboss.ru" target="_blank">GardenBoss.ru</a>;</li>
-  <li>To publish MQTT-topics (in development);</li>
-  <li>Can control via SMS;</li>
+  <li>Able to controlled and configured through configuration software and web-based interface;</li>
+  <li>Receive and execute external commands from <a href="http://gardenboss.ru" target="_blank">GardenBoss.ru</a>;</li>
+  <li>Publish MQTT-topics (in development);</li>
+  <li>Can be controlled via SMS;</li>
   <li>Able to use different gates to WAN/LAN: GSM/GPRS (SIM800L/Neoway M590), Wi-Fi (ESP8266), LAN (W5100);</li>
   <li>Able to work with sensors using different ways - connected directly to microcontroller, through RS-485, 1-Wire, nRF;</li>
   <li>Able to be configured by using smart rules - is the key feature of the firmware, where user can provide and manage the needed firmware behaviour;</li>
-  <li>Work with different display modela - Nextion, LCD 128x64, (7'-TFT with Arduino Due - in development);</li>
-  <li>Work with idfferent microcontrollers: Arduino Mega, Arduino Due and any PCB, based on it;</li>
-  <li>Flexible firmware configuration: work through port extenters, include/exclude software modules in the firmware and so on;</li>
+  <li>Work with different display models - Nextion, LCD 128x64, (7'-TFT with Arduino Due - in development);</li>
+  <li>Work with different microcontrollers: Arduino Mega, Arduino Due and any PCB, based on it;</li>
+  <li>Flexible firmware configuration: work through port extenders, include/exclude software modules in the firmware and so on;</li>
   <li>Work with many sensors of many types (humidity, temperature, water flow and so on);</li>
   <li>Compute deltas within two sensors, even different hardware types (for example, compute temperature delta between DS18B20 and DHT22);</li>
   <li>Work with reservation lists;</li>
-  <li>Work with universal modules - is the key feature of the firmware, when the sensors connected to universal module PCB, and can be queried through RS-485, 1-Wire, nRF;</li>
-  <li>Gather logs to many locations: local file on SD-card, web-based interface, GradenBoss.ru and do on;</li>
-<li>Alarm support - when the rule is raised by its conditions - you will receive alarm SMS;</li>
+  <li>Work with universal modules - is the key feature of the firmware, when the sensors connected to the universal module PCB, and can be queried through RS-485, 1-Wire, nRF;</li>
+  <li>Gather logs to many locations: local file on SD-card, web-based interface, GardenBoss.ru and so on;</li>
+<li>Alarm support: when the rule is raised by its conditions - you will receive alarm SMS;</li>
   <li>And many, many tasty features...</li>
  </ul>
  
-<h1>ATTENTIONS!</h1>
+<h1>ATTENTION!</h1>
 The firmware needs to be configured through `Globals.h` before upload to the microcontroller! 
 <p>
 <h1>License</h1>
 
-For home use only, any commercial use is strictly prohibited. If you want to use this firmware for commercial purposes - please write to spywarrior@gmail.com for details.
+For home use only, any commercial use is strictly prohibited. If you want to use this firmware for commercial purposes - please write to <a href="mailto:spywarrior@gmail.com">spywarrior@gmail.com</a> for details.
 
 <h1>Project structure</h1>
 <ul>
