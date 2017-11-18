@@ -7,7 +7,7 @@ Arduino based smart greenhouse - is the project, intended to provide fully autom
 
 <h1>NB: to english readers</h1>
 <p>
-Need volunteers to help with translating the interface into English (configurator, web-interface, firmware settings, project description on github, and so on). For details, please write to <a href="mailto:spywarrior@gmail.com">spywarrior@gmail.com</a> - english is not my native language, I can translate from russian to it, but with permanent bad results :(.
+Need volunteers to help with translating the interface into English (configurator, web-interface, firmware settings, project description on github, and so on). For details, please write to <a href="mailto:spywarrior@gmail.com">spywarrior@gmail.com</a> - english is not my native language, I can translate from russian to it, but with permanently bad results :(.
 
 <h1>About (О проекте)</h1>
 
