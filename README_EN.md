@@ -51,7 +51,7 @@ For home use only, any commercial use is strictly prohibited. If you want to use
 
 <h1>Default firmware settings</h1>
 
-Please be attentive - the default firmware settings most likely will not conform your needs! All settings can be changes through Globals.h file in firmware source.
+Please be attentive - the default firmware settings most likely will not conform your needs! All settings can be (and SHOULD be) changed through Globals.h file in firmware source.
 
 <br/>
 <h1>Configuration software screenshoots (while in Russian only, but this will be fixed soon)</h1>
