@@ -30,7 +30,7 @@ The firmware needs to be configured through `Globals.h` before upload to the mic
 <p>
 <h1>License</h1>
 
-For home use only, any commercial use is strictly prohibited. If you want to use this firmware for commercial purposes - please write to <a href="mailto:spywarrior@gmail.com">spywarrior@gmail.com</a> for details.
+For home use only, any commercial use is strictly prohibited. If you want to use this firmware for commercial purposes - please write to the <a href="mailto:spywarrior@gmail.com">spywarrior@gmail.com</a> for details.
 
 <h1>Project structure</h1>
 <ul>
