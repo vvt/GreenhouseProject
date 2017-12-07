@@ -8,7 +8,7 @@ Project WIKI is located <a href="https://github.com/Porokhnya/GreenhouseProject/
   <li>Send data to IoT (ThingSpeak and <a href="http://gardenboss.ru" target="_blank">GardenBoss.ru</a>);</li>
   <li>Able to controlled and configured through configuration software and web-based interface;</li>
   <li>Receive and execute external commands from <a href="http://gardenboss.ru" target="_blank">GardenBoss.ru</a>;</li>
-  <li>Publish MQTT-topics (in development);</li>
+  <li>Publish MQTT-topics;</li>
   <li>Can be controlled via SMS;</li>
   <li>Able to use different gates to WAN/LAN: GSM/GPRS (SIM800L/Neoway M590), Wi-Fi (ESP8266), LAN (W5100);</li>
   <li>Able to work with sensors using different ways - connected directly to microcontroller, through RS-485, 1-Wire, nRF;</li>
