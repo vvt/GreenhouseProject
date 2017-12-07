@@ -83,7 +83,7 @@ Please be attentive - the default firmware settings most likely will not conform
 <ul>
 <li><b>Install the libraries (in Libraries folder) to the Arduino IDE!</b></li>
 <li><b>All files from CHANGED_IDE_FILES should be replaced with standard Arduino IDE files!!!</b></li>
-<li><b>All firmware settings is located in Globals.h file!</b></li>
+<li><b>All firmware settings are located in the Globals.h file!</b></li>
 </ul>
 <p>
 
