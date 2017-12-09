@@ -88,7 +88,7 @@ Please be attentive - the default firmware settings most likely will not conform
 <p>
 
 
-<h1>EXAMPLE schematic (while in Russian only, but this will be fixed soon)</h1>
+<h1>EXAMPLE schematic</h1>
 <img src="plan_en.png"/>
 
 <h1>Questions, feedbacks and so on</h1>
