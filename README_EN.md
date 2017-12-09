@@ -40,7 +40,7 @@ For home use only, any commercial use is strictly prohibited. If you want to use
 <li><b>SD</b> folder - this files should be placed on SD card;</li>
 <li><b>arduino-1.6.7-windows.exe</b> - Arduino IDE, using for compiling the project;</li>
 <li><b>CHANGED_IDE_FILES</b> folder - replace standard Arduino IDE files with this files;</li>
-<li><b>NewPlan.spl7</b> file - SPlan 7.0 project with schematic;</li>
+<li><b>NewPlan_en.spl7</b> file - SPlan 7.0 project with schematic;</li>
 <li><b>Nextion</b> folder - firmware for Nextion 320x240;</li>
 <li><b>Nextion1WireModule</b> folder - firmware for universal module with Nextion support, for connecting the Nextion through 1-Wire;</li>
 <li><b>UniversalSensorsModule</b> folder - firmware for universal module with sensors;</li>
@@ -89,7 +89,7 @@ Please be attentive - the default firmware settings most likely will not conform
 
 
 <h1>EXAMPLE schematic (while in Russian only, but this will be fixed soon)</h1>
-<img src="plan.png"/>
+<img src="plan_en.png"/>
 
 <h1>Questions, feedbacks and so on</h1>
 
