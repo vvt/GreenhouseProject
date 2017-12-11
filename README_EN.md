@@ -54,27 +54,21 @@ For home use only, any commercial use is strictly prohibited. If you want to use
 Please be attentive - the default firmware settings most likely will not conform your needs! All settings can be (and SHOULD be) changed through <b>Globals.h</b> file in the firmware source code.
 
 <br/>
-<h1>Configuration software screenshoots (while in Russian only, but this will be fixed soon)</h1>
+<h1>Configuration software screenshoots</h1>
 
 <details> 
 <summary><b>Click to view...</b><br/><br/></summary>
   
-<img src="screen1.png" hspace='10'/>
-<img src="screen2.png" hspace='10'/>
-<img src="screen3.png" hspace='10'/>
-<img src="screen4.png" hspace='10'/>
-<img src="screen5.png" hspace='10'/>
-<img src="screen6.png" hspace='10'/>
-<img src="screen7.png" hspace='10'/>
-<img src="screen8.png" hspace='10'/>
-<img src="screen9.png" hspace='10'/>
-<img src="screen10.png" hspace='10'/>
-<img src="screen11.png" hspace='10'/>
-<img src="screen12.png" hspace='10'/>
-<img src="screen13.png" hspace='10'/>
-<img src="screen14.png" hspace='10'/>
-<img src="screen15.png" hspace='10'/>
-<img src="screen16.png" hspace='10'/>
+<img src="screen1_en.png" hspace='10'/>
+<img src="screen2_en.png" hspace='10'/>
+<img src="screen3_en.png" hspace='10'/>
+<img src="screen4_en.png" hspace='10'/>
+<img src="screen5_en.png" hspace='10'/>
+<img src="screen6_en.png" hspace='10'/>
+<img src="screen7_en.png" hspace='10'/>
+<img src="screen8_en.png" hspace='10'/>
+<img src="screen9_en.png" hspace='10'/>
+
 
 </details>
 
