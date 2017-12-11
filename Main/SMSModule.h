@@ -163,12 +163,15 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void RebootModem(); // перезагружаем модем
     unsigned long rebootStartTime;
 
+    int tcpTargetPort;
     SMSModuleFlags flags;
 
     #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
       unsigned long processedAlarmsClearTimer;
     #endif
-        
+
+    const char* GetKnownModuleName(int moduleIndex);
+    String RequestDataFromKnownModule(const char* knownModule, int moduleIndex, int sensorIndex, const String& label);
   public:
     SMSModule() : AbstractModule("SMS") {}
 

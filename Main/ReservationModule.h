@@ -62,6 +62,5 @@ class ReservationModule : public AbstractModule, public ReservationResolver // Ð
     OneState* GetReservedState(AbstractModule* sourceModule, ModuleStates sensorType, uint8_t sensorIndex);
 
 };
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #endif

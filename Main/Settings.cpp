@@ -6,7 +6,6 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 GlobalSettings::GlobalSettings()
 {
- // ResetToDefault();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::WriteDeltaSettings(DeltaCountFunction OnDeltaGetCount, DeltaReadWriteFunction OnDeltaWrite)
@@ -167,24 +166,6 @@ void GlobalSettings::ReadDeltaSettings(DeltaCountFunction OnDeltaSetCount, Delta
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-/*
-void GlobalSettings::ResetToDefault()
-{
- // tempOpen = DEF_OPEN_TEMP;
-  //tempClose = DEF_CLOSE_TEMP;
-  //openInterval = DEF_OPEN_INTERVAL;
- // wateringOption = wateringOFF;
- // wateringWeekDays = 0;
-  //wateringTime = 0;
-  //startWateringTime = 0;
-  //wifiState = 0x01; // первый бит устанавливаем, говорим, что мы коннектимся к роутеру
- // controllerID = 0; // по умолчанию 0 как ID контроллера
- // gsmProvider = MTS;
-
-//  memset(&iotSettings,0,sizeof(iotSettings));
-}
-*/
-//--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t GlobalSettings::read8(uint16_t address, uint8_t defaultVal)
 {
     uint8_t curVal = MemRead(address);
@@ -256,10 +237,6 @@ String GlobalSettings::readString(uint16_t address, byte maxlength)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::writeString(uint16_t address, const String& v, byte maxlength)
 {
-  /*
-  for(byte i=0;i<maxlength;i++)
-    MemWrite(address++,v[i]);
-  */
 
   for(byte i=0;i<maxlength;i++)
   {
@@ -344,7 +321,7 @@ String GlobalSettings::GetStationPassword()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetStationPassword(const String& v)
 {
-  writeString( STATION_PASSWORD_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
+  writeString( STATION_PASSWORD_EEPROM_ADDR, v,  20);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetStationID()
@@ -354,7 +331,7 @@ String GlobalSettings::GetStationID()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetStationID(const String& v)
 {
-  writeString( STATION_ID_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
+  writeString( STATION_ID_EEPROM_ADDR, v,  20);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetRouterPassword()
@@ -364,7 +341,7 @@ String GlobalSettings::GetRouterPassword()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetRouterPassword(const String& v)
 {
-  writeString( ROUTER_PASSWORD_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
+  writeString( ROUTER_PASSWORD_EEPROM_ADDR, v,  20);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetRouterID()
@@ -374,7 +351,7 @@ String GlobalSettings::GetRouterID()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetRouterID(const String& v)
 {
-  writeString( ROUTER_ID_EEPROM_ADDR, v,  20);//min(20,v.length()) ); 
+  writeString( ROUTER_ID_EEPROM_ADDR, v,  20);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String GlobalSettings::GetSmsPhoneNumber()
@@ -384,7 +361,7 @@ String GlobalSettings::GetSmsPhoneNumber()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetSmsPhoneNumber(const String& v)
 {
-    writeString( SMS_NUMBER_EEPROM_ADDR, v,  15);//min(15,v.length()) ); 
+    writeString( SMS_NUMBER_EEPROM_ADDR, v,  15);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void GlobalSettings::SetIoTSettings(IoTSettings& sett)
@@ -544,331 +521,6 @@ void GlobalSettings::SetControllerID(uint8_t val)
   //controllerID = val;
   MemWrite(CONTROLLER_ID_EEPROM_ADDR,val);
 }
-//--------------------------------------------------------------------------------------------------------------------------------------
-/*
-void GlobalSettings::Load()
-{  
-  uint16_t readPtr = 0; // сбрасываем указатель чтения на начало памяти
-
-  // читаем ID контроллера
-  uint8_t cid = MemRead(CONTROLLER_ID_EEPROM_ADDR);
-  if(cid != 0xFF)
-    controllerID = cid;
-
-  // читаем заголовок
-  uint8_t h1,h2;
-  h1 = MemRead(readPtr++);
-  h2 = MemRead(readPtr++);
-
-  if(!(h1 == SETT_HEADER1 && h2 == SETT_HEADER2)) // ничего нет в памяти
-  {
-    ResetToDefault(); // применяем настройки по умолчанию
-    Save(); // сохраняем их
-    return; // и выходим
-  }
-  
-  // читаем температуру открытия
-  tempOpen = MemRead(readPtr++);
-
-  // читаем температуру закрытия
-  tempClose = MemRead(readPtr++);
-
-  // читаем интервал работы окон
-   byte* wrAddr = (byte*) &openInterval;
-  
-  *wrAddr++ = MemRead(readPtr++);
-  *wrAddr++ = MemRead(readPtr++);
-  *wrAddr++ = MemRead(readPtr++);
-  *wrAddr = MemRead(readPtr++);
-
-  // читаем номер телефона для управления по СМС
-  uint8_t smsnumlen = MemRead(readPtr++);
-  if(smsnumlen != 0xFF) // есть номер телефона
-  {
-    for(uint8_t i=0;i<smsnumlen;i++)
-      smsPhoneNumber += (char) MemRead(readPtr++);
-  }
-
-  // читаем установку контроля за поливом
-  uint8_t bOpt = MemRead(readPtr++);
-  if(bOpt != 0xFF) // есть настройка контроля за поливом
-  {
-    wateringOption = bOpt;
-  } // if
-  
- // читаем установку дней недели полива
-  bOpt = MemRead(readPtr++);
-  if(bOpt != 0xFF) // есть настройка дней недели
-  {
-    wateringWeekDays = bOpt;
-  } // if
-
-  // читаем время полива
-  bOpt = MemRead(readPtr);
-  if(bOpt != 0xFF) // есть настройка длительности полива
-  {
-    // читаем длительность полива
-    wrAddr = (byte*) &wateringTime;
-    *wrAddr++ = MemRead(readPtr++);
-    *wrAddr = MemRead(readPtr++);
-  }
-
-  // читаем время начала полива
-  //bOpt = EEPROM.read(readPtr++);
-  uint16_t stwtime = 0;
-  wrAddr = (byte*) &stwtime;
-
-  *wrAddr++ = MemRead(readPtr++);
-  *wrAddr = MemRead(readPtr++);
-
-  if(stwtime != 0xFFFF) // есть время начала полива
-  {
-    startWateringTime = stwtime;
-  }
-
-  
- // читаем , включать ли насос во время полива?
-  bOpt = MemRead(readPtr++);
-  if(bOpt != 0xFF) // есть настройка включение насоса
-  {
-    turnOnPump = bOpt;
-  } // if
-
-  // читаем сохранённое кол-во настроек каналов полива
-  bOpt = MemRead(readPtr++);
-  uint8_t addToAddr = 0; // сколько пропустить при чтении каналов, чтобы нормально прочитать следующую настройку.
-  // нужно, если сначала скомпилировали с 8 каналами, сохранили настройки из конфигуратора, а потом - перекомпилировали
-  // в 2 канала. Нам надо вычитать первые два, а остальные 6 - пропустить, чтобы не покалечить настройки.
-  
-  if(bOpt != 0xFF)
-  {
-    // есть сохранённое кол-во каналов, читаем каналы
-    if(bOpt > WATER_RELAYS_COUNT) // только сначала убедимся, что мы не вылезем за границы массива
-    {
-      addToAddr = (bOpt - WATER_RELAYS_COUNT)*sizeof(WateringChannelOptions); // 5 байт в каждой структуре настроек
-      bOpt = WATER_RELAYS_COUNT;
-    }
-
-    // теперь мы можем читать настройки каналов
-    uint16_t wTimeHelper = 0;
-    
-    for(uint8_t i=0;i<bOpt;i++)
-    {
-      wateringChannelsOptions[i].wateringWeekDays = MemRead(readPtr++);
-      
-      wrAddr = (byte*) &wTimeHelper;
-      *wrAddr++ = MemRead(readPtr++);
-      *wrAddr = MemRead(readPtr++);
-      wateringChannelsOptions[i].wateringTime = wTimeHelper;
-
-      // читаем время начала полива на канале
-      wrAddr = (byte*) &wTimeHelper;
-      *wrAddr++ = MemRead(readPtr++);
-      *wrAddr = MemRead(readPtr++);
-      if(wTimeHelper != 0xFFFF)
-        wateringChannelsOptions[i].startWateringTime = wTimeHelper;    
-      else
-        wateringChannelsOptions[i].startWateringTime = 0;
-        
-     // wateringChannelsOptions[i].startWateringTime = EEPROM.read(readPtr++);
-    } // for
-    
-  } // if(bOpt != 0xFF)
-
-    // переходим на следующую настройку
-     readPtr += addToAddr;
-
-   wifiState = MemRead(readPtr++);
-   if(wifiState != 0xFF) // есть сохраненные настройки Wi-Fi
-   {
-        // читаем ID точки доступа
-        routerID = F("");
-         uint8_t str_len = MemRead(readPtr++);
-          for(uint8_t i=0;i<str_len;i++)
-            routerID += (char) MemRead(readPtr++);
-
-        // читаем пароль к точке доступа
-        routerPassword = F("");
-         str_len = MemRead(readPtr++);
-          for(uint8_t i=0;i<str_len;i++)
-            routerPassword += (char) MemRead(readPtr++);
-
-        // читаем название нашей точки доступа
-        stationID = F("");
-         str_len = MemRead(readPtr++);
-          for(uint8_t i=0;i<str_len;i++)
-            stationID += (char) MemRead(readPtr++);
-
-        // читаем пароль к нашей точке доступа
-        stationPassword = F("");
-         str_len = MemRead(readPtr++);
-          for(uint8_t i=0;i<str_len;i++)
-            stationPassword += (char) MemRead(readPtr++);
-  }
-   else
-   {
-      wifiState = 0x01;
-      // применяем настройки по умолчанию
-      routerID = ROUTER_ID;
-      routerPassword = ROUTER_PASSWORD;
-      stationID = STATION_ID;
-      stationPassword = STATION_PASSWORD;
-
-      if(!routerID.length()) // если нет названия точки доступа роутера - не коннектимся к нему
-        wifiState = 0; 
-   }
-
-   byte* pB = (byte*) &iotSettings;
-   for(size_t k=0;k<sizeof(iotSettings);k++)
-   {
-      *pB = MemRead(readPtr++);
-      pB++;
-   }
-
- //  EEPROM.get(readPtr,iotSettings);
- //  readPtr += sizeof(iotSettings);
-
-   if(!(iotSettings.Header1 == SETT_HEADER1 && iotSettings.Header2 == SETT_HEADER2))
-  {
-    memset(&iotSettings,0,sizeof(iotSettings));
-  }
-
-  gsmProvider = MemRead(readPtr++);
-  if(gsmProvider >= Dummy_Last_Op)
-    gsmProvider = MTS;
-
-   
-  // читаем другие настройки!
-
-  
-}
-//--------------------------------------------------------------------------------------------------------------------------------------
-void GlobalSettings::Save()
-{
-  uint16_t addr = 0;
-
-  // пишем наш заголовок, который будет сигнализировать о наличии сохранённых настроек
-  MemWrite(addr++,SETT_HEADER1);
-  MemWrite(addr++,SETT_HEADER2);
-
-  // сохраняем температуру открытия
-  MemWrite(addr++,tempOpen);
-
-  // сохраняем температуру закрытия
-  MemWrite(addr++,tempClose);
-
-  // сохраняем интервал работы
-  const byte* readAddr = (const byte*) &openInterval;
-  MemWrite(addr++,*readAddr++);
-  MemWrite(addr++,*readAddr++);
-  MemWrite(addr++,*readAddr++);
-  MemWrite(addr++,*readAddr);
-
-  // сохраняем номер телефона для управления по смс
-  uint8_t smsnumlen = smsPhoneNumber.length();
-  MemWrite(addr++,smsnumlen);
-  
-  const char* sms_c = smsPhoneNumber.c_str();
-  for(uint8_t i=0;i<smsnumlen;i++)
-  {
-    MemWrite(addr++, *sms_c++);
-  }
-
-  // сохраняем опцию контроля за поливом
-  MemWrite(addr++,wateringOption);
-  
-  // сохраняем дни недели для полива
-  MemWrite(addr++,wateringWeekDays);
-
-  // сохраняем продолжительность полива
-  readAddr = (const byte*) &wateringTime;
-  MemWrite(addr++,*readAddr++);
-  MemWrite(addr++,*readAddr);
-
-  // сохраняем время начала полива
-  // EEPROM.write(addr++,startWateringTime);
-  readAddr = (const byte*) &startWateringTime;
-  MemWrite(addr++,*readAddr++);
-  MemWrite(addr++,*readAddr);
- 
-  // сохраняем опцию включения насоса при поливе
-   MemWrite(addr++,turnOnPump);
-
-   // сохраняем кол-во каналов полива
-   MemWrite(addr++,WATER_RELAYS_COUNT);
-
-   // пишем настройки каналов полива
-   #if WATER_RELAYS_COUNT > 0
-   for(uint8_t i=0;i<WATER_RELAYS_COUNT;i++)
-   {
-      MemWrite(addr++,wateringChannelsOptions[i].wateringWeekDays);
-      readAddr = (const byte*) &(wateringChannelsOptions[i].wateringTime);
-      MemWrite(addr++,*readAddr++);
-      MemWrite(addr++,*readAddr);
-
-      // пишем время начала полива
-//      EEPROM.write(addr++,wateringChannelsOptions[i].startWateringTime);
-      readAddr = (const byte*) &(wateringChannelsOptions[i].startWateringTime);
-      MemWrite(addr++,*readAddr++);
-      MemWrite(addr++,*readAddr);
-   } // for
-   #endif
-
- // сохраняем настройки Wi-Fi
- MemWrite(addr++,wifiState);
-
-// сохраняем ID роутера
-  uint8_t str_len = routerID.length();
-  MemWrite(addr++,str_len);
-  
-  const char* str_p = routerID.c_str();
-  for(uint8_t i=0;i<str_len;i++)
-    MemWrite(addr++, *str_p++);
-
-
- // сохраняем пароль к роутеру
-  str_len = routerPassword.length();
-  MemWrite(addr++,str_len);
-  
-  str_p = routerPassword.c_str();
-  for(uint8_t i=0;i<str_len;i++)
-    MemWrite(addr++, *str_p++);
-
- // сохраняем название нашей точки доступа
-  str_len = stationID.length();
-  MemWrite(addr++,str_len);
-  
-  str_p = stationID.c_str();
-  for(uint8_t i=0;i<str_len;i++)
-    MemWrite(addr++, *str_p++);
-
- // сохраняем пароль к нашей точке доступа
-  str_len = stationPassword.length();
-  MemWrite(addr++,str_len);
-  
-  str_p = stationPassword.c_str();
-  for(uint8_t i=0;i<str_len;i++)
-    MemWrite(addr++, *str_p++);
-
-   iotSettings.Header1 = SETT_HEADER1;
-   iotSettings.Header2 = SETT_HEADER2;
-
-    byte* pB = (byte*) &iotSettings;
-    for(size_t k=0;k<sizeof(iotSettings);k++)
-    {
-      MemWrite(addr++,*pB++);
-    }
-  
-   //EEPROM.put(addr,iotSettings);
-   //addr += sizeof(iotSettings);
-
-
-  MemWrite(addr++,gsmProvider);
-  
-  // сохраняем другие настройки!
-  
-}
-*/
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool GlobalSettings::IsHttpApiEnabled()
 {

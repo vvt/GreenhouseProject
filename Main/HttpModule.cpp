@@ -89,7 +89,7 @@ void HttpModule::CheckForIncomingCommands(byte wantedAction)
    prov->MakeQuery(this);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-void HttpModule::OnAskForHost(String& host)
+void HttpModule::OnAskForHost(String& host, int& port)
 {
   #ifdef HTTP_DEBUG
     Serial.println(F("Provider asking for host..."));
@@ -97,6 +97,7 @@ void HttpModule::OnAskForHost(String& host)
 
   // сообщаем, куда коннектиться
   host = F(HTTP_SERVER_IP);
+  port = 80;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 uint8_t HttpModule::MapFraction(uint8_t fraction)
@@ -700,7 +701,7 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
   if(!line.length()) // пустая строка, нечего обрабатывать
     return;
 
-  if(line.startsWith(F("+TCPRECV")))
+  if(line.startsWith(F("+TCPRECV"))) // для GSM-модемов
   {
 
     int idx = line.indexOf(F("HTTP/"));
@@ -1237,7 +1238,7 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
               sett->SetSendControllerStatusFlag(en);
           }                     
           
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = which;
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << REG_SUCC;
@@ -1259,7 +1260,7 @@ bool  HttpModule::ExecCommand(const Command& command, bool wantAnswer)
         if(which == F("KEY")) // запрос ключа API, CTGET=HTTP|KEY
         {
           GlobalSettings* sett = MainController->GetSettings();
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = which;
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << (sett->GetHttpApiKey());

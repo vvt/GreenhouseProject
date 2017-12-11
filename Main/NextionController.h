@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include "Globals.h"
 #include "AbstractModule.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #define NEXTION_COMMAND_BUFFER_LENGTH 50 // длина буфера для команд, 50 байт должно хватить с запасом
 #define NEXTION_CHAR_PLACES 7 // сколько у нас позиций под надпись
 #define MINUS_START_ADDR 97 // стартовый адрес минуса
@@ -13,7 +13,7 @@
 #define LUX_START_ADDRESS 132 // стартовый адрес знака освещенности
 #define DIGITS_START_ADDRESS 27 // нули начинаются с адреса 27, группами по 7 далее идут все цифры
 #define EMPTY_CELLS_START_ADDRESS 20 // стартовый адрес пустых ячеек для цифр
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   emReturnNothing, // No return
@@ -22,7 +22,7 @@ typedef enum
   emAlwaysReturn // Always return
 
 } NextionEchoMode; // режим эха в ответ на посланные команды
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   etCommandFinished, // событие "Команда обработана успешно"
@@ -51,10 +51,10 @@ typedef enum
   
   
 } NextionEventType; // тип события от Nextion
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 class NextionAbstractController; // forward declaration
-
-// событие получения ошибки от Nextion
+//--------------------------------------------------------------------------------------------------------------------------------------
+// события от Nextion
 typedef void (*OnNextionEvent)(NextionAbstractController* Sender);
 typedef void (*OnNextionError)(NextionAbstractController* Sender, NextionEventType errorCode);
 
@@ -63,7 +63,7 @@ typedef void (*OnNextionTouchEvent)(NextionAbstractController* Sender, uint16_t 
 
 typedef void (*OnNextionNumberEvent)(NextionAbstractController* Sender, uint32_t num);
 typedef void (*OnNextionStringEvent)(NextionAbstractController* Sender, const char* str);
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 struct NextionSubscribeStruct
 {
   OnNextionError OnError;
@@ -81,7 +81,7 @@ struct NextionSubscribeStruct
   OnNextionEvent OnLaunch;
   OnNextionEvent OnUpgrade;  
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 class NextionAbstractController
 {
   public:
@@ -146,7 +146,7 @@ protected:
 
   
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 class NextionController : public NextionAbstractController
 {
   public:
@@ -186,5 +186,5 @@ class NextionController : public NextionAbstractController
   void doShowSettingsTemp(uint8_t temp,const char* which="open",uint8_t offset=0);
     
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #endif

@@ -318,6 +318,9 @@ void SMSModule::ProcessAnswerLine(String& line)
   if(!line.length()) // пустая строка, нечего её разбирать
     return;
 
+  if(line.startsWith(F("AT+"))) // строка ответа начинается с AT+ - это эхо, нам его надо игнорировать.
+    return; // были случаи, когда даже при ATE0 эхо от модема оставалось, что рушило логику работы прошивки.
+
   #ifdef GSM_DEBUG_MODE
     Serial.print(F("<== Receive \"")); Serial.print(line); Serial.println(F("\" answer from modem..."));
   #endif
@@ -2330,7 +2333,8 @@ void SMSModule::ProcessQueue()
 
         String command = F("AT+DNS=\"");
         String host;
-        httpHandler->OnAskForHost(host);
+
+        httpHandler->OnAskForHost(host, tcpTargetPort);
         command += host;
 
         command += F("\"");
@@ -2348,7 +2352,8 @@ void SMSModule::ProcessQueue()
         String command = F("AT+TCPSETUP=0,");
         command += *httpData;
 
-        command += F(",80");
+        command += F(",");//80");
+        command += String(tcpTargetPort);
 
         delete httpData;
         httpData = new String();
@@ -2444,10 +2449,12 @@ void SMSModule::ProcessQueue()
         String command = F("AT+CIPSTART=\"TCP\",\"");
 
         String host;
-        httpHandler->OnAskForHost(host);
+        int port;
+        httpHandler->OnAskForHost(host, port);
         command += host;
 
-        command += F("\",80");
+        command += F("\",");//80");
+        command += String(port);
 
         SendCommand(command);
          
@@ -3203,6 +3210,97 @@ void SMSModule::ProcessQueuedWindowCommand(uint16_t dt)
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+const char* SMSModule::GetKnownModuleName(int moduleIndex)
+{
+  // индексы модулей транслируются в имена так:
+  
+  // 1 - модуль температур
+  // 2 - модуль влажности
+  // 3 - модуль освещённости
+  // 4 - модуль влажности почвы
+  
+  switch(moduleIndex)
+  {
+    case 1: return "STATE";
+    case 2: return "HUMIDITY";
+    case 3: return "LIGHT";
+    case 4: return "SOIL";
+  }
+
+  return NULL;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+String SMSModule::RequestDataFromKnownModule(const char* knownModule, int moduleIndex, int sensorIndex, const String& label)
+{
+  String result;
+  
+  // индексы модулей кодируются так:
+  // 1 - модуль температур
+  // 2 - модуль влажности
+  // 3 - модуль освещённости
+  // 4 - модуль влажности почвы
+    
+  ModuleStates st = StateUnknown;
+  ModuleStates st2 = StateUnknown;
+  
+  switch(moduleIndex)
+  {
+    case 1: st = StateTemperature; break;
+    case 2: { st = StateTemperature; st2 = StateHumidity; } break;
+    case 3: st = StateLuminosity; break;
+    case 4: st = StateSoilMoisture; break;
+  }
+
+  AbstractModule* neededModule = MainController->GetModuleByID(knownModule);
+  
+  if(!neededModule || st == StateUnknown) // не нашли модуль, или неизвестное состояние было запрошено
+    return result;
+
+  OneState* os = neededModule->State.GetState(st,sensorIndex);
+  OneState* os2 = NULL;
+  
+  if(os) // есть состояние, например, температура
+  {
+    result += label; // выводим метку
+    result += ": ";
+
+    if(os->HasData()) // есть данные, выводим их
+    {
+      result += *os; // данные
+      result += os->GetUnit(); // и вид показаний с датчика
+    }
+    else // нет данных с датчика
+      result += NO_DATA;
+      
+  } // if(os)
+  
+  if(st2 != StateUnknown) // для влажности надо получить ещё и влажность, помимо температуры, т.к. датчик - с двумя типами показаний
+  {
+    os2 = neededModule->State.GetState(st2,sensorIndex);
+    
+    if(os2) // есть состояние, например, влажность
+    {
+      if(os) // если было первое состояние, например, температура, то перед текущим показанием ставим слеш, разделяя таким образом данные
+        result += "/";
+
+      if(os2->HasData()) // есть данные, можно выводить
+      {
+        result += *os2; // выводим показания
+        result += os2->GetUnit(); // и их вид
+      }
+      else // нет данных
+       result += NO_DATA;
+      
+    } // if(os2)
+    
+  } // if(st2 != StateUnknown)
+
+  if(os || os2) // если хотя бы что-то получили - завершаем строку
+    result += NEWLINE;
+
+  return result;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::SendStatToCaller(const String& phoneNum)
 {
   #ifdef GSM_DEBUG_MODE
@@ -3210,7 +3308,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
   #endif
 
   GlobalSettings* Settings = MainController->GetSettings();
-  //if(phoneNum != Settings->GetSmsPhoneNumber()) // не наш номер
+
   if(!Settings->GetSmsPhoneNumber().startsWith(phoneNum)) // не наш номер
   {
     #ifdef GSM_DEBUG_MODE
@@ -3219,7 +3317,52 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
     
     return;
   }
+  
+  String sms; // тут будут данные для отсылания
+  
+  // у нас появилась возможность указывать датчики, которые мы будем отсылать в СМС.
+  // поэтому тут читаем возможные настройки из файла.
+  if(MainController->HasSDCard())
+  {
+    File statFile = SD.open(F("STAT.SMS"),FILE_READ);
+    if(statFile)
+    {
+      String module1,sensor1,label1,module2,sensor2,label2;
+      
+      FileUtils::readLine(statFile,module1);
+      FileUtils::readLine(statFile,sensor1);
+      FileUtils::readLine(statFile,label1);
+      FileUtils::readLine(statFile,module2);
+      FileUtils::readLine(statFile,sensor2);
+      FileUtils::readLine(statFile,label2);
 
+      // читаем с первого модуля
+      int currModuleIndex = module1.toInt();
+      if(currModuleIndex > 0)
+      {
+        // есть указание индекса модуля, транслируем его в имя известного модуля
+        const char* knownModule = GetKnownModuleName(currModuleIndex);
+        if(knownModule)
+          sms += RequestDataFromKnownModule(knownModule, currModuleIndex, sensor1.toInt(), label1);
+        
+      } // if
+
+      // читаем со второго модуля
+      currModuleIndex = module2.toInt();
+      if(currModuleIndex > 0)
+      {
+        // есть указание индекса модуля, транслируем его в имя известного модуля
+        const char* knownModule = GetKnownModuleName(currModuleIndex);
+        if(knownModule)
+          sms += RequestDataFromKnownModule(knownModule, currModuleIndex, sensor2.toInt(), label2);
+        
+      } // if
+
+      statFile.close();
+    } // if(statFile)
+     
+  } // if(MainController->HasSDCard())
+/*
   AbstractModule* stateModule = MainController->GetModuleByID(F("STATE"));
 
   if(!stateModule)
@@ -3264,16 +3407,16 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
     
     sms += NEWLINE;
   } // if
-
+*/
 
   // тут получаем состояние окон
-  if(ModuleInterop.QueryCommand(ctGET,F("STATE|WINDOW|0"),true))
+  if(ModuleInterop.QueryCommand(ctGET,F("STATE|WINDOW|ALL"),true))
   {
 
     sms += W_STATE;
 
     #ifdef GSM_DEBUG_MODE
-      Serial.println(F("Command CTGET=STATE|WINDOW|0 parsed, execute it..."));
+      Serial.println(F("Command CTGET=STATE|WINDOW|ALL parsed, execute it..."));
     #endif
 
     const char* strPtr = PublishSingleton.Text.c_str();
@@ -3448,7 +3591,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
 
     
               PublishSingleton = REG_SUCC;
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               
             } // if(MainController->HasSDCard())
             else
@@ -3456,12 +3599,83 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
         } // else
         
       } // ADD
+      else if(t == F("STATSENSORS"))
+      {
+        // запросили установку датчиков СМС статистики
+        // приходит: CTSET=SMS|STATSENSORS|Module1|Sensor1|label1|Module2|Sensor2|Label2
+        if(argsCount < 7)
+        {
+          PublishSingleton = t;
+          PublishSingleton << PARAM_DELIMITER;
+          PublishSingleton << PARAMS_MISSED;
+        }
+        else
+        {
+            if(MainController->HasSDCard())
+            {
+                File statFile = SD.open(F("STAT.SMS"),FILE_WRITE | O_TRUNC);
+                if(statFile)
+                {
+                  // пишем в файл параметры, не забывая расшифровывать подпись из HEX в UTF-8
+                  statFile.println(command.GetArg(1)); // пишем модуль 1
+                  statFile.println(command.GetArg(2)); // пишем датчик 1
+
+                  const char* hexLabel = command.GetArg(3);
+                  String label;
+    
+                  // переводим подпись первого датчика в UTF-8
+                  if(strcmp(hexLabel,"_")) // если имя датчика не пустое (строка "_") - тогда надо раскодировать
+                  {
+                    while(*hexLabel)
+                    {
+                      label += (char) WorkStatus::FromHex(hexLabel);
+                      hexLabel += 2;
+                    }
+                  }
+                  else
+                    label = hexLabel;
+                    
+                  statFile.println(label.c_str());
+
+                  // теперь читаем данные для второго датчика
+                  statFile.println(command.GetArg(4)); // пишем модуль 2
+                  statFile.println(command.GetArg(5)); // пишем датчик 2
+
+                  hexLabel = command.GetArg(6);
+                  label = "";
+    
+                  // переводим подпись второго датчика в UTF-8
+                  if(strcmp(hexLabel,"_")) // если имя датчика не пустое (строка "_") - тогда надо раскодировать
+                  {
+                    while(*hexLabel)
+                    {
+                      label += (char) WorkStatus::FromHex(hexLabel);
+                      hexLabel += 2;
+                    }
+                  }
+                  else
+                    label = hexLabel;
+
+                  statFile.println(label.c_str());
+
+                  // всё записали, можно закрывать файл
+                  
+                  statFile.close();
+                }
+            }
+          
+            PublishSingleton.Flags.Status = true;
+            PublishSingleton = t;
+            PublishSingleton << PARAM_DELIMITER << REG_SUCC;                  
+        }
+        
+      }
       else if(t == F("PROV"))
       {
         // запросили установить провайдера GSM
         if(argsCount < 2)
         {
-          PublishSingleton = F("PROV");
+          PublishSingleton = t;
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << PARAMS_MISSED;
         }
@@ -3472,15 +3686,15 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
           GlobalSettings* s = MainController->GetSettings();
           if(s->SetGSMProvider(p))
           {
-            PublishSingleton.Status = true;
-            PublishSingleton = F("PROV");
+            PublishSingleton.Flags.Status = true;
+            PublishSingleton = t;
             PublishSingleton << PARAM_DELIMITER << REG_SUCC;
 //            s->Save();
           }
           else
           {
             
-            PublishSingleton = F("PROV");
+            PublishSingleton = t;
             PublishSingleton << PARAM_DELIMITER << PARAMS_MISSED;
           }
                     
@@ -3509,23 +3723,109 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
         {
           SendStatToCaller(Settings->GetSmsPhoneNumber()); // посылаем статистику на указанный номер телефона
         
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = STAT_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
         }
         else if(t == F("PROV")) // запросили провайдера GSM
         {
-          PublishSingleton.Status = true;
-          PublishSingleton = F("PROV");
+          PublishSingleton.Flags.Status = true;
+          PublishSingleton = t;
           PublishSingleton << PARAM_DELIMITER;
           PublishSingleton << MainController->GetSettings()->GetGSMProvider();
+        }
+        else if(t == F("STATSENSORS"))
+        {
+           // получить привязку датчиков к СМС статистики
+           // Отсылаем: OK=SMS|STATSENSORS|Module1|Sensor1|label1|Module2|Sensor2|Label2
+           PublishSingleton.Flags.Status = true;
+           PublishSingleton = t;
+           PublishSingleton << PARAM_DELIMITER;
+           
+           String defCommand = F("0|0|_|0|0|_");
+           
+            if(MainController->HasSDCard())
+            {
+              File statFile = SD.open(F("STAT.SMS"),FILE_READ);
+              if(statFile)
+              {
+                String module1, sensor1, label1, module2, sensor2, label2;
+                
+                FileUtils::readLine(statFile,module1);
+                FileUtils::readLine(statFile,sensor1);
+                FileUtils::readLine(statFile,label1);
+                FileUtils::readLine(statFile,module2);
+                FileUtils::readLine(statFile,sensor2);
+                FileUtils::readLine(statFile,label2);
+  
+                if(!module1.length())
+                  module1 = "0";
+                  
+                if(!sensor1.length())
+                  sensor1 = "0";
+                  
+                if(!label1.length())
+                  label1 = "_";
+  
+                if(!module2.length())
+                  module2 = "0";
+                  
+                if(!sensor2.length())
+                  sensor2 = "0";
+                  
+                if(!label2.length())
+                  label2 = "_";
+                  
+                PublishSingleton << module1 << PARAM_DELIMITER << sensor1 << PARAM_DELIMITER;
+  
+                  if(label1 == "_")
+                  {
+                    PublishSingleton << label1;
+                  }
+                  else
+                  {
+                    const char* str = label1.c_str();
+                    while(*str)
+                    {
+                      PublishSingleton << WorkStatus::ToHex(*str++);
+                    }
+                  }
+  
+                  PublishSingleton << PARAM_DELIMITER;
+  
+                  PublishSingleton << module2 << PARAM_DELIMITER << sensor2 << PARAM_DELIMITER;
+  
+                  if(label2 == "_")
+                  {
+                    PublishSingleton << label2;
+                  }
+                  else
+                  {
+                    const char* str = label2.c_str();
+                    while(*str)
+                    {
+                      PublishSingleton << WorkStatus::ToHex(*str++);
+                    }
+                  }           
+                
+                statFile.close();
+              }
+              else // не удалось открыть файл
+              {
+                PublishSingleton << defCommand;
+              }
+            } // if(MainController->HasSDCard())
+            else
+            {
+              PublishSingleton << defCommand;
+            }
         }
         else if(t == BALANCE_COMMAND) 
         { // получить баланс
 
           RequestBalance();
           
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = BALANCE_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
           
@@ -3542,7 +3842,7 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
  // отвечаем на команду
     MainController->Publish(this,command);
     
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 

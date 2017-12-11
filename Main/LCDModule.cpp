@@ -74,7 +74,7 @@ bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
             
             if(whichCommand == F("DEL")) // удалить все данные датчиков
             {
-               PublishSingleton.Status = true;
+               PublishSingleton.Flags.Status = true;
                PublishSingleton << whichCommand << PARAM_DELIMITER << REG_SUCC;
 
                #ifdef USE_LCD_MODULE
@@ -107,7 +107,7 @@ bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
                     
                   #endif
 
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   PublishSingleton << whichCommand << PARAM_DELIMITER << REG_SUCC;
               }
             } // else if(whichCommand == F("ADD"))
@@ -130,7 +130,7 @@ bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
             // получить данные о кол-ве файлов в каждой директории настроек датчиков экрана.
             // данные идут так: DIR_TEMP|DIR_HUMIDITY|DIR_LUMINOSITY|DIR_SOIL|DIR_PH
 
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             PublishSingleton << whichCommand;
 
             for(byte i=DIR_TEMP;i<DIR_DUMMY_LAST_DIR;i++)
@@ -158,7 +158,7 @@ bool  LCDModule::ExecCommand(const Command& command, bool wantAnswer)
             byte folder = (byte) atoi(command.GetArg(1));
             byte index = (byte)  atoi(command.GetArg(2));
 
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             PublishSingleton << whichCommand << PARAM_DELIMITER << folder << PARAM_DELIMITER;
 
             #ifdef USE_LCD_MODULE

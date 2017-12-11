@@ -15,6 +15,79 @@
 #define MAX_WIFI_CLIENTS 4 // максимальное кол-во клиентов
 #define WIFI_PACKET_LENGTH 2048 // по скольку байт в пакете отсылать данные
 //--------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_WIFI_MODULE_AS_MQTT_CLIENT
+#include <SD.h>
+//--------------------------------------------------------------------------------------------------------------------------------
+#define MQTT_RECONNECT_WAIT 10000
+//--------------------------------------------------------------------------------------------------------------------------------
+#define MQTT_CONNECT_COMMAND (1 << 4)
+#define MQTT_PUBLISH_COMMAND (3 << 4)
+#define MQTT_SUBSCRIBE_COMMAND (8 << 4)
+#define MQTT_QOS1 (1 << 1)
+//--------------------------------------------------------------------------------------------------------------------------------
+typedef Vector<uint8_t> MQTTBuffer;
+//--------------------------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+    bool isConnected : 1; // законнекчены?
+    bool wantToSendConnectPacket : 1; // надо отправить пакет CONNECT ?
+    bool wantToSendSubscribePacket : 1; // надо ли отправить пакет для подписки на топики?
+    bool reconnectTimerEnabled : 1; // таймер переподключения активен ?
+    bool haveTopics : 1; // есть топики для публикации ?
+    bool busy : 1; // заняты ?
+    byte pad : 2; // добивка до границы байта
+  
+} MQTTClientFlags;
+//--------------------------------------------------------------------------------------------------------------------------------
+class MQTTClient
+{
+  public:
+    MQTTClient();
+    void setConnected(bool flag);
+    void packetWriteError();
+    void packetWriteSuccess();
+    void process(MQTTBuffer& packet);
+    void init();
+    bool enabled();
+    bool connected();
+    bool canConnect();
+    void connecting();
+    bool wantToSay(String& mqttBuffer,int& mqttBufferLength);
+    void getMQTTServer(String& host,int& port);
+    void update(uint16_t dt);
+
+    void reloadSettings();
+
+    byte GetSavedTopicsCount();
+    void DeleteAllTopics();
+    void AddTopic(const char* topicIndex, const char* topicName, const char* moduleName, const char* sensorType, const char* sensorIndex, const char* topicType);
+
+  private:
+
+    MQTTClientFlags flags;
+
+    void switchToNextTopic();
+
+    uint16_t mqttMessageId;
+
+    uint16_t reconnectTimer;
+    unsigned long updateTopicsTimer;
+
+    uint8_t intervalBetweenTopics; // интервал между публикацией топиков
+    uint8_t currentTopicNumber; // номер текущего топика для опубликования
+
+    void constructConnectPacket(String& mqttBuffer,int& mqttBufferLength,const char* id, const char* user, const char* pass,const char* willTopic,uint8_t willQoS, uint8_t willRetain, const char* willMessage);
+    void encode(MQTTBuffer& buff,const char* str);
+    void constructFixedHeader(byte command, MQTTBuffer& fixedHeader,size_t payloadSize);
+    void constructPublishPacket(String& mqttBuffer,int& mqttBufferLength, const char* topic, const char* payload);
+    void constructSubscribePacket(String& mqttBuffer,int& mqttBufferLength, const char* topic);
+
+    void writePacket(MQTTBuffer& fixedHeader,MQTTBuffer& payload, String& mqttBuffer,int& mqttBufferLength);
+    
+};
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_WIFI_MODULE_AS_MQTT_CLIENT
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   /*0*/  wfaIdle, // пустое состояние
@@ -35,15 +108,24 @@ typedef enum
 #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
   
   /*14*/ wfaStartIoTSend, // начинаем отсыл данных в IoT
-  /*15*/ wfaStartSendIoTData, // посылаем команду на отсыл данныз в IoT
+  /*15*/ wfaStartSendIoTData, // посылаем команду на отсыл данных в IoT
   /*16*/ wfaActualSendIoTData, // актуальный отсыл данных в IoT
   /*17*/ wfaCloseIoTConnection, // закрываем соединение
+  
 #endif
 
   /*18*/ wfaStartHTTPSend, // начинаем запрос HTTP
   /*19*/ wfaStartSendHTTPData, // начинаем отсылать данные по HTTP
   /*20*/ wfaCloseHTTPConnection, // закрываем HTTP-соединение
   /*21*/ wfaActualSendHTTPData, // актуальный отсыл данных HTTP-запроса
+
+#ifdef USE_WIFI_MODULE_AS_MQTT_CLIENT
+
+  /*22*/ wfaConnectToMQTT, // коннектимся к MQTT-серверу
+  /*23*/ wfaWriteToMQTT, // пишем в MQTT-сервер данные
+  /*24*/ wfaActualWriteToMQTT, // актуальная запись в порт пакета к MQTT-брокеру
+  
+#endif  
   
 } WIFIActions;
 
@@ -68,8 +150,15 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 , public IoTGate
 #endif
 , public HTTPQueryProvider
+
 {
   private:
+
+    #ifdef USE_WIFI_MODULE_AS_MQTT_CLIENT
+      MQTTClient mqtt;
+      String* mqttBuffer;
+      int mqttBufferLength;
+    #endif
 
     WiFiModuleFlags flags;
 

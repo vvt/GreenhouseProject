@@ -173,7 +173,7 @@ bool  TimerModule::ExecCommand(const Command& command, bool wantAnswer)
 
   if(command.GetType() == ctGET)
   {
-    PublishSingleton.Status = true;
+    PublishSingleton.Flags.Status = true;
     PublishSingleton = "";
 
     for(byte i=0;i<NUM_TIMERS;i++)
@@ -215,13 +215,13 @@ bool  TimerModule::ExecCommand(const Command& command, bool wantAnswer)
         }
         SaveTimers();
         PublishSingleton = REG_SUCC;
-        PublishSingleton.Status = true;
+        PublishSingleton.Flags.Status = true;
       }
   } // else ctSET
   
 
   MainController->Publish(this,command);
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 

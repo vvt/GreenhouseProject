@@ -1,13 +1,14 @@
 #include "StatModule.h"
 #include "ModuleController.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if (TARGET_BOARD == DUE_BOARD)
     #include <malloc.h>
     #include <stdlib.h>
     #include <stdio.h>
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 // выводит свободную память
+//--------------------------------------------------------------------------------------------------------------------------------------
 int freeRam() 
 {
   #if (TARGET_BOARD == MEGA_BOARD)
@@ -28,24 +29,23 @@ int freeRam()
   #error "Unknown target board!"
  #endif
 }
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void StatModule::Setup()
 {
   // настройка модуля статистики тут
   uptime = 0;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void StatModule::Update(uint16_t dt)
 { 
   // обновление модуля статистики тут
   uptime += dt;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  StatModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer) PublishSingleton = UNKNOWN_COMMAND;
-  PublishSingleton.AddModuleIDToAnswer = false;
+  PublishSingleton.Flags.AddModuleIDToAnswer = false;
 
   size_t argsCount = command.GetArgsCount();
   
@@ -68,7 +68,7 @@ bool  StatModule::ExecCommand(const Command& command, bool wantAnswer)
 
         if(t == FREERAM_COMMAND) // запросили данные о свободной памяти
         {
-         PublishSingleton.Status = true;
+         PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = FREERAM_COMMAND; 
@@ -78,7 +78,7 @@ bool  StatModule::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(t == UPTIME_COMMAND) // запросили данные об аптайме
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = UPTIME_COMMAND; 
@@ -97,7 +97,7 @@ bool  StatModule::ExecCommand(const Command& command, bool wantAnswer)
              // Глюк компилятора? Если поставить все команды в одну строку - вместо времени ещё раз выведется дата! 
              PublishSingleton << rtc.getTimeStr(tm);
            }
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
         }
       #endif  
         else
@@ -112,6 +112,8 @@ bool  StatModule::ExecCommand(const Command& command, bool wantAnswer)
  // отвечаем на команду
     MainController->Publish(this,command);
     
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
+
 

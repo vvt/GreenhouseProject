@@ -1,10 +1,11 @@
 #include "DHTSupport.h"
 #include "AbstractModule.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 DHTSupport::DHTSupport()
 {
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
 {
   answer.IsOK = false;
@@ -163,5 +164,6 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   answer.IsOK = true;
   return answer;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 

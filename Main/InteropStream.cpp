@@ -1,15 +1,16 @@
 #include "InteropStream.h"
 #include "Globals.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------
 InteropStream ModuleInterop;
-
+//--------------------------------------------------------------------------------------------------------------------------------
 InteropStream::InteropStream()
 {
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 InteropStream::~InteropStream()
 {
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand)
 {
   
@@ -36,7 +37,7 @@ bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool
   return true;
     
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 BlinkModeInterop::BlinkModeInterop()
 {
 
@@ -44,6 +45,7 @@ BlinkModeInterop::BlinkModeInterop()
   timer = 0;
   pinState = LOW;
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void BlinkModeInterop::update(uint16_t dt)
 {
   if(!blinkInterval) // выключены
@@ -57,7 +59,6 @@ void BlinkModeInterop::update(uint16_t dt)
   timer -= blinkInterval;
   pinState = pinState == LOW ? HIGH : LOW;
   
-  //WORK_STATUS.PinWrite(pin,pinState);
   #if INFO_DIODES_DRIVE_MODE == DRIVE_DIRECT
     WORK_STATUS.PinWrite(pin,pinState);
   #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23S17
@@ -70,10 +71,10 @@ void BlinkModeInterop::update(uint16_t dt)
     #endif
   #endif  
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void BlinkModeInterop::begin(uint8_t p)
 {
   pin = p;
-  //WORK_STATUS.PinMode(pin,OUTPUT);
   #if INFO_DIODES_DRIVE_MODE == DRIVE_DIRECT
     WORK_STATUS.PinMode(pin,OUTPUT);
   #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23S17
@@ -87,6 +88,7 @@ void BlinkModeInterop::begin(uint8_t p)
   #endif
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void BlinkModeInterop::blink(uint16_t interval)
 {
 
@@ -109,4 +111,6 @@ void BlinkModeInterop::blink(uint16_t interval)
   }
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------
+
 

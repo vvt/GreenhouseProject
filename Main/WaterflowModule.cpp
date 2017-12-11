@@ -2,7 +2,7 @@
 #include "ModuleController.h"
 #include "Globals.h"
 #include "Memory.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if WATERFLOW_SENSORS_COUNT > 0
 volatile unsigned int pin2FlowPulses; // зафиксированные срабатывания датчика Холла на пине 2
 int pin2Interrupt;
@@ -11,7 +11,7 @@ void pin2FlowFunc() //  регистрируем срабатывания дат
    pin2FlowPulses++;
 }
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if WATERFLOW_SENSORS_COUNT > 1
 volatile unsigned int pin3FlowPulses; // зафиксированные срабатывания датчика Холла на пине 3
 int pin3Interrupt;
@@ -20,7 +20,7 @@ void pin3FlowFunc() //  регистрируем срабатывания дат
    pin3FlowPulses++;
 }
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WaterflowModule::Setup()
 {
   // настройка модуля тут
@@ -111,6 +111,7 @@ void WaterflowModule::Setup()
   // датчики зарегистрированы, теперь можно работать
  
  }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WaterflowModule::UpdateFlow(WaterflowStruct* wf,unsigned int delta, unsigned int pulses, uint8_t writeOffset)
 {
     // за delta миллисекунд у нас произошло pulses пульсаций, пересчитываем в кол-во миллилитров с момента последнего замера
@@ -143,6 +144,7 @@ void WaterflowModule::UpdateFlow(WaterflowStruct* wf,unsigned int delta, unsigne
     }
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WaterflowModule::Update(uint16_t dt)
 { 
   checkTimer += dt;
@@ -197,7 +199,7 @@ void WaterflowModule::Update(uint16_t dt)
   // обновили, отдыхаем
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer) PublishSingleton = UNKNOWN_COMMAND;
@@ -231,7 +233,7 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
                   MemWrite(addr++,pin2Flow.calibrationFactor);
                   MemWrite(addr++,pin3Flow.calibrationFactor);
 
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   if(wantAnswer)
                     PublishSingleton = REG_SUCC;
               }
@@ -249,7 +251,7 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
               pin3Flow.totalLitres = 0;
             
             
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   if(wantAnswer)
                     PublishSingleton = REG_SUCC;
             
@@ -269,7 +271,7 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
 
         if(t == FLOW_CALIBRATION_COMMAND) // запросили данные о факторах калибровки
         {
-         PublishSingleton.Status = true;
+         PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = FLOW_CALIBRATION_COMMAND; 
@@ -288,6 +290,7 @@ bool  WaterflowModule::ExecCommand(const Command& command, bool wantAnswer)
  // отвечаем на команду
   MainController->Publish(this,command);
     
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

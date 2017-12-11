@@ -1,14 +1,14 @@
 #include "ReservationModule.h"
 #include "ModuleController.h"
 #include "Memory.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ReservationModule::Setup()
 {
   // настройка модуля тут
   MainController->SetReservationResolver(this);
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ReservationModule::LoadReservations()
 {
   ClearReservations();
@@ -46,7 +46,7 @@ void ReservationModule::LoadReservations()
   } // for
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ReservationModule::ClearReservations()
 {
   for(size_t i=0;i<records.size();i++)
@@ -57,7 +57,7 @@ void ReservationModule::ClearReservations()
 
   records.Clear();
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ReservationModule::SaveReservations()
 {
   uint16_t addr = RESERVATION_ADDR;
@@ -94,11 +94,13 @@ void ReservationModule::SaveReservations()
   
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 // возвращает первое попавшееся состояние с данными, основываясь на списках резервирования для указанного типа
 // датчиков. Параметр sourceModule - содержит модуль с датчиком, с которого нет показаний.
 // В списках резервирования ищется датчик, привязанный к этому модулю и с индексом sensorIndex, соответствующий
 // типу sensorType. Если такой датчик найден, то из списка резервирования возвращается первое состояние,
 // для которого есть данные.
+//--------------------------------------------------------------------------------------------------------------------------------------
 OneState* ReservationModule::GetReservedState(AbstractModule* sourceModule, ModuleStates sensorType, uint8_t sensorIndex)
 {
   // пробегаемся по всем спискам
@@ -219,7 +221,7 @@ OneState* ReservationModule::GetReservedState(AbstractModule* sourceModule, Modu
 
   return NULL;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ReservationModule::Update(uint16_t dt)
 { 
   UNUSED(dt);
@@ -237,7 +239,7 @@ void ReservationModule::Update(uint16_t dt)
   }
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer)
@@ -250,7 +252,7 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
     String which = command.GetArg(0);
     if(which == CNT_COMMAND)
     {
-      PublishSingleton.Status = true;
+      PublishSingleton.Flags.Status = true;
       PublishSingleton = CNT_COMMAND;
       PublishSingleton << PARAM_DELIMITER;
       PublishSingleton << records.size();
@@ -273,7 +275,7 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
         }
         else
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
 
           PublishSingleton = VIEW_COMMAND;
           PublishSingleton << PARAM_DELIMITER << idx << PARAM_DELIMITER;
@@ -287,15 +289,15 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
             break;
 
             case resHumidity:
-              PublishSingleton << F("HUMIDITY");
+              PublishSingleton << "HUMIDITY";
             break;
 
             case resLuminosity:
-              PublishSingleton << F("LIGHT");
+              PublishSingleton << "LIGHT";
             break;
 
             case resSoilMoisture:
-              PublishSingleton << F("SOIL");
+              PublishSingleton << "SOIL";
             break;
             
           } // switch
@@ -307,19 +309,19 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
             switch(resItem.ModuleType)
             {
               case resModuleState:
-                PublishSingleton << F("STATE");
+                PublishSingleton << "STATE";
               break;
 
               case resModuleHumidity:
-                PublishSingleton << F("HUMIDITY");
+                PublishSingleton << "HUMIDITY";
               break;
 
               case resModuleLuminosity:
-                PublishSingleton << F("LIGHT");
+                PublishSingleton << "LIGHT";
               break;
 
               case resModuleSoilMoisture:
-                PublishSingleton << F("SOIL");
+                PublishSingleton << "SOIL";
               break;
 
             } // switch
@@ -341,7 +343,7 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
      if(which == CC_DELETE_COMMAND) // CTSET=RSRV|DEL
      {
         PublishSingleton = REG_DEL;
-        PublishSingleton.Status = true;
+        PublishSingleton.Flags.Status = true;
         ClearReservations();
       
      } // CC_DELETE_COMMAND
@@ -349,7 +351,7 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
      if(which == CC_SAVE_COMMAND)// CTSET=RSRV|SAVE
      {
         PublishSingleton = REG_SUCC;
-        PublishSingleton.Status = true;
+        PublishSingleton.Flags.Status = true;
         SaveReservations();
    
      } // CC_SAVE_COMMAND
@@ -367,13 +369,13 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
           if(!strcmp_P(type,(const char*) F("TEMP")))
             rec->Type = resTemperature;
           else
-            if(!strcmp_P(type,(const char*) F("HUMIDITY")))
+            if(!strcmp_P(type,(const char*) "HUMIDITY"))
               rec->Type = resHumidity;
           else
-            if(!strcmp_P(type,(const char*) F("LIGHT")))
+            if(!strcmp_P(type,(const char*) "LIGHT"))
               rec->Type = resLuminosity;
           else
-            if(!strcmp_P(type,(const char*) F("SOIL")))
+            if(!strcmp_P(type,(const char*) "SOIL"))
               rec->Type = resSoilMoisture;
 
          // теперь собираем параметры датчиков
@@ -383,16 +385,16 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
               uint8_t idx = atoi(command.GetArg(i+1));
   
               ReservationItem item; item.SensorIndex = idx;
-              if(!strcmp_P(moduleName,(const char*) F("STATE")))
+              if(!strcmp_P(moduleName,(const char*) "STATE"))
                 item.ModuleType = resModuleState;
               else  
-              if(!strcmp_P(moduleName,(const char*) F("HUMIDITY")))
+              if(!strcmp_P(moduleName,(const char*) "HUMIDITY"))
                 item.ModuleType = resModuleHumidity;
               else  
-              if(!strcmp_P(moduleName,(const char*) F("LIGHT")))
+              if(!strcmp_P(moduleName,(const char*) "LIGHT"))
                 item.ModuleType = resModuleLuminosity;
               else  
-              if(!strcmp_P(moduleName,(const char*) F("SOIL")))
+              if(!strcmp_P(moduleName,(const char*) "SOIL"))
                 item.ModuleType = resModuleSoilMoisture;
 
               rec->Items.push_back(item);
@@ -401,7 +403,7 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
 
             records.push_back(rec);
 
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             PublishSingleton = REG_SUCC;
             
          } // else good args
@@ -411,6 +413,7 @@ bool  ReservationModule::ExecCommand(const Command& command, bool wantAnswer)
   } // ctSET
 
   MainController->Publish(this,command);
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

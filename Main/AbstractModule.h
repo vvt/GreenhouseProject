@@ -2,9 +2,9 @@
 #define _ABSTRACT_MODULE_H
 
 #include <WString.h>
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class ModuleController; // forward declaration
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #include "Globals.h"
 #include "CommandParser.h"
 #include "TinyVector.h"
@@ -16,23 +16,33 @@ class ModuleController; // forward declaration
 #ifdef USE_MCP23017_EXTENDER
 #include "MCP23017.h"
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------
 // структура для публикации
+//--------------------------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  bool Status : 1; // Статус ответа на запрос: false - ошибка, true - нет ошибки
+  bool AddModuleIDToAnswer : 1; // добавлять ли имя модуля в ответ?
+  bool Busy : 1; // флаг, что структура занята для записи
+  byte pad : 5;
+  
+} PublishStructFlags;
+//--------------------------------------------------------------------------------------------------------------------------------
 struct PublishStruct
 {
-  bool Status; // Статус ответа на запрос: false - ошибка, true - нет ошибки
+  PublishStructFlags Flags;
+
   String Text; // текстовое сообщение о публикации, общий для всех буфер
-  bool AddModuleIDToAnswer; // добавлять ли имя модуля в ответ?
   void* Data; // любая информация, в зависимости от типа модуля
-  bool Busy; // флаг, что структура занята для записи
 
   void Reset()
   {
-    Status = false;
+    Flags.Status = false;
+    Flags.AddModuleIDToAnswer = true;
+    Flags.Busy = false;
+
     Text = F("");
-    AddModuleIDToAnswer = true;
     Data = NULL;
-    Busy = false;
   }
 
   PublishStruct& operator=(const String& src);
@@ -53,11 +63,31 @@ struct PublishStruct
   PublishStruct& operator<<(long src);
   
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 struct Temperature // структура показаний с датчика температуры
 {
   int8_t Value; // значение градусов (-128 - 127)
   uint8_t Fract; // сотые доли градуса (значение после запятой)
+
+#ifdef MEASURE_TEMPERATURES_IN_FAHRENHEIT
+  static Temperature ConvertToFahrenheit(const Temperature& from)
+  {
+    Temperature result;
+    result.Value = NO_TEMPERATURE_DATA;
+    
+    if(from.Value == NO_TEMPERATURE_DATA) // no data from sensor
+      return result;
+      
+    int rawC = from.Value*100 * from.Fract;
+    int rawF = (rawC*9)/5 + 3200;
+
+    result.Value = rawF/100;
+    result.Fract = rawF%100;
+
+    return result;
+    
+  }
+#endif  
 
   bool operator!=(const Temperature& rhs)
   {
@@ -97,12 +127,11 @@ struct Temperature // структура показаний с датчика т
   Temperature();
   Temperature(int8_t v,uint8_t f) : Value(v), Fract(f) {}
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 // влажность у нас может храниться так же, как и температура, поэтому
 // незачем плодить вторую структуру - просто делаем typedef.
 typedef struct Temperature Humidity; 
-
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef enum
 {
   StateUnknown = 0, // неизвестное состояние
@@ -116,7 +145,7 @@ typedef enum
   StatePH = 128 // есть датчики pH
 
 } ModuleStates; // вид состояния
-
+//--------------------------------------------------------------------------------------------------------------------------------
 struct TemperaturePair
 {
   Temperature Prev;
@@ -128,6 +157,7 @@ struct TemperaturePair
       TemperaturePair operator=(const TemperaturePair&);
 
 };
+//--------------------------------------------------------------------------------------------------------------------------------
 struct HumidityPair
 {
   const Humidity Prev;
@@ -139,7 +169,7 @@ struct HumidityPair
     HumidityPair();
     HumidityPair& operator=(const HumidityPair&);
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 struct LuminosityPair
 {
   long Prev;
@@ -151,7 +181,7 @@ struct LuminosityPair
     LuminosityPair();
     LuminosityPair& operator=(const LuminosityPair&);
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 struct WaterFlowPair
 {
   unsigned long Prev;
@@ -163,7 +193,7 @@ struct WaterFlowPair
     WaterFlowPair();
     WaterFlowPair& operator=(const WaterFlowPair&);
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class OneState
 {
     ModuleStates Type; // тип состояния (температура, освещенность, каналы реле)
@@ -211,9 +241,9 @@ class OneState
     void Init(ModuleStates type, uint8_t idx); // инициализирует состояние
     
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef Vector<OneState*> StateVec;
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class ModuleState
 {
  uint8_t supportedStates; // какие состояния поддерживаем?
@@ -236,8 +266,7 @@ public:
 
  
 };
-
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class AbstractModule
 {
   private:
@@ -263,8 +292,9 @@ public:
   virtual void Update(uint16_t dt) = 0; // обновляет состояние модуля (для поддержки состояния периферии, например, включение диода)
   
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 // абстрактный класс резервирования датчиков
+//--------------------------------------------------------------------------------------------------------------------------------
 class ReservationResolver
 {
   public:
@@ -275,7 +305,7 @@ class ReservationResolver
     // для которого есть данные.
     virtual OneState* GetReservedState(AbstractModule* sourceModule, ModuleStates sensorType, uint8_t sensorIndex) = 0;
 };
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
   unsigned long WindowsState; // состояние каналов окон, 4 байта = 32 бита = 16 окон)
@@ -284,16 +314,16 @@ typedef struct
   byte PinsState[16]; // состояние пинов, 16 байт, 128 пинов
   
 } ControllerState; // состояние контроллера
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #define PINS_MAP_SIZE 10 // размер поля информации о пинах
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef struct  
 {
   byte PinsUsed[PINS_MAP_SIZE]; // N бит информации по занятости пина. Если бит с номером пина выставлен в 1 - этот пин используется
   byte PinsMode[PINS_MAP_SIZE]; // если в бите с номером пина 1 - то пин настроен на выход, иначе - на вход. Имеет значение только, если соответствующий пин используется
    
 } UsedPinsInfo; // состояние занятости пинов
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class WorkStatus
 {
   uint8_t statuses[STATUSES_BYTES];
@@ -321,14 +351,12 @@ public:
   Adafruit_MCP23017* GetMCP_I2C_ByAddress(byte addr);
 #endif  
 
-
-
-  
     void SetStatus(uint8_t bitNum, bool bOn);
     void WriteStatus(Stream* pStream, bool bAsTextHex);
     bool GetStatus(uint8_t bitNum);
     bool IsModeChanged();
     void SetModeUnchanged();
+    
     WorkStatus();
 
   static const char* ToHex(int i);
@@ -363,9 +391,9 @@ public:
   }
   
 }; // структура статусов работы 
-
+//--------------------------------------------------------------------------------------------------------------------------------
 extern WorkStatus WORK_STATUS; // статус состояния
-
+//--------------------------------------------------------------------------------------------------------------------------------
 extern char SD_BUFFER[SD_BUFFER_LENGTH];
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #endif

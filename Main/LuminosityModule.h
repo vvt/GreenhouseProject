@@ -79,15 +79,6 @@ class LuminosityModule : public AbstractModule // модуль управлен�
 
   void* lightSensors[4]; // массив датчиков
 
-/*
-  #if LIGHT_SENSORS_COUNT > 0
-  BH1750Support lightMeter; // первый датчик освещенности
-  #endif
-  
-  #if LIGHT_SENSORS_COUNT > 1
-  BH1750Support lightMeter2; // второй датчик освещенности
-  #endif
-*/
   uint16_t lastUpdateCall;
   LuminosityModuleFlags flags;
     

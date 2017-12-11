@@ -425,6 +425,11 @@ void UniRS485Gate::Update(uint16_t dt)
                         t.Value = (int8_t) *readDataPtr++;
                         t.Fract = *readDataPtr;
 
+                        // convert to Fahrenheit if needed
+                        #ifdef MEASURE_TEMPERATURES_IN_FAHRENHEIT
+                         t = Temperature::ConvertToFahrenheit(t);
+                        #endif                              
+
                         #ifdef RS485_DEBUG
                           Serial.print(F("Temperature: "));
                           Serial.println(t);
@@ -457,6 +462,11 @@ void UniRS485Gate::Update(uint16_t dt)
                         Temperature t;
                         t.Value = (int8_t) *readDataPtr++;
                         t.Fract = *readDataPtr++;
+
+                        // convert to Fahrenheit if needed
+                        #ifdef MEASURE_TEMPERATURES_IN_FAHRENHEIT
+                         t = Temperature::ConvertToFahrenheit(t);
+                        #endif                              
 
                         #ifdef RS485_DEBUG
                           Serial.print(F("Humidity: "));
@@ -1146,12 +1156,17 @@ void SensorsUniClient::UpdateOneState(OneState* os, const UniSensorData* dataPac
 
         int8_t dt = (int8_t) dataPacket->data[dataIndex++];
         uint8_t dt2 =  dataPacket->data[dataIndex];
-
         
         int8_t b1 = IsModuleOnline ? dt : NO_TEMPERATURE_DATA;             
         uint8_t b2 = IsModuleOnline ? dt2 : 0;
 
         Temperature t(b1, b2);
+
+        // convert to Fahrenheit if needed
+        #ifdef MEASURE_TEMPERATURES_IN_FAHRENHEIT
+         t = Temperature::ConvertToFahrenheit(t);
+        #endif      
+        
         os->Update(&t);
         
       }
@@ -1466,23 +1481,23 @@ uint8_t UniRegDispatcher::GetHardCodedSensorsCount(UniSensorType type)
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRegDispatcher::Setup()
 {
-    temperatureModule = MainController->GetModuleByID(F("STATE"));
+    temperatureModule = MainController->GetModuleByID("STATE");
     if(temperatureModule)
       hardCodedTemperatureCount = temperatureModule->State.GetStateCount(StateTemperature);
     
-    humidityModule = MainController->GetModuleByID(F("HUMIDITY"));
+    humidityModule = MainController->GetModuleByID("HUMIDITY");
     if(humidityModule)
       hardCodedHumidityCount = humidityModule->State.GetStateCount(StateHumidity);
     
-    luminosityModule = MainController->GetModuleByID(F("LIGHT"));
+    luminosityModule = MainController->GetModuleByID("LIGHT");
     if(luminosityModule)
       hardCodedLuminosityCount = luminosityModule->State.GetStateCount(StateLuminosity);
 
-    soilMoistureModule = MainController->GetModuleByID(F("SOIL"));
+    soilMoistureModule = MainController->GetModuleByID("SOIL");
     if(soilMoistureModule)
       hardCodedSoilMoistureCount = soilMoistureModule->State.GetStateCount(StateSoilMoisture);
 
-    phModule = MainController->GetModuleByID(F("PH"));
+    phModule = MainController->GetModuleByID("PH");
     if(phModule)
       hardCodedPHCount = phModule->State.GetStateCount(StatePH);
 

@@ -1397,7 +1397,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
             AbstractModule* m = MainController->GetModuleByID(t);
             if(m && m != this && AddRule(m,command))
             {
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               PublishSingleton = REG_SUCC;
             }
           } // ADD_RULE
@@ -1405,7 +1405,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
           if(t == SAVE_RULES) // запросили сохранение правил
           {
             SaveRules();
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             PublishSingleton = SAVE_RULES;
           }
           else 
@@ -1432,7 +1432,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                          rule->SetEnabled(bEnabled);
                    } // for
 
-                   PublishSingleton.Status = true;
+                   PublishSingleton.Flags.Status = true;
                    PublishSingleton = RULE_STATE; 
                    PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << state;
                  } // if all
@@ -1446,7 +1446,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                          if(rule && !strcmp(rule->GetName(),rName.c_str()))
                          {
                           rule->SetEnabled(bEnabled);
-                          PublishSingleton.Status = true;
+                          PublishSingleton.Flags.Status = true;
                           PublishSingleton = RULE_STATE; 
                           PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << state;
                           break;
@@ -1480,7 +1480,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                          rule->SetEnabled(bEnabled);
                    } // for
 
-                   PublishSingleton.Status = true;
+                   PublishSingleton.Flags.Status = true;
                    PublishSingleton = RULE_ALERT; 
                    PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << state;
                  } // if all
@@ -1494,7 +1494,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                          if(rule && rule->IsAlarm() && !strcmp(rule->GetName(),rName.c_str()))
                          {
                           rule->SetEnabled(bEnabled);
-                          PublishSingleton.Status = true;
+                          PublishSingleton.Flags.Status = true;
                           PublishSingleton = RULE_ALERT; 
                           PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << state;
                           break;
@@ -1532,7 +1532,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
 
                   rulesCnt = 0;
                   
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   PublishSingleton = RULE_DELETE; 
                   PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << REG_DEL;
 
@@ -1563,7 +1563,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
 
                     //TODO: Удалять из параметров имя правила и у всех связанных правил удалять индекс этого имени!!!
  
-                    PublishSingleton.Status = true;
+                    PublishSingleton.Flags.Status = true;
                     PublishSingleton = RULE_DELETE; 
                     PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << REG_DEL;
                    } // if(bDeleted)
@@ -1587,7 +1587,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
         
         if(t == RULE_CNT) // запросили данные о количестве правил
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = RULE_CNT; 
           PublishSingleton << PARAM_DELIMITER << rulesCnt;
         }
@@ -1608,7 +1608,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                           AlertRule* rule = alertRules[idx];
                           if(rule) // нашли правило
                           {
-                            PublishSingleton.Status = true;
+                            PublishSingleton.Flags.Status = true;
                             PublishSingleton = RULE_VIEW; 
                             PublishSingleton << PARAM_DELIMITER << (command.GetArg(1)) << PARAM_DELIMITER
                             << (rule->GetAlertRule());
@@ -1640,7 +1640,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                           if(rule) // нашли правило
                           {
                             
-                            PublishSingleton.Status = true;
+                            PublishSingleton.Flags.Status = true;
                             PublishSingleton = RULE_STATE; 
                             PublishSingleton << PARAM_DELIMITER << (command.GetArg(1)) << PARAM_DELIMITER
                              << (rule->GetEnabled() ? STATE_ON : STATE_OFF);

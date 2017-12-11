@@ -1,21 +1,21 @@
 #include "LCDMenu.h"
 #include "InteropStream.h"
 #include "AbstractModule.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LCD_MODULE
 
 #if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
 #include "TempSensors.h"
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 WaitScreenInfo WaitScreenInfos[] = 
 {
    WAIT_SCREEN_SENSORS
   ,{0,0,"",""} // последний элемент пустой, заглушка для признака окончания списка
 };
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 PushButton button(MENU_BUTTON_PIN); // кнопка для управления меню
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ButtonOnClick(const PushButton& Sender, void* UserData) // пришло событие от кнопки - кликнута
 {
   UNUSED(Sender);
@@ -23,32 +23,30 @@ void ButtonOnClick(const PushButton& Sender, void* UserData) // пришло с�
   LCDMenu* menu = (LCDMenu*) UserData;
   menu->enterSubMenu(); // просим войти в подменю
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 IdlePageMenuItem IdleScreen; // экран ожидания
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_TEMP_SENSORS
 WindowMenuItem WindowManageScreen; // экран управления окнами
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WATERING_MODULE
 WateringMenuItem WateringManageScreen; // экран управления поливом
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_WATERING_MODULE) && defined(WATER_CHANNELS_SCREEN_ENABLED)
 WateringChannelsMenuItem WateringChannelsManageScreen; // экран управления каналами полива
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
 WindowsChannelsMenuItem WindowsChannelsManageScreen; // экран управления каналами полива
 #endif
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LUMINOSITY_MODULE
 LuminosityMenuItem LuminosityManageScreen; // экран управления досветкой
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 SettingsMenuItem SettingsManageScreen; // экран настроек
-
 //--------------------------------------------------------------------------------------------------------------------------------------
 AbstractLCDMenuItem::AbstractLCDMenuItem(const unsigned char* i, const char* c) :
 icon(i), caption(c), flags(0),/*focused(false), needToDrawCursor(false),*/cursorPos(-1), itemsCount(0)
@@ -1730,36 +1728,7 @@ String LCDMenu::GetFileContent(byte directory,byte fileIndex, int& resultSensorI
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::DoRemoveFiles(const String& dirName)
 {
-  File iter = SD.open(dirName);
-  if(!iter)
-    return;
-
-  while(1)
-  {
-    File entry = iter.openNextFile();
-    if(!entry)
-      break;
-
-    if(entry.isDirectory())
-    {
-      String subPath = dirName + F("/");
-      subPath += entry.name();
-      DoRemoveFiles(subPath);
-      entry.close();
-    }
-    else
-    {
-      String fullPath = dirName;
-      fullPath += F("/");
-      fullPath += entry.name();
-      SD.remove(fullPath);
-      entry.close();
-    }
-  }
-
-
-  iter.close();
-  
+  FileUtils::RemoveFiles(dirName);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::ClearSDSensors()

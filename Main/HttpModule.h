@@ -48,7 +48,7 @@ class HttpModule : public AbstractModule, public HTTPRequestHandler
     void Setup();
     void Update(uint16_t dt);
     
-  virtual void OnAskForHost(String& host); // вызывается для запроса имени хоста
+  virtual void OnAskForHost(String& host, int& port); // вызывается для запроса имени хоста
   virtual void OnAskForData(String* data); // вызывается для запроса данных, которые надо отправить HTTP-запросом
   virtual void OnAnswerLineReceived(String& line, bool& enough); // вызывается по приходу строки ответа от сервера, вызываемая сторона должна сама определить, когда достаточно данных.
   virtual void OnHTTPResult(uint16_t statusCode); // вызывается по завершению HTTP-запроса и получению ответа от сервера    

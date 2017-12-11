@@ -891,7 +891,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               // не надо, кроме как вычитать состояние каналов из EEPROM, т.к. режим работы
               // может быть как ручным, так и автоматическим.              
               
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               PublishSingleton = WATER_SETTINGS_COMMAND; 
               PublishSingleton << PARAM_DELIMITER << REG_SUCC;
           } // argsCount > 3
@@ -932,7 +932,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   settings->SetChannelWateringSensorIndex(channelIdx,wateringSensorIndex);
                   settings->SetChannelWateringStopBorder(channelIdx,wateringStopBorder);
                   
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   PublishSingleton = WATER_CHANNEL_SETTINGS; 
                   PublishSingleton << PARAM_DELIMITER << (command.GetArg(1)) << PARAM_DELIMITER << REG_SUCC;
                  
@@ -969,7 +969,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
              SwitchToManualMode();
            }
 
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               PublishSingleton = WORK_MODE; 
               PublishSingleton << PARAM_DELIMITER << param;
 
@@ -1018,7 +1018,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               SwitchToManualMode(); // переключаемся в ручной режим работы
            } // command from user
         
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = STATE_ON;
           if(argsCount > 1)
           {
@@ -1062,7 +1062,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
               SwitchToManualMode(); // переключаемся в ручной режим работы
            } // command from user 
 
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = STATE_OFF;
           if(argsCount > 1)
           {
@@ -1078,7 +1078,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
   {    
     if(!argsCount) // нет аргументов, попросили вернуть статус полива
     {
-      PublishSingleton.Status = true;
+      PublishSingleton.Flags.Status = true;
       #if WATER_RELAYS_COUNT > 0
       
         PublishSingleton = (IsAnyChannelActive() ? STATE_ON : STATE_OFF);
@@ -1097,7 +1097,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         {
           GlobalSettings* settings = MainController->GetSettings();
           
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = WATER_SETTINGS_COMMAND; 
           PublishSingleton << PARAM_DELIMITER; 
           PublishSingleton << (settings->GetWateringOption()) << PARAM_DELIMITER;
@@ -1111,7 +1111,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(t == WATER_CHANNELS_COUNT_COMMAND)
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = WATER_CHANNELS_COUNT_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << WATER_RELAYS_COUNT;
           
@@ -1119,14 +1119,14 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(t == WORK_MODE) // получить режим работы
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = WORK_MODE; 
           PublishSingleton << PARAM_DELIMITER << (flags.workMode == wwmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
         }
         else
         if(t == F("STATEMASK")) // запросили маску состояния каналов
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = F("STATEMASK");
           PublishSingleton << PARAM_DELIMITER << WATER_RELAYS_COUNT;
           
@@ -1164,7 +1164,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   
                   if(idx < WATER_RELAYS_COUNT)
                   {
-                    PublishSingleton.Status = true;
+                    PublishSingleton.Flags.Status = true;
 
                     GlobalSettings* settings = MainController->GetSettings();
                  
@@ -1194,6 +1194,6 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
  // отвечаем на команду
     MainController->Publish(this,command);
     
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
 

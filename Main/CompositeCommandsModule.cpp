@@ -2,12 +2,13 @@
 #include "ModuleController.h"
 #include "Memory.h"
 #include "InteropStream.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::Setup()
 {
   // настройка модуля тут
   LoadCommands();
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::Clear()
 {
   size_t cnt = commands.size();
@@ -26,6 +27,7 @@ void CompositeCommandsModule::Clear()
   
   commands.Clear();
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::LoadCommands()
 {
   Clear();
@@ -66,6 +68,7 @@ void CompositeCommandsModule::LoadCommands()
   
   // всё прочитано
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::SaveCommands()
 {
   // сохраняем команды в EEPROM
@@ -96,12 +99,14 @@ void CompositeCommandsModule::SaveCommands()
     
     // записали
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::Update(uint16_t dt)
 { 
   UNUSED(dt);
   // обновление модуля тут
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::AddCommand(uint8_t listIdx, uint8_t action, uint8_t param)
 {
   // проверяем, есть ли такой индекс в списке
@@ -120,6 +125,7 @@ void CompositeCommandsModule::AddCommand(uint8_t listIdx, uint8_t action, uint8_
   commandsList->Commands.push_back(cmd);
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::ProcessCommand(uint8_t idx)
 {
   if(commands.size() <= idx) // чего-то с индексом не сложилось
@@ -196,6 +202,7 @@ void CompositeCommandsModule::ProcessCommand(uint8_t idx)
     // все команды для составной - выполнены
     
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  CompositeCommandsModule::ExecCommand(const Command& command, bool wantAnswer)
 {
 
@@ -228,7 +235,7 @@ bool  CompositeCommandsModule::ExecCommand(const Command& command, bool wantAnsw
         if(wantAnswer)
           PublishSingleton = REG_DEL; // говорим, что удалили всё
 
-        PublishSingleton.Status = true;
+        PublishSingleton.Flags.Status = true;
       } // CC_DELETE_COMMAND
       else
       if(which == CC_SAVE_COMMAND) // сохранить команды в EEPROM
@@ -237,7 +244,7 @@ bool  CompositeCommandsModule::ExecCommand(const Command& command, bool wantAnsw
         if(wantAnswer)
           PublishSingleton = REG_SUCC; // говорим, что сохранили
 
-        PublishSingleton.Status = true;
+        PublishSingleton.Flags.Status = true;
       } // CC_SAVE_COMMAND
       else
       if(which == CC_PROCESS_COMMAND) // выполнить команду
@@ -251,7 +258,7 @@ bool  CompositeCommandsModule::ExecCommand(const Command& command, bool wantAnsw
             if(wantAnswer)
               PublishSingleton = REG_SUCC; // говорим, что выполнили
 
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
           }
           else
           {
@@ -274,7 +281,7 @@ bool  CompositeCommandsModule::ExecCommand(const Command& command, bool wantAnsw
             if(wantAnswer)
               PublishSingleton = REG_SUCC; // говорим, что добавили
 
-           PublishSingleton.Status = true;
+           PublishSingleton.Flags.Status = true;
         }
         else
         {
@@ -291,7 +298,8 @@ bool  CompositeCommandsModule::ExecCommand(const Command& command, bool wantAnsw
   // отвечаем на команду
   MainController->Publish(this,command);
     
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

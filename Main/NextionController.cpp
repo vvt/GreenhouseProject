@@ -1,8 +1,7 @@
 #include "NextionController.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 char NextionAbstractController::command_buff[NEXTION_COMMAND_BUFFER_LENGTH] = {0};
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 const char _thsp_FORMAT[] PROGMEM = "thsp=%u";
 const char _baud_FORMAT[] PROGMEM = "baud%s=%u";
 const char _dim_FORMAT[] PROGMEM = "dim%s=%u";
@@ -15,8 +14,9 @@ const char _echo_FORMAT[] PROGMEM = "bkcmd=%u";
 const char _page_FORMAT[] PROGMEM = "page %u";
 const char _refstop[] PROGMEM = "ref_stop";
 const char _refstar[] PROGMEM = "ref_star";
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 // наши кастомные команды
+//--------------------------------------------------------------------------------------------------------------------------------------
 const char _seg_FORMAT[] PROGMEM = "page0.seg%u.pic=%u";
 const char _tmr_FORMAT[] PROGMEM = "va0.val=%u";
 const char _wnd_FORMAT[] PROGMEM = "page1.wnd%u.val=%u";
@@ -25,9 +25,7 @@ const char _light_FORMAT[] PROGMEM = "page3.light%u.val=%u";
 const char _settings_t_FORMAT[] PROGMEM = "page4.t%s%u.pic=%u";
 const char _sensor_type_FORMAT[] PROGMEM = "page0.p1.pic=%u";
 const char _sensor_desc_FORMAT[] PROGMEM = "page0.p0.pic=%u";
-
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 NextionAbstractController::NextionAbstractController() 
 {
   workStream = NULL;
@@ -46,6 +44,7 @@ NextionAbstractController::NextionAbstractController()
  
   recvBuff.reserve(NEXTION_COMMAND_BUFFER_LENGTH); // резервируем память под приём команд от Nextion
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::subscribe(const NextionSubscribeStruct& ss)
 {
   _onError = ss.OnError;
@@ -61,70 +60,84 @@ void NextionAbstractController::subscribe(const NextionSubscribeStruct& ss)
   _onUpgrade = ss.OnUpgrade;
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::begin(Stream* s, void* userData)
 {
   workStream = s;
   _userData = userData;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::update()
 {
   recvAnswer(); // вычитываем ответ от Nextion
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setBaudRate(uint16_t baud, bool setAsDefault)
 {
   sprintf_P(command_buff,_baud_FORMAT,setAsDefault ? "s" : "", baud);
   sendCommand(command_buff);  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setBrightness(uint8_t bright, bool setAsDefault)
 {
   sprintf_P(command_buff,_dim_FORMAT,setAsDefault ? "s" : "", bright);
   sendCommand(command_buff);   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setFontXSpacing(uint8_t spacing)
 {
   sprintf_P(command_buff,_spa_FORMAT,"x", spacing);
   sendCommand(command_buff);    
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setFontYSpacing(uint8_t spacing)
 {
   sprintf_P(command_buff,_spa_FORMAT,"y", spacing);
   sendCommand(command_buff);    
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setSendXY(bool shouldSend)
 {
   sprintf_P(command_buff,_sendxy_FORMAT,shouldSend ? 1 : 0);
   sendCommand(command_buff);  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::sleep(bool enterSleep)
 {
   sprintf_P(command_buff,_sleep_FORMAT,enterSleep ? 1 : 0);
   sendCommand(command_buff);    
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setSysVariableValue(uint8_t sysVarNumber,uint32_t val)
 {
   sprintf_P(command_buff,_sysvar_FORMAT,sysVarNumber, val);
   sendCommand(command_buff);      
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setSleepDelay(uint8_t seconds)
 {
   sprintf_P(command_buff,_thsp_FORMAT,seconds);
   sendCommand(command_buff);  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setWakeOnTouch(bool awake)
 {
   sprintf_P(command_buff,_wake_FORMAT,awake ? 1 : 0);
   sendCommand(command_buff);    
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::setEchoMode(NextionEchoMode mode)
 {
   sprintf_P(command_buff,_echo_FORMAT,(uint8_t)mode);
   sendCommand(command_buff);      
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::goToPage(uint8_t pageNum)
 {
   sprintf_P(command_buff,_page_FORMAT,pageNum);
   sendCommand(command_buff);        
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::sendCommand(const char* cmd)
 {
   recvAnswer(); // вычитываем ответ от Nextion
@@ -140,6 +153,7 @@ void NextionAbstractController::sendCommand(const char* cmd)
     workStream->write(endOfPacket,sizeof(endOfPacket));
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool NextionAbstractController::gotCommand()
 {
   int len = recvBuff.length();
@@ -150,6 +164,7 @@ bool NextionAbstractController::gotCommand()
   );
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::recvAnswer()
 {
   if(!workStream)
@@ -170,6 +185,7 @@ void NextionAbstractController::recvAnswer()
       processCommand(); // обрабатываем её
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionAbstractController::processCommand()
 {
   uint8_t commandType = (uint8_t) recvBuff[0];
@@ -321,54 +337,62 @@ void NextionAbstractController::processCommand()
 
   recvBuff = ""; // очищаем буфер
 }
-
-/////////////////////////////////////////////////////////////////////////
+//--------------------------------------------------------------------------------------------------------------------------------------
 // Реализация нашего кастомного управления Nextion
-/////////////////////////////////////////////////////////////////////////
+//--------------------------------------------------------------------------------------------------------------------------------------
 NextionController::NextionController() : NextionAbstractController()
 {
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::setSegmentInfo(uint8_t segNum,uint8_t charStartAddress)
 {
   sprintf_P(command_buff,_seg_FORMAT,segNum, (charStartAddress + segNum));  
   sendCommand(command_buff);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::setWaitTimerInterval(uint16_t val)
 {
   sprintf_P(command_buff,_tmr_FORMAT,val);
   sendCommand(command_buff);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::notifyWindowState(bool isWindowsOpen)
 {
   sprintf_P(command_buff,_wnd_FORMAT,0,isWindowsOpen ? 1 : 0);
   sendCommand(command_buff);        
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::notifyWindowMode(bool isAutoMode)
 {
   sprintf_P(command_buff,_wnd_FORMAT,1,isAutoMode ? 1 : 0);
   sendCommand(command_buff);          
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::notifyWaterState(bool isWaterOn)
 {
   sprintf_P(command_buff,_water_FORMAT,0,isWaterOn ? 1 : 0);
   sendCommand(command_buff);          
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::notifyWaterMode(bool isAutoMode)
 {
   sprintf_P(command_buff,_water_FORMAT,1,isAutoMode ? 1 : 0);
   sendCommand(command_buff);          
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::notifyLightState(bool isLightOn)
 {
   sprintf_P(command_buff,_light_FORMAT,0,isLightOn ? 1 : 0);
   sendCommand(command_buff);          
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::notifyLightMode(bool isAutoMode)
 {
   sprintf_P(command_buff,_light_FORMAT,1,isAutoMode ? 1 : 0);
   sendCommand(command_buff);          
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t NextionController::fillEmptySpaces(uint8_t pos_written)
 {
  while(pos_written < NEXTION_CHAR_PLACES)
@@ -378,6 +402,7 @@ uint8_t NextionController::fillEmptySpaces(uint8_t pos_written)
  }
     return pos_written;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::doShowSettingsTemp(uint8_t temp,const char* which, uint8_t offset)
 {
   sprintf_P(command_buff,(const char*) F("%s"),_refstop);
@@ -396,14 +421,17 @@ void NextionController::doShowSettingsTemp(uint8_t temp,const char* which, uint8
   sprintf_P(command_buff,(const char*) F("%s"),_refstar);
   sendCommand(command_buff);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::showOpenTemp(uint8_t temp)
 {
  doShowSettingsTemp(temp);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::showCloseTemp(uint8_t temp)
 {
   doShowSettingsTemp(temp,"close",4);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::showLuminosity(long lum)
 {
   sprintf_P(command_buff,(const char*) F("%s"),_refstop);
@@ -431,6 +459,7 @@ void NextionController::showLuminosity(long lum)
  sendCommand(command_buff);
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::showHumidity(const Humidity& h)
 {
   sprintf_P(command_buff,(const char*) F("%s"),_refstop);
@@ -467,6 +496,7 @@ void NextionController::showHumidity(const Humidity& h)
   sendCommand(command_buff);
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void NextionController::showTemperature(const Temperature& t)
 {
   sprintf_P(command_buff,(const char*) F("%s"),_refstop);
@@ -503,6 +533,7 @@ void NextionController::showTemperature(const Temperature& t)
   sendCommand(command_buff);
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t NextionController::showNumber(long num,uint8_t segNum,bool addLeadingZero)
 {
 
@@ -546,6 +577,7 @@ uint8_t NextionController::showNumber(long num,uint8_t segNum,bool addLeadingZer
 
  return written;     
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 
 

@@ -122,15 +122,6 @@ void LuminosityModule::Setup()
   
   #endif
 
-/*  
-  #if LIGHT_SENSORS_COUNT > 0
-  lightMeter.begin(); // запускаем первый датчик освещенности
-  #endif
-
-  #if LIGHT_SENSORS_COUNT > 1
-  lightMeter2.begin(BH1750Address2); // запускаем второй датчик освещённости
-  #endif
-*/
   
   // настройка модуля тут
 
@@ -253,18 +244,6 @@ void LuminosityModule::Update(uint16_t dt)
        State.UpdateState(StateLuminosity,i,(void*)&lum);
     } // for
   
-/*
-    long lum = NO_LUMINOSITY_DATA;
-    
-    lum = lightMeter.GetCurrentLuminosity();
-    State.UpdateState(StateLuminosity,0,(void*)&lum);
-    
-  #endif
-    
-  #if LIGHT_SENSORS_COUNT > 1
-    lum = lightMeter2.GetCurrentLuminosity();
-    State.UpdateState(StateLuminosity,1,(void*)&lum);
-*/
     
   #endif   
 
@@ -313,7 +292,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
 
             flags.bRelaysIsOn = true; // включаем реле досветки
             
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             if(wantAnswer) 
               PublishSingleton = STATE_ON;
 
@@ -353,7 +332,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
 
             flags.bRelaysIsOn = false; // выключаем реле досветки
             
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             if(wantAnswer) 
               PublishSingleton = STATE_OFF;
 
@@ -391,7 +370,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
                 #endif
               }
 
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               if(wantAnswer)
               {
                 PublishSingleton = WORK_MODE; 
@@ -413,7 +392,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
     if(!argsCnt) // нет аргументов, попросили дать показания с датчика
     {
       
-      PublishSingleton.Status = true;
+      PublishSingleton.Flags.Status = true;
       if(wantAnswer) 
       {
          PublishSingleton = "";
@@ -455,7 +434,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
        String s = command.GetArg(0);
        if(s == WORK_MODE) // запросили режим работы
        {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = WORK_MODE;
@@ -472,7 +451,7 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
             PublishSingleton << PARAM_DELIMITER << (flags.bRelaysIsOn ? STATE_ON : STATE_OFF) << PARAM_DELIMITER << (flags.workMode == lightAutomatic ? WM_AUTOMATIC : WM_MANUAL);
           }
           
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
              
        } // LIGHT_STATE_COMMAND
         

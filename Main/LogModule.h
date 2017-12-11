@@ -4,14 +4,14 @@
 #include "Globals.h"
 #include "DS3231Support.h"
 #include <SD.h>
-
+//--------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
   AbstractModule* RaisedModule; // модуль, который инициировал событие
   String Message; // действие, которое было произведено
   
 } LogAction; // структура с описанием действий, которые произошли 
-
+//--------------------------------------------------------------------------------------------------------------------------------
 class LogModule : public AbstractModule // модуль логгирования данных с датчиков
 {
   private:
@@ -20,12 +20,14 @@ class LogModule : public AbstractModule // модуль логгирования
   static String _NEWLINE;
 
   unsigned long lastUpdateCall;
+  /*
   #ifdef USE_DS3231_REALTIME_CLOCK
   DS3231Clock rtc;
   #endif
+  */
   int8_t lastDOW;
 
-  bool hasSD;
+  //bool hasSD;
   File logFile; // текущий файл для логгирования
   File actionFile; // файл с записями о произошедших действиях
   String currentLogFileName; // текущее имя файла, с которым мы работаем сейчас
@@ -58,6 +60,5 @@ class LogModule : public AbstractModule // модуль логгирования
     void WriteAction(const LogAction& action); // записывает действие в файл событий
 
 };
-
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #endif

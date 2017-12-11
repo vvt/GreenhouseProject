@@ -334,7 +334,7 @@ bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
               else
               {
                 // с параметрами норм, разбираем
-                PublishSingleton.Status = true;
+                PublishSingleton.Flags.Status = true;
                 PublishSingleton = REG_SUCC;
                 
                 IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
@@ -390,7 +390,7 @@ bool IoTModule::ExecCommand(const Command& command, bool wantAnswer)
         
         if(param == F("T_SETT")) // запросили настройки IoT: CTGET=IOT|T_SETT
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
 
           IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 

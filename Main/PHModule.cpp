@@ -237,7 +237,7 @@ void PhModule::Setup()
   // настройка модуля тут
   phSensorPin = PH_SENSOR_PIN;
   measureTimer = 0;
-  inMeasure = false;
+  flags.inMeasure = false;
   samplesDone = 0;
   samplesTimer = 0;
   calibration = 0;
@@ -266,12 +266,12 @@ void PhModule::Setup()
   defaultData |= (PH_CONTROL_VALVE_OFF << PH_MINUS_CHANNEL);
   defaultData |= (PH_MIX_PUMP_OFF << PH_MIX_PUMP_CHANNEL);
 
-  isMixPumpOn = false; // насос перемешивания выключен
+  flags.isMixPumpOn = false; // насос перемешивания выключен
   mixPumpTimer = 0;
 
   phControlTimer = 0;
 
-  isInAddReagentsMode = false;
+  flags.isInAddReagentsMode = false;
   reagentsTimer = 0;
   targetReagentsTimer = 0;
   targetReagentsChannel = 0;
@@ -315,24 +315,18 @@ void PhModule::SaveSettings()
   for(size_t i=0;i<sizeof(ph4Voltage);i++)
     MemWrite(addr++,*pB++);
     
-  //EEPROM.put(addr,ph4Voltage);
-  //addr += sizeof(int16_t);   
 
   // пишем вольтаж раствора 7 pH
   pB = (byte*) &ph7Voltage;
   for(size_t i=0;i<sizeof(ph7Voltage);i++)
     MemWrite(addr++,*pB++);
     
-  //EEPROM.put(addr,ph7Voltage);
-  //addr += sizeof(int16_t);   
 
   // пишем вольтаж раствора 10 pH
   pB = (byte*) &ph10Voltage;
   for(size_t i=0;i<sizeof(ph10Voltage);i++)
     MemWrite(addr++,*pB++);
       
-  //EEPROM.put(addr,ph10Voltage);
-  //addr += sizeof(int16_t);
 
   // пишем индекс датчика температуры
   MemWrite(addr++,phTemperatureSensorIndex);
@@ -341,8 +335,6 @@ void PhModule::SaveSettings()
   cal[0] = phSamplesTemperature.Value;
   cal[1] = phSamplesTemperature.Fract;
 
-  //EEPROM.put(addr,cal);
-  //addr += 2;
   MemWrite(addr++,cal[0]);
   MemWrite(addr++,cal[1]);
 
@@ -350,30 +342,19 @@ void PhModule::SaveSettings()
   for(size_t i=0;i<sizeof(phTarget);i++)
     MemWrite(addr++,*pB++);
     
-//  EEPROM.put(addr,phTarget);
-//  addr += sizeof(phTarget);
 
   pB = (byte*) &phHisteresis;
   for(size_t i=0;i<sizeof(phHisteresis);i++)
     MemWrite(addr++,*pB++);
 
- // EEPROM.put(addr,phHisteresis);
-//  addr += sizeof(phHisteresis);
-
   pB = (byte*) &phMixPumpTime;
   for(size_t i=0;i<sizeof(phMixPumpTime);i++)
     MemWrite(addr++,*pB++);
-
- // EEPROM.put(addr,phMixPumpTime);
- // addr += sizeof(phMixPumpTime);
 
   pB = (byte*) &phReagentPumpTime;
   for(size_t i=0;i<sizeof(phReagentPumpTime);i++)
     MemWrite(addr++,*pB++);
 
-
-//  EEPROM.put(addr,phReagentPumpTime);
- // addr += sizeof(phReagentPumpTime);
   
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -406,8 +387,6 @@ void PhModule::ReadSettings()
     *pB = MemRead(addr++);
      pB++;
  }
- // EEPROM.get(addr,ph4Voltage);
-//  addr += sizeof(int16_t);   
 
  // читаем вольтаж раствора 7 pH
   pB = (byte*) &ph7Voltage;
@@ -417,8 +396,6 @@ void PhModule::ReadSettings()
      pB++;
  }
 
-//  EEPROM.get(addr,ph7Voltage);
-//  addr += sizeof(int16_t);   
 
  // читаем вольтаж раствора 10 pH
   pB = (byte*) &ph10Voltage;
@@ -427,9 +404,7 @@ void PhModule::ReadSettings()
     *pB = MemRead(addr++);
      pB++;
  }
- // EEPROM.get(addr,ph10Voltage);
- // addr += sizeof(int16_t);
-
+ 
   // читаем индекс датчика температуры
   phTemperatureSensorIndex = MemRead(addr++);
 
@@ -468,8 +443,6 @@ void PhModule::ReadSettings()
        pB++;
     }
  
- // EEPROM.get(addr,phTarget);
- // addr += sizeof(phTarget);
   
   if(phTarget == 0xFFFF)
     phTarget = PH_DEFAULT_TARGET;   
@@ -480,9 +453,6 @@ void PhModule::ReadSettings()
       *pB = MemRead(addr++);
        pB++;
     }
-
-//  EEPROM.get(addr,phHisteresis);
-//  addr += sizeof(phHisteresis);
   
   if(phHisteresis == 0xFFFF)
     phHisteresis = PH_DEFAULT_HISTERESIS;   
@@ -494,9 +464,6 @@ void PhModule::ReadSettings()
        pB++;
     }
 
-
-//  EEPROM.get(addr,phMixPumpTime);
-//  addr += sizeof(phMixPumpTime);
   
   if(phMixPumpTime == 0xFFFF)
     phMixPumpTime = PH_DEFAULT_MIX_PUMP_TIME;   
@@ -507,11 +474,7 @@ void PhModule::ReadSettings()
       *pB = MemRead(addr++);
        pB++;
     }
-
-
- // EEPROM.get(addr,phReagentPumpTime);
- // addr += sizeof(phReagentPumpTime);
-  
+ 
   if(phReagentPumpTime == 0xFFFF)
     phReagentPumpTime = PH_DEFAULT_REAGENT_PUMP_TIME;   
   
@@ -531,14 +494,14 @@ void PhModule::Update(uint16_t dt)
     // если же мы не измеряем, то проверяем - не истёк ли интервал между замерами.
     // если истёк - начинаем измерения.
 
-    if(inMeasure)
+    if(flags.inMeasure)
     {
       // в процессе замера
       if(samplesDone >= PH_SAMPLES_PER_MEASURE)
       {
          // набрали нужное кол-во семплов
          samplesTimer = 0;
-         inMeasure = false;
+         flags.inMeasure = false;
          measureTimer = 0;
 
          // теперь преобразуем полученное значение в среднее
@@ -611,7 +574,7 @@ void PhModule::Update(uint16_t dt)
       {
         // настала пора переключиться на замер
         measureTimer = 0;
-        inMeasure = true;
+        flags.inMeasure = true;
         samplesDone = 0;
         samplesTimer = 0;
 
@@ -628,7 +591,7 @@ void PhModule::Update(uint16_t dt)
   //Тут контроль pH
   updateDelta += dt;
 
-  if(isMixPumpOn) // если насос перемешивания включен - прибавляем время его работы
+  if(flags.isMixPumpOn) // если насос перемешивания включен - прибавляем время его работы
   {
     mixPumpTimer += dt; // прибавляем время работы насоса
 
@@ -643,7 +606,7 @@ void PhModule::Update(uint16_t dt)
       SAVE_STATUS(PH_MIX_PUMP_BIT,0); // сохраняем статус помпы перемешивания
             
       // надо выключить насос перемешивания
-      isMixPumpOn = false; // выключаем помпу
+      flags.isMixPumpOn = false; // выключаем помпу
       mixPumpTimer = 0; // сбрасываем таймер помпы перемешивания
       phControlTimer = 0; // сбрасываем таймер обновления pH
       
@@ -658,9 +621,9 @@ void PhModule::Update(uint16_t dt)
       
     } // if
     
-  } // if(isMixPumpOn)
+  } // if(flags.isMixPumpOn)
 
-  if(isInAddReagentsMode)
+  if(flags.isInAddReagentsMode)
   {
     // запущен таймер добавления реагентов
     reagentsTimer += dt; // прибавляем дельту работы
@@ -678,8 +641,8 @@ void PhModule::Update(uint16_t dt)
            
       // настала пора выключать реагенты и включать насос перемешивания
       reagentsTimer = 0; // сбрасываем таймер реагентов
-      isInAddReagentsMode = false; // выключаем подачу реагентов
-      isMixPumpOn = true; // включаем помпу перемешивания
+      flags.isInAddReagentsMode = false; // выключаем подачу реагентов
+      flags.isMixPumpOn = true; // включаем помпу перемешивания
       mixPumpTimer = 0; // сбрасываем таймер работы помпы перемешивания
 
       byte data = pcfModule.read8();
@@ -726,6 +689,7 @@ void PhModule::Update(uint16_t dt)
 
         // выключаем все насосы подачи, перемешивания, включаем помпу подачи воды и выходим
         // сначала сбрасываем нужные биты
+        data &= ~(1 << PH_FLOW_ADD_CHANNEL);
         data &= ~(1 << PH_PLUS_CHANNEL);
         data &= ~(1 << PH_MINUS_CHANNEL);
         data &= ~(1 << PH_MIX_PUMP_CHANNEL);
@@ -739,10 +703,10 @@ void PhModule::Update(uint16_t dt)
         // теперь пишем всё это дело в микросхему
         pcfModule.write8(data);
   
-        isMixPumpOn = false; // выключаем помпу
+        flags.isMixPumpOn = false; // выключаем помпу
         mixPumpTimer = 0;
   
-        isInAddReagentsMode = false; // выключаем насосы добавления реагентов
+        flags.isInAddReagentsMode = false; // выключаем насосы добавления реагентов
         reagentsTimer = 0; // сбрасываем таймер добавления реагентов
   
         
@@ -763,7 +727,7 @@ void PhModule::Update(uint16_t dt)
     
   } // if(updateDelta > 1234)
 
-  if(isInAddReagentsMode)
+  if(flags.isInAddReagentsMode)
   {
    // добавляем реагенты, не надо ничего делать
     
@@ -772,7 +736,7 @@ void PhModule::Update(uint16_t dt)
   {
     // реагенты не добавляем, можем проверять pH, если помпа перемешивания не работает и настал интервал проверки
     
-    if(!isMixPumpOn)
+    if(!flags.isMixPumpOn)
     {
       // только если не включен насос перемешивания и насосы подачи реагента - попадаем сюда, на проверку контроля pH
       phControlTimer += dt;
@@ -853,8 +817,8 @@ void PhModule::Update(uint16_t dt)
               #endif
 
               // переходим в режим подачи реагента
-              isInAddReagentsMode = true;
-              isMixPumpOn = false;
+              flags.isInAddReagentsMode = true;
+              flags.isMixPumpOn = false;
               mixPumpTimer = 0;
 
               // читаем из микросхемы и изменяем наши настройки
@@ -893,7 +857,7 @@ void PhModule::Update(uint16_t dt)
         
       } // if(phControlTimer > PH_CONTROL_CHECK_INTERVAL)
       
-    } // if(!isMixPumpOn)
+    } // if(!flags.isMixPumpOn)
     
   } // else не добавляем реагенты
 
@@ -945,7 +909,7 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
              
              SaveSettings();
 
-             PublishSingleton.Status = true;
+             PublishSingleton.Flags.Status = true;
              PublishSingleton = REG_SUCC;
           }
        } // PH_SETTINGS_COMMAND
@@ -970,7 +934,7 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
         
         if(param == ALL) // запросили показания со всех датчиков: CTGET=PH|ALL
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           uint8_t _cnt = State.GetStateCount(StatePH);
           if(wantAnswer) 
             PublishSingleton = _cnt;
@@ -1023,7 +987,7 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(param == PH_SETTINGS_COMMAND) // получить/установить настройки: CTGET=PH|T_SETT, CTSET=PH|T_SETT|calibration_factor|ph4Voltage|ph7Voltage|ph10Voltage|temp_sensor_index|samples_temp|ph_target|ph_histeresis|mix_time|reagent_time
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer)
           {
             PublishSingleton = PH_SETTINGS_COMMAND;
@@ -1043,7 +1007,7 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(param == PROP_CNT) // запросили данные о кол-ве датчиков: CTGET=PH|CNT
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = PROP_CNT; 
@@ -1072,7 +1036,7 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
              OneState* stateHumidity = State.GetStateByOrder(StatePH,idx);
              if(stateHumidity)
              {
-                PublishSingleton.Status = true;
+                PublishSingleton.Flags.Status = true;
                 HumidityPair hp = *stateHumidity;
 
                 // конвертируем текущее значение pH в милливольты

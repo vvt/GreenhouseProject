@@ -515,7 +515,6 @@ void updateExternalWatchdog()
         {
           if(watchdogSettings.timer >= WATCHDOG_WORK_INTERVAL)
           {
-           // Serial.println("set high");
             watchdogSettings.timer = 0;
             watchdogSettings.state = WAIT_FOR_LOW;
             digitalWrite(WATCHDOG_REBOOT_PIN, HIGH);
@@ -527,7 +526,6 @@ void updateExternalWatchdog()
         {
           if(watchdogSettings.timer >= WATCHDOG_PULSE_DURATION)
           {
-          //  Serial.println("set low");
             watchdogSettings.timer = 0;
             watchdogSettings.state = WAIT_FOR_HIGH;
             digitalWrite(WATCHDOG_REBOOT_PIN, LOW);
@@ -561,7 +559,8 @@ void loop()
 #ifdef USE_READY_DIODE
 
   #ifdef BLINK_READY_DIODE
-   // static uint16_t ready_diode_timer = 0;
+
+    // будем мигать информационным диодом
     static bool blink_ready_diode_inited = false;
     if(!blink_ready_diode_inited) {
       blink_ready_diode_inited = true;
@@ -575,9 +574,22 @@ void loop()
     if(!blink_ready_diode_inited) {
       blink_ready_diode_inited = true;
 
-      // просто зажигаем светодиод при старте
-      WORK_STATUS.PinMode(6,OUTPUT);
-      WORK_STATUS.PinWrite(6,HIGH);
+      // просто зажигаем информационный светодиод при старте
+      
+      #if INFO_DIODES_DRIVE_MODE == DRIVE_DIRECT
+        WORK_STATUS.PinMode(DIODE_READY_PIN,OUTPUT);
+        WORK_STATUS.PinWrite(DIODE_READY_PIN,HIGH);
+      #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23S17
+        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+          WORK_STATUS.MCP_SPI_PinMode(INFO_DIODES_MCP23S17_ADDRESS,DIODE_READY_PIN,OUTPUT);
+          WORK_STATUS.MCP_SPI_PinWrite(INFO_DIODES_MCP23S17_ADDRESS,DIODE_READY_PIN,HIGH);
+        #endif
+      #elif INFO_DIODES_DRIVE_MODE == DRIVE_MCP23017
+        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+          WORK_STATUS.MCP_I2C_PinMode(INFO_DIODES_MCP23017_ADDRESS,DIODE_READY_PIN,OUTPUT);
+          WORK_STATUS.MCP_I2C_PinWrite(INFO_DIODES_MCP23017_ADDRESS,DIODE_READY_PIN,HIGH);
+        #endif
+      #endif        
     }
   #endif
 

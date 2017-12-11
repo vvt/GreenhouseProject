@@ -1,26 +1,30 @@
 #include <Arduino.h>
 #include "CommandParser.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 Command::Command()
 {
 
   Clear();  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 Command::~Command()
 {
   Clear();
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 size_t Command::GetArgsCount() const
 { 
   return arguments.size();
 }
- const char* Command::GetArg(size_t idx) const
+//--------------------------------------------------------------------------------------------------------------------------------------
+const char* Command::GetArg(size_t idx) const
 {
   if(idx < arguments.size())
     return arguments[idx];
 
  return NULL;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void Command::Construct(const char* moduleID,const char* rawArgs, const char* ct)
 {
   uint8_t commandType = ctGET;
@@ -30,6 +34,7 @@ void Command::Construct(const char* moduleID,const char* rawArgs, const char* ct
   Construct(moduleID,rawArgs,commandType);
  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void Command::Construct(const char* id, const char* rawArgs, uint8_t ct)
 {
   Clear(); // сбрасываем все настройки
@@ -73,6 +78,7 @@ void Command::Construct(const char* id, const char* rawArgs, uint8_t ct)
     } // while    
          
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void Command::Clear()
 {
   Type = ctUNKNOWN;
@@ -89,17 +95,17 @@ void Command::Clear()
   arguments.Clear();
 
 }
-  
+//--------------------------------------------------------------------------------------------------------------------------------------  
 CommandParser::CommandParser()
 {  
   Clear();
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CommandParser::Clear()
 {
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool CommandParser::ParseCommand(const String& command, Command& outCommand)
 {
   Clear(); // clear first
@@ -154,4 +160,5 @@ bool CommandParser::ParseCommand(const String& command, Command& outCommand)
   return true;
    
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

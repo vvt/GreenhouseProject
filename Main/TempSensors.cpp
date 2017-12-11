@@ -1,16 +1,16 @@
 #include "TempSensors.h"
 #include "ModuleController.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 TempSensors* WindowModule = NULL;
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_SENSORS > 0
 static TempSensorSettings TEMP_SENSORS[] = { TEMP_SENSORS_PINS };
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifndef USE_WINDOWS_SHIFT_REGISTER
 static uint8_t WINDOWS_RELAYS[] = { WINDOWS_RELAYS_PINS };
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 {
 //  Parent = parent;
@@ -24,7 +24,7 @@ void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
   RelayChannel2 = relayChannel2;
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool WindowState::ChangePosition(uint8_t dir, unsigned long newPos)
 {
   bool bRet = false;
@@ -76,6 +76,7 @@ bool WindowState::ChangePosition(uint8_t dir, unsigned long newPos)
   }
     return bRet;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
 {
 
@@ -88,6 +89,7 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
   WORK_STATUS.SaveWindowState(RelayChannel2,rel2State);
     
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::UpdateState(uint16_t dt)
 {
   
@@ -146,6 +148,7 @@ void WindowState::UpdateState(uint16_t dt)
     SwitchRelays(bRelay1State,bRelay2State);
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WINDOWS_SHIFT_REGISTER
 void TempSensors::WriteToShiftRegister() // ПИШЕМ В СДВИГОВЫЙ РЕГИСТР
 {
@@ -209,6 +212,7 @@ void TempSensors::WriteToShiftRegister() // ПИШЕМ В СДВИГОВЫЙ Р�
     lastShiftRegisterData[i] = shiftRegisterData[i];
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::SaveChannelState(uint8_t channel, uint8_t state)
 {
   #ifdef USE_WINDOWS_SHIFT_REGISTER
@@ -230,7 +234,7 @@ void TempSensors::SaveChannelState(uint8_t channel, uint8_t state)
     WORK_STATUS.PinWrite(WINDOWS_RELAYS[channel],state);
   #endif
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool TempSensors::IsWindowOpen(uint8_t windowNumber)
 {
   if(windowNumber >= SUPPORTED_WINDOWS)
@@ -251,9 +255,7 @@ bool TempSensors::IsWindowOpen(uint8_t windowNumber)
 
   return false; // окно закрывается или закрыто
 }
-
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::SetupWindows()
 {
   // настраиваем фрамуги  
@@ -281,7 +283,7 @@ void TempSensors::SetupWindows()
     Windows[i].ChangePosition(dirCLOSE,0);
   } // for
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::Setup()
 {
   WindowModule = this;
@@ -298,6 +300,8 @@ void TempSensors::Setup()
   
    // добавляем датчики температуры
    #if SUPPORTED_SENSORS > 0
+
+   DS18B20Temperature tempData;
    tempData.Whole = 0;
    tempData.Fract = 0;
    for(uint8_t i=0;i<SUPPORTED_SENSORS;i++)
@@ -375,6 +379,7 @@ void TempSensors::Setup()
  
 
  }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::Update(uint16_t dt)
 { 
 #ifdef USE_WINDOWS_MANUAL_MODE_DIODE
@@ -407,6 +412,9 @@ void TempSensors::Update(uint16_t dt)
     t.Fract = 0;
     
     tempSensor.begin(TEMP_SENSORS[i].pin);
+    
+    DS18B20Temperature tempData;
+    
     if(tempSensor.readTemperature(&tempData,(DSSensorType)TEMP_SENSORS[i].type))
     {
       t.Value = tempData.Whole;
@@ -415,6 +423,11 @@ void TempSensors::Update(uint16_t dt)
         t.Value = -t.Value;
 
       t.Fract = tempData.Fract + smallSensorsChange;
+
+      // convert to Fahrenheit if needed
+      #ifdef MEASURE_TEMPERATURES_IN_FAHRENHEIT
+       t = Temperature::ConvertToFahrenheit(t);
+      #endif      
       
     }
     State.UpdateState(StateTemperature,i,(void*)&t); // обновляем состояние температуры, индексы датчиков у нас идут без дырок, поэтому с итератором цикла вызывать можно
@@ -425,6 +438,7 @@ void TempSensors::Update(uint16_t dt)
 
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 {
   GlobalSettings* sett = MainController->GetSettings();
@@ -477,7 +491,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
             interval = (unsigned long) atol(command.GetArg(3)); // получили интервал для работы реле
 
  
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           // откуда до куда шаримся
           uint8_t from = 0;
           uint8_t to = SUPPORTED_WINDOWS;
@@ -602,7 +616,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         sett->SetCloseTemp(tClose);
 //        sett->Save();
         
-        PublishSingleton.Status = true;
+        PublishSingleton.Flags.Status = true;
         if(wantAnswer) 
         {
           PublishSingleton = TEMP_SETTINGS;
@@ -625,7 +639,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
         if(commandRequested == WM_AUTOMATIC)
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = WORK_MODE;
@@ -639,7 +653,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         }
         else if(commandRequested == WM_MANUAL)
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = WORK_MODE;
@@ -664,7 +678,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                 sett->SetOpenInterval(newInt);
 //                sett->Save();
                 
-                PublishSingleton.Status = true;
+                PublishSingleton.Flags.Status = true;
                 if(wantAnswer) 
                 {
                   PublishSingleton = WM_INTERVAL;
@@ -693,7 +707,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
               if(commandRequested == PROP_TEMP_CNT) // кол-во датчиков
               {
-                 PublishSingleton.Status = true;
+                 PublishSingleton.Flags.Status = true;
                  if(wantAnswer) 
                  {
                   uint8_t _tempCnt = State.GetStateCount(StateTemperature);
@@ -706,7 +720,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                 if(commandRequested == ALL)
                 {
                   // все датчики
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   if(wantAnswer)
                   { 
                    PublishSingleton = PROP_TEMP;
@@ -739,7 +753,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                  else
                   {
                     // получаем текущее значение датчика
-                    PublishSingleton.Status = true;
+                    PublishSingleton.Flags.Status = true;
 
                     if(wantAnswer)
                     {
@@ -763,7 +777,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
             if(commandRequested == PROP_WINDOW_CNT)
             {
-                    PublishSingleton.Status = true;
+                    PublishSingleton.Flags.Status = true;
                     if(wantAnswer)
                     {
                       PublishSingleton = PROP_WINDOW_CNT;
@@ -775,7 +789,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
             if(commandRequested == PROP_WINDOW_STATEMASK)
             {
                // получить состояние окон в виде маски, для каждого окна - два бита в маске
-               PublishSingleton.Status = true;
+               PublishSingleton.Flags.Status = true;
                if(wantAnswer)
                {
                  PublishSingleton = PROP_WINDOW;
@@ -888,7 +902,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                   } // for
 
                   // тут мы уже имеем состояние, обобщённое для всех окон
-                  PublishSingleton.Status = true;
+                  PublishSingleton.Flags.Status = true;
                   PublishSingleton = PROP_WINDOW;
                   PublishSingleton << PARAM_DELIMITER << commandRequested << PARAM_DELIMITER;
                   
@@ -940,7 +954,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                       } // else
                       
                       
-                      PublishSingleton.Status = true;
+                      PublishSingleton.Flags.Status = true;
                       if(wantAnswer)
                       {
                         PublishSingleton = PROP_WINDOW;
@@ -964,7 +978,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         if(commandRequested == WORK_MODE) // запросили режим работы
         {
           
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer)
           {
             PublishSingleton = WORK_MODE;
@@ -975,7 +989,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(commandRequested == WM_INTERVAL) // запросили интервал срабатывания форточек
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer)
           {
             PublishSingleton = WM_INTERVAL;
@@ -985,7 +999,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(commandRequested == TEMP_SETTINGS) // запросили температуры открытия и закрытия
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           
           if(wantAnswer)
           {
@@ -1000,7 +1014,8 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
  // отвечаем на команду
   MainController->Publish(this,command);
 
-  return PublishSingleton.Status;
+  return PublishSingleton.Flags.Status;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 
 

@@ -1,9 +1,8 @@
 #include "DeltaModule.h"
 #include "ModuleController.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 DeltaModule* DeltaModule::_thisDeltaModule = NULL; // указатель на экземпляр класса
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::OnDeltaSetCount(uint8_t& count)
 { 
   // нам передали кол-во сохранённых в EEPROM дельт
@@ -15,6 +14,7 @@ void DeltaModule::OnDeltaSetCount(uint8_t& count)
   UNUSED(count);
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::OnDeltaRead(uint8_t& _sensorType, String& moduleName1,uint8_t& sensorIdx1, String& moduleName2, uint8_t& sensorIdx2)
 {
   // нам передали прочитанные из EEPROM данные одной дельты
@@ -84,6 +84,7 @@ void DeltaModule::OnDeltaRead(uint8_t& _sensorType, String& moduleName1,uint8_t&
   Serial.println(F("Delta settings successfully added."));
   #endif 
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::OnDeltaGetCount(uint8_t& count)
 {
   #ifdef _DEBUG
@@ -94,6 +95,7 @@ void DeltaModule::OnDeltaGetCount(uint8_t& count)
   count = (uint8_t) DeltaModule::_thisDeltaModule->deltas.size();
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::OnDeltaWrite(uint8_t& sensorType, String& moduleName1,uint8_t& sensorIdx1, String& moduleName2, uint8_t& sensorIdx2)
 {
   // мы передаём данные очередной дельты
@@ -123,12 +125,14 @@ void DeltaModule::OnDeltaWrite(uint8_t& sensorType, String& moduleName1,uint8_t&
   Serial.println(F(" stored."));
   #endif  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::Setup()
 {
   // настройка модуля тут
   isDeltasInited = false;
   settings = MainController->GetSettings();
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::SaveDeltas()
 {
   // сохраняем дельты в EEPROM
@@ -147,6 +151,7 @@ void DeltaModule::SaveDeltas()
   Serial.println(F("Delta settings saved."));
   #endif    
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::Update(uint16_t dt)
 { 
 
@@ -167,7 +172,7 @@ void DeltaModule::Update(uint16_t dt)
   UpdateDeltas(); // обновляем дельты
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::UpdateDeltas()
 {
   // обновляем дельты тут. Проходим по всем элементам массива, смотрим, чего там лежит, получаем показания с нужных датчиков - и сохраняем дельты у себя.
@@ -243,6 +248,7 @@ void DeltaModule::UpdateDeltas()
   #endif
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::InitDeltas()
 {
   // загружаем дельты из EEPROM
@@ -276,7 +282,7 @@ void DeltaModule::InitDeltas()
   #endif
     
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer)
@@ -299,7 +305,7 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
       {
         if(wantAnswer)
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           PublishSingleton = DELTA_COUNT_COMMAND;
           PublishSingleton << PARAM_DELIMITER << deltas.size();
         }
@@ -327,7 +333,7 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
            {
             if(wantAnswer)
             {
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               PublishSingleton = DELTA_VIEW_COMMAND;
               PublishSingleton << PARAM_DELIMITER << deltaIdx << PARAM_DELIMITER;
 
@@ -362,7 +368,7 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
        {
           if(wantAnswer)
           {
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             PublishSingleton = DELTA_SAVE_COMMAND;
             PublishSingleton << PARAM_DELIMITER << REG_SUCC;
           }
@@ -374,7 +380,7 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
        {
           if(wantAnswer)
           {
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             PublishSingleton = DELTA_DELETE_COMMAND;
             PublishSingleton << PARAM_DELIMITER << REG_SUCC;
           }
@@ -449,7 +455,7 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
                   
                   if(wantAnswer)
                   {
-                    PublishSingleton.Status = true;
+                    PublishSingleton.Flags.Status = true;
                     PublishSingleton = DELTA_ADD_COMMAND;
                     PublishSingleton << PARAM_DELIMITER << REG_SUCC << PARAM_DELIMITER << (deltas.size() - 1);
                   } // wantAnswer
@@ -467,3 +473,4 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
   MainController->Publish(this,command);
   return true;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------

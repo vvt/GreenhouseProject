@@ -3,10 +3,65 @@
 
 #include "UniversalSensors.h"
 #include "AlertModule.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 PublishStruct PublishSingleton;
 ModuleController* MainController = NULL;
+//--------------------------------------------------------------------------------------------------------------------------------------
+void FileUtils::RemoveFiles(const String& dirName)
+{
+  File iter = SD.open(dirName);
+  if(!iter)
+    return;
 
+  while(1)
+  {
+    File entry = iter.openNextFile();
+    if(!entry)
+      break;
+
+    if(entry.isDirectory())
+    {
+      String subPath = dirName + "/";
+      subPath += entry.name();
+      FileUtils::RemoveFiles(subPath);
+      entry.close();
+    }
+    else
+    {
+      String fullPath = dirName;
+      fullPath += "/";
+      fullPath += entry.name();
+      SD.remove(fullPath);
+      entry.close();
+    }
+  }
+
+
+  iter.close();  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void FileUtils::readLine(File& f, String& result)
+{
+  if(!f)
+    return;
+    
+    while(1)
+    {
+      char ch = f.read();
+      
+      if(ch == -1)
+        break;
+
+      if(ch == '\r')
+        continue;
+
+      if(ch == '\n')
+        break;
+
+      result += ch;
+    }  
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 ModuleController::ModuleController() : cParser(NULL)
 #ifdef USE_LOG_MODULE
 ,logWriter(NULL)
@@ -17,12 +72,14 @@ ModuleController::ModuleController() : cParser(NULL)
   httpQueryProviders[1] = NULL;
   PublishSingleton.Text.reserve(SHARED_BUFFER_LENGTH); // 500 байт для ответа от модуля должно хватить.
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_DS3231_REALTIME_CLOCK
 DS3231Clock& ModuleController::GetClock()
 {
   return _rtc;
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::begin()
 {
  // тут можно написать код, который выполнится непосредственно перед началом работы
@@ -30,6 +87,7 @@ void ModuleController::begin()
  UniDispatcher.Setup(); // настраиваем диспетчера универсальных датчиков
  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 OneState* ModuleController::GetReservedState(AbstractModule* sourceModule, ModuleStates sensorType, uint8_t sensorIndex)
 {
   if(!reservationResolver)
@@ -37,6 +95,7 @@ OneState* ModuleController::GetReservedState(AbstractModule* sourceModule, Modul
 
   return reservationResolver->GetReservedState(sourceModule,sensorType, sensorIndex);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::Setup()
 {  
   MainController = this;
@@ -63,7 +122,7 @@ _rtc.begin();
   #endif 
   
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::Log(AbstractModule* mod, const String& message)
 {
  #ifdef USE_LOG_MODULE
@@ -79,6 +138,7 @@ void ModuleController::Log(AbstractModule* mod, const String& message)
   UNUSED(message);
  #endif
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::RegisterModule(AbstractModule* mod)
 {
   if(mod)
@@ -87,7 +147,7 @@ void ModuleController::RegisterModule(AbstractModule* mod)
     modules.push_back(mod);
   }
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::PublishToCommandStream(AbstractModule* module,const Command& sourceCommand)
 {
 
@@ -100,14 +160,14 @@ void ModuleController::PublishToCommandStream(AbstractModule* module,const Comma
   if(PublishSingleton.Text.length())
     Serial.println(String(F("No ps, but have answer: ")) + PublishSingleton.Text);
 #endif    
-    PublishSingleton.Busy = false; // освобождаем структуру
+    PublishSingleton.Flags.Busy = false; // освобождаем структуру
     return;
   }
 
-     ps->print(PublishSingleton.Status ? OK_ANSWER : ERR_ANSWER);
+     ps->print(PublishSingleton.Flags.Status ? OK_ANSWER : ERR_ANSWER);
      ps->print(COMMAND_DELIMITER);
 
-    if(PublishSingleton.AddModuleIDToAnswer && module) // надо добавить имя модуля в ответ
+    if(PublishSingleton.Flags.AddModuleIDToAnswer && module) // надо добавить имя модуля в ответ
     {
        ps->print(module->GetID());
        ps->print(PARAM_DELIMITER);
@@ -116,9 +176,9 @@ void ModuleController::PublishToCommandStream(AbstractModule* module,const Comma
      ps->println(PublishSingleton.Text);
 
    
-   PublishSingleton.Busy = false; // освобождаем структуру
+   PublishSingleton.Flags.Busy = false; // освобождаем структуру
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::CallRemoteModuleCommand(AbstractModule* mod, const String& command)
 {
 
@@ -130,13 +190,14 @@ void ModuleController::CallRemoteModuleCommand(AbstractModule* mod, const String
 #endif
   
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::Publish(AbstractModule* module,const Command& sourceCommand)
 {
 
   PublishToCommandStream(module,sourceCommand);
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 AbstractModule* ModuleController::GetModuleByID(const String& id)
 {
   size_t sz = modules.size();
@@ -148,7 +209,7 @@ AbstractModule* ModuleController::GetModuleByID(const String& id)
   } // for
   return NULL;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::ProcessModuleCommand(const Command& c, AbstractModule* mod)
 {
 
@@ -161,15 +222,9 @@ if(!mod) // ничего не передали, надо искать модул
   
  if(!mod)
  {
-  //TODO: МОДУЛЬ НЕ НАЙДЕН, ВОТ ЗАСАДА! НО: ТУТ МОЖНО ПЕРЕНАПРАВЛЯТЬ ЗАПРОС БРОАДКАСТОМ В СЕТЬ,
-  // МОЖЕТ - КАКОЙ-НИБУДЬ МОДУЛЬ НА НЕЁ ОТВЕТИТ. ЕЩЁ ЛУЧШЕ - КОГДА БУДЕТ РЕАЛИЗОВАНА ПРОЗРАЧНАЯ
-  // РЕГИСТРАЦИЯ МОДУЛЕЙ В СИСТЕМЕ - ПРОСТО СМОТРЕТЬ СПИСОК ТАКИХ МОДУЛЕЙ И ИСКАТЬ НУЖНЫЙ МОДУЛЬ ТАМ.
-  // ПРИ ТАКОМ ПОДХОДЕ НАКЛАДНЫЕ РАСХОДЫ ВОЗРАСТУТ НЕЗНАЧИТЕЛЬНО.
-
-  // А ПОКА - МЫ ПРОСТО СООБЩАЕМ, ЧТО МОДУЛЬ С ПЕРЕДАННЫМ ИМЕНЕМ НАМ НЕИЗВЕСТЕН.
   // Сообщаем в тот поток, откуда пришел запрос.
-  PublishSingleton.AddModuleIDToAnswer = false;
-  PublishSingleton.Status = false;
+  PublishSingleton.Flags.AddModuleIDToAnswer = false;
+  PublishSingleton.Flags.Status = false;
   PublishSingleton = UNKNOWN_MODULE;
   PublishToCommandStream(mod,c);
   return;
@@ -179,11 +234,11 @@ if(!mod) // ничего не передали, надо искать модул
 CHECK_PUBLISH_CONSISTENCY;
 
  PublishSingleton.Reset(); // очищаем структуру для публикации
- PublishSingleton.Busy = true; // говорим, что структура занята для публикации
+ PublishSingleton.Flags.Busy = true; // говорим, что структура занята для публикации
  mod->ExecCommand(c,true);//c.GetIncomingStream() != NULL); // выполняем его команду
  
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::Alarm(AlertRule* rule)
 {
   #ifdef USE_ALARM_DISPATCHER
@@ -192,7 +247,7 @@ void ModuleController::Alarm(AlertRule* rule)
     UNUSED(rule);
   #endif
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::UpdateModules(uint16_t dt, CallbackUpdateFunc func)
 {  
   size_t sz = modules.size();
@@ -208,4 +263,5 @@ void ModuleController::UpdateModules(uint16_t dt, CallbackUpdateFunc func)
   
   } // for
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

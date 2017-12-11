@@ -1,11 +1,12 @@
 #include "Arduino.h"
 #include "PinModule.h"
 #include "ModuleController.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void PinModule::Setup()
 {
   Update(0);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void PinModule::UpdatePinStates()
 {
   size_t sz = pinStates.size();
@@ -24,6 +25,7 @@ void PinModule::UpdatePinStates()
   } // for
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 PIN_STATE* PinModule::GetPin(uint8_t pinNumber)
 {
   size_t sz = pinStates.size();
@@ -35,10 +37,12 @@ PIN_STATE* PinModule::GetPin(uint8_t pinNumber)
   } // for
   return NULL;  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool PinModule::PinExist(uint8_t pinNumber)
 {
   return (GetPin(pinNumber) != NULL);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 PIN_STATE* PinModule::AddPin(uint8_t pinNumber,uint8_t currentState)
 {
   if(!pinNumber) // если номер пина 0 - не надо ничего делать
@@ -72,6 +76,7 @@ PIN_STATE* PinModule::AddPin(uint8_t pinNumber,uint8_t currentState)
 
   return &(pinStates[pinStates.size()-1]);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t PinModule::GetPinState(uint8_t pinNumber)
 {
   PIN_STATE* s = GetPin(pinNumber);
@@ -83,12 +88,13 @@ uint8_t PinModule::GetPinState(uint8_t pinNumber)
 // чтения состояния. Поэтому возвращаем LOW.
   return LOW;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void PinModule::Update(uint16_t dt)
 { 
   UNUSED(dt);
   UpdatePinStates(); // обновляем состояние пинов
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer)
@@ -108,13 +114,13 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
         PublishSingleton << PARAM_DELIMITER << (currentState == HIGH ? STATE_ON : STATE_OFF);
        }
         
-       PublishSingleton.Status = true;
+       PublishSingleton.Flags.Status = true;
     }
     
 
   // отвечаем на команду
     MainController->Publish(this,command);
-    return PublishSingleton.Status;
+    return PublishSingleton.Flags.Status;
     
   } // if ctGET
   else
@@ -170,7 +176,7 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
        PIN_STATE* s = AddPin(pinNumber,pinLevel);
        if(s)
        {
-            PublishSingleton.Status = true;
+            PublishSingleton.Flags.Status = true;
             if(wantAnswer)
             {
               PublishSingleton = strNum;
@@ -213,10 +219,11 @@ bool  PinModule::ExecCommand(const Command& command, bool wantAnswer)
     } // if
 
     MainController->Publish(this,command);
-    return PublishSingleton.Status;
+    return PublishSingleton.Flags.Status;
 
   } // if ctSET
 
   return true;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

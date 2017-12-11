@@ -1,11 +1,11 @@
 #include "HumidityModule.h"
 #include "ModuleController.h"
 #include "SHT1x.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_HUMIDITY_SENSORS > 0
 static HumiditySensorRecord HUMIDITY_SENSORS_ARRAY[] = { HUMIDITY_SENSORS };
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void HumidityModule::Setup()
 {
   // настройка модуля тут
@@ -22,8 +22,6 @@ void HumidityModule::Setup()
    {
     State.AddState(StateHumidity,i); // поддерживаем и влажность,
     State.AddState(StateTemperature,i); // и температуру
-    // запускаем конвертацию с датчиков при старте, через 2 секунды нам вернётся измеренная влажность и температура
-   // QuerySensor(i, HUMIDITY_SENSORS_ARRAY[i].pin,HUMIDITY_SENSORS_ARRAY[i].pin2, HUMIDITY_SENSORS_ARRAY[i].type);
 
      // проверяем на стробы для Si7021
      if(HUMIDITY_SENSORS_ARRAY[i].type == SI7021 && HUMIDITY_SENSORS_ARRAY[i].pin > 0)
@@ -35,6 +33,7 @@ void HumidityModule::Setup()
    }
    #endif  
  }
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_HUMIDITY_SENSORS > 0
 const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t pin, uint8_t pin2, HumiditySensorType type)
 {
@@ -143,6 +142,7 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
   return dummyAnswer;
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 void HumidityModule::Update(uint16_t dt)
 { 
   // обновление модуля тут
@@ -168,6 +168,12 @@ void HumidityModule::Update(uint16_t dt)
 
         t.Value = answer.Temperature;
         t.Fract = answer.TemperatureDecimal;
+
+        // convert to Fahrenheit if needed
+        #ifdef MEASURE_TEMPERATURES_IN_FAHRENHEIT
+         t = Temperature::ConvertToFahrenheit(t);
+        #endif
+        
       } // if
 
       // сохраняем данные в состоянии модуля - индексы мы назначаем сами, последовательно, поэтому дыр в нумерации датчиков нет
@@ -177,7 +183,7 @@ void HumidityModule::Update(uint16_t dt)
    #endif
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  HumidityModule::ExecCommand(const Command& command,bool wantAnswer)
 {
 
@@ -204,7 +210,7 @@ bool  HumidityModule::ExecCommand(const Command& command,bool wantAnswer)
         String param = command.GetArg(0);
         if(param == PROP_CNT) // запросили данные о кол-ве датчиков: CTGET=HUMIDITY|CNT
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = PROP_CNT; 
@@ -215,7 +221,7 @@ bool  HumidityModule::ExecCommand(const Command& command,bool wantAnswer)
         else
         if(param == ALL) // запросили показания со всех датчиков
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           uint8_t _cnt = State.GetStateCount(StateHumidity);
           if(wantAnswer) 
             PublishSingleton = _cnt;
@@ -260,7 +266,7 @@ bool  HumidityModule::ExecCommand(const Command& command,bool wantAnswer)
              OneState* stateHumidity = State.GetStateByOrder(StateHumidity,idx);
              if(stateTemp && stateHumidity)
              {
-                PublishSingleton.Status = true;
+                PublishSingleton.Flags.Status = true;
 
                 TemperaturePair tp = *stateTemp;
                 HumidityPair hp = *stateHumidity;
@@ -283,4 +289,5 @@ bool  HumidityModule::ExecCommand(const Command& command,bool wantAnswer)
   MainController->Publish(this,command);    
   return true;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 

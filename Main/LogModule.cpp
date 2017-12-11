@@ -1,18 +1,18 @@
 #include "LogModule.h"
 #include "ModuleController.h"
 #include "TinyVector.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #ifdef LOGGING_DEBUG_MODE
   #define LOG_DEBUG_WRITE(s) Serial.println((s))
 #endif 
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #define WRITE_TO_FILE(f,str) f.write((const uint8_t*) str.c_str(),str.length())
 #define WRITE_TO_LOG(str) WRITE_TO_FILE(logFile,str)
 #define WRITE_TO_ACTION_LOG(str) WRITE_TO_FILE(actionFile,str)
-
+//--------------------------------------------------------------------------------------------------------------------------------
 String LogModule::_COMMA;
 String LogModule::_NEWLINE;
-
+//--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::Setup()
 {
     LogModule::_COMMA = COMMA_DELIMITER;
@@ -21,9 +21,11 @@ void LogModule::Setup()
     currentLogFileName.reserve(20); // резервируем память, чтобы избежать фрагментации
 
    lastUpdateCall = 0;
+   /*
    #ifdef USE_DS3231_REALTIME_CLOCK
    rtc = MainController->GetClock();
    #endif
+   */
 
    lastDOW = -1;
    
@@ -31,14 +33,15 @@ void LogModule::Setup()
    lastActionsDOW = -1;
 #endif   
 
-   hasSD = MainController->HasSDCard();
+//   hasSD = MainController->HasSDCard();
    loggingInterval = LOGGING_INTERVAL; // по умолчанию, берём из Globals.h. Позже - будет из настроек.
   // настройка модуля тут
  }
+ //--------------------------------------------------------------------------------------------------------------------------------
 #ifdef LOG_ACTIONS_ENABLED 
 void LogModule::CreateActionsFile(const DS3231Time& tm)
 {  
-  if(!hasSD)
+  if(!MainController->HasSDCard())//hasSD)
     return;
   
   // формат YYYYMMDD.LOG
@@ -91,6 +94,7 @@ void LogModule::CreateActionsFile(const DS3231Time& tm)
    
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::WriteAction(const LogAction& action)
 {
 #ifdef LOG_ACTIONS_ENABLED  
@@ -112,7 +116,7 @@ void LogModule::WriteAction(const LogAction& action)
 
 #ifdef USE_DS3231_REALTIME_CLOCK
 
-  DS3231Time tm = rtc.getTime();
+  DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
   
   String hhmm;
   if(tm.hour < 10)
@@ -143,12 +147,13 @@ UNUSED(action);
 #endif
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 #ifdef LOG_ACTIONS_ENABLED
 void LogModule::EnsureActionsFileCreated()
 {
 #ifdef USE_DS3231_REALTIME_CLOCK
   
-  DS3231Time tm = rtc.getTime();
+  DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
 
   if(tm.dayOfWeek != lastActionsDOW)
   {
@@ -163,9 +168,10 @@ void LogModule::EnsureActionsFileCreated()
 #endif 
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::CreateNewLogFile(const DS3231Time& tm)
 {
-  if(!hasSD)
+  if(!MainController->HasSDCard())//hasSD)
     return;
   
     if(logFile) // есть открытый файл
@@ -237,6 +243,7 @@ void LogModule::CreateNewLogFile(const DS3231Time& tm)
 #endif   
       
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 #ifdef ADD_LOG_HEADER
 void LogModule::TryAddFileHeader()
 {
@@ -397,6 +404,7 @@ void LogModule::TryAddFileHeader()
   } // if(!sz) - файл пуст
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::GatherLogInfo(const DS3231Time& tm)
 {
   // собираем информацию в лог
@@ -548,6 +556,7 @@ void LogModule::GatherLogInfo(const DS3231Time& tm)
     #endif
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::WriteLogLine(const String& hhmm, const String& moduleName, const String& sensorType, const String& sensorIdx, const String& sensorData)
 {
   // пишем строку с данными в лог
@@ -563,6 +572,7 @@ void LogModule::WriteLogLine(const String& hhmm, const String& moduleName, const
   yield(); // т.к. запись на SD-карту у нас может занимать какое-то время - дёргаем кооперативный режим
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 String LogModule::csv(const String& src)
 {
   String fnd = F("\"");
@@ -588,6 +598,7 @@ String LogModule::csv(const String& src)
 
   return input;
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::Update(uint16_t dt)
 { 
   lastUpdateCall += dt;
@@ -596,7 +607,7 @@ void LogModule::Update(uint16_t dt)
   else
     lastUpdateCall = 0;
 
-  if(!hasSD) // нет карты или карту не удалось инициализировать
+  if(!MainController->HasSDCard())//hasSD) // нет карты или карту не удалось инициализировать
   {
     #ifdef LOGGING_DEBUG_MODE
     LOG_DEBUG_WRITE(F("NO SD CARD PRESENT!"));
@@ -604,7 +615,7 @@ void LogModule::Update(uint16_t dt)
     return;
   }
 #ifdef USE_DS3231_REALTIME_CLOCK
-  DS3231Time tm = rtc.getTime();
+  DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
   if(lastDOW != tm.dayOfWeek) // наступил следующий день недели, надо создать новый лог-файл
   {
    lastDOW = tm.dayOfWeek;
@@ -619,7 +630,7 @@ void LogModule::Update(uint16_t dt)
   // обновление модуля тут
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 bool LogModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
@@ -627,7 +638,7 @@ bool LogModule::ExecCommand(const Command& command, bool wantAnswer)
   PublishSingleton = UNKNOWN_COMMAND;
   size_t argsCnt = command.GetArgsCount();
 
-if(hasSD)
+if(MainController->HasSDCard())//hasSD)
 {
   if(command.GetType() == ctSET) 
   {
@@ -686,12 +697,12 @@ if(hasSD)
               
               
               fRead.close(); // закрыли файл
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               PublishSingleton = END_OF_FILE; // выдаём OK=END_OF_FILE
             } // if(fRead)
 
             #ifdef USE_DS3231_REALTIME_CLOCK
-                DS3231Time tm = rtc.getTime();
+                DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
                 CreateNewLogFile(tm); // создаём новый файл
             #endif
             
@@ -753,12 +764,12 @@ if(hasSD)
               
               
               fRead.close(); // закрыли файл
-              PublishSingleton.Status = true;
+              PublishSingleton.Flags.Status = true;
               PublishSingleton = END_OF_FILE; // выдаём OK=END_OF_FILE
             } // if(fRead)
 
             #if defined(USE_DS3231_REALTIME_CLOCK) && defined(LOG_ACTIONS_ENABLED)
-                DS3231Time tm = rtc.getTime();
+                DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
                 CreateActionsFile(tm); // создаём новый файл действий
             #endif
             
@@ -786,4 +797,4 @@ if(hasSD)
 
   return true;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------

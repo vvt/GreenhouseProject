@@ -6,7 +6,6 @@
 void MemInit();
 uint8_t MemRead(unsigned int address);
 void MemWrite(unsigned int address, uint8_t val);
-
 //--------------------------------------------------------------------------------------------------------------------------------
 
 #endif

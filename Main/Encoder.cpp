@@ -1,6 +1,6 @@
 #include "Encoder.h"
 #include "AbstractModule.h"
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 RotaryEncoder::RotaryEncoder(byte p0, byte p1, byte pulsesPerClick)
 {
   pin0 = p0;
@@ -9,6 +9,7 @@ RotaryEncoder::RotaryEncoder(byte p0, byte p1, byte pulsesPerClick)
   change = 0;
   state = 0;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void RotaryEncoder::begin()
 {
   WORK_STATUS.PinMode(pin0, INPUT);
@@ -19,7 +20,7 @@ void RotaryEncoder::begin()
   delay(10);                  // читаем состояние после небольшого ожидания
   state = readState();
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void RotaryEncoder::update()
 {
   // State transition table. Each entry has the following meaning:
@@ -41,10 +42,12 @@ void RotaryEncoder::update()
     state = t; 
   }
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 unsigned int RotaryEncoder::readState()
 {
   return (digitalRead(pin0) ? 1u : 0u) | (digitalRead(pin1) ? 2u : 0u);
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 int RotaryEncoder::getChange()
 {
   int r;
@@ -65,4 +68,6 @@ int RotaryEncoder::getChange()
   interrupts();
   return r;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
+
 

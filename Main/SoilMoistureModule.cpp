@@ -1,20 +1,19 @@
 #include "SoilMoistureModule.h"
 #include "ModuleController.h"
-
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #define PULSE_TIMEOUT 50000 // 50 миллисекунд на чтение фронта максимум
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
   int8_t pin;
   int8_t type;
   
 } SoilMoistureSensorSettings;
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_SOIL_MOISTURE_SENSORS > 0
 static SoilMoistureSensorSettings SOIL_MOISTURE_SENSORS_ARRAY[] = { SOIL_MOISTURE_SENSORS };
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 void SoilMoistureModule::Setup()
 {
   // настройка модуля тут
@@ -31,8 +30,8 @@ void SoilMoistureModule::Setup()
       State.AddState(StateSoilMoisture,i); // добавляем датчики влажности почвы
     } // for
   #endif
- }
-
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void SoilMoistureModule::Update(uint16_t dt)
 { 
 
@@ -139,7 +138,7 @@ void SoilMoistureModule::Update(uint16_t dt)
   
 
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------------
 bool  SoilMoistureModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   if(wantAnswer) 
@@ -165,7 +164,7 @@ bool  SoilMoistureModule::ExecCommand(const Command& command, bool wantAnswer)
         
         if(param == ALL) // запросили показания со всех датчиков: CTGET=SOIL|ALL
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           uint8_t _cnt = State.GetStateCount(StateSoilMoisture);
           if(wantAnswer) 
             PublishSingleton = _cnt;
@@ -188,7 +187,7 @@ bool  SoilMoistureModule::ExecCommand(const Command& command, bool wantAnswer)
         else
         if(param == PROP_CNT) // запросили данные о кол-ве датчиков: CTGET=SOIL|CNT
         {
-          PublishSingleton.Status = true;
+          PublishSingleton.Flags.Status = true;
           if(wantAnswer) 
           {
             PublishSingleton = PROP_CNT; 
@@ -217,7 +216,7 @@ bool  SoilMoistureModule::ExecCommand(const Command& command, bool wantAnswer)
              OneState* stateHumidity = State.GetStateByOrder(StateSoilMoisture,idx);
              if(stateHumidity)
              {
-                PublishSingleton.Status = true;
+                PublishSingleton.Flags.Status = true;
                 HumidityPair hp = *stateHumidity;
                 
                 if(wantAnswer)
@@ -236,4 +235,5 @@ bool  SoilMoistureModule::ExecCommand(const Command& command, bool wantAnswer)
   
   return true;
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 
