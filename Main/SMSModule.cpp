@@ -3362,52 +3362,8 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
     } // if(statFile)
      
   } // if(MainController->HasSDCard())
-/*
-  AbstractModule* stateModule = MainController->GetModuleByID(F("STATE"));
 
-  if(!stateModule)
-  {
-    #ifdef GSM_DEBUG_MODE
-      Serial.println(F("Unable to find STATE module registered!"));
-    #endif
-    
-    return;
-  }
-
-
-  // получаем температуры
-  OneState* os1 = stateModule->State.GetState(StateTemperature,0);
-  OneState* os2 = stateModule->State.GetState(StateTemperature,1);
-
-  String sms;
-
-   if(os1)
-  {
-    TemperaturePair tp = *os1;
-  
-    sms += T_INDOOR; // сообщение
-    if(tp.Current.Value != NO_TEMPERATURE_DATA)
-      sms += tp.Current;
-    else
-      sms += NO_DATA;
-      
-    sms += NEWLINE;
-    
-  } // if 
-
-  if(os2)
-  {
-    TemperaturePair tp = *os2;
-  
-    sms += T_OUTDOOR;
-    if(tp.Current.Value != NO_TEMPERATURE_DATA)
-      sms += tp.Current;
-    else
-      sms += NO_DATA;
-    
-    sms += NEWLINE;
-  } // if
-*/
+#ifdef USE_TEMP_SENSORS
 
   // тут получаем состояние окон
   if(ModuleInterop.QueryCommand(ctGET,F("STATE|WINDOW|ALL"),true))
@@ -3432,6 +3388,9 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
       Serial.print(F("Receive answer from STATE: ")); Serial.println(PublishSingleton.Text);
     #endif
   }
+ #endif
+
+ #ifdef USE_WATERING_MODULE
     // получаем состояние полива
   if(ModuleInterop.QueryCommand(ctGET,F("WATER"),true))
   {
@@ -3448,6 +3407,7 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
       sms += WTR_ON;
           
   }
+  #endif
 
   // тут отсылаем SMS
   SendSMS(sms);
