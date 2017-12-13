@@ -749,6 +749,68 @@
                         
                     </div>
                     
+                    <div id="statsmssettings">
+                    <br/><br/>
+                    <h1><span class='innerh'>Настройки SMS статистики</span></h1>
+                    
+                    <table border="0" width="100%">
+                      <tr>
+                        <td valign="top" width="50%">
+                          <h2><span class='innerh'>Датчик 1</span></h2>
+                          
+                          Модуль:<br/>
+                          <select id='statsmsmodule1'>
+                            <option value="0">не указан</option>
+                            <option value="1">модуль температур</option>
+                            <option value="2">модуль влажности</option>
+                            <option value="3">модуль освещённости</option>
+                            <option value="4">модуль влажности почвы</option>
+                         </select>
+                         <br/>
+                         
+                         <div style="text-align:right;">
+                           Индекс датчика (-1 - не указан):
+                           <input type="text" id="statsmssensor1" value="-1" style="width:80px;"/>
+                         </div>
+                         
+                         <br/><br/>
+                         Подпись:<br/>
+                         <input type="text" id="statsmslabel1" maxlength="20"/>
+                         
+                          
+                        <td>
+                        <td valign="top" width="50%">
+                          <h2><span class='innerh'>Датчик 2</span></h2>
+                          
+                          Модуль:<br/>
+                          <select id='statsmsmodule2'>
+                            <option value="0">не указан</option>
+                            <option value="1">модуль температур</option>
+                            <option value="2">модуль влажности</option>
+                            <option value="3">модуль освещённости</option>
+                            <option value="4">модуль влажности почвы</option>
+                         </select>
+                         <br/>
+                         
+                         <div style="text-align:right;">
+                           Индекс датчика (-1 - не указан):
+                           <input type="text" id="statsmssensor2" value="-1" style="width:80px;"/>
+                         </div>
+                         
+                         <br/><br/>
+                         Подпись:<br/>
+                         <input type="text" id="statsmslabel2" maxlength="20"/>
+                                                   
+                        <td>
+                      <tr>
+                      <tr>
+                        <td colspan="2">
+                          <button id='save_statsms_button' onclick='saveStatSmsSettings();'>Сохранить в контроллер</button>
+                        </td>
+                      </tr>
+                    </table>
+                    </div>
+                    
                   </div>
                   
                   

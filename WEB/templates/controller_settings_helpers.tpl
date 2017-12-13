@@ -1486,6 +1486,61 @@ function saveRulesList()
 
 }
 //-----------------------------------------------------------------------------------------------------
+function saveStatSmsSettings()
+{
+  showWaitDialog();
+  
+  var module1 = $("#statsmsmodule1").val();
+  var sensor1 = $("#statsmssensor1").spinner("value");
+  var label1 = $("#statsmslabel1").val().trim();
+  if(!label1.length)
+    label1 = "_";
+    
+  if(label1 != "_")
+  {
+    // encode label 1
+    var uint8Array = new TextEncoder("utf-8").encode(label1);
+    
+    label1 = "";
+    for(var i=0;i<uint8Array.length;i++)
+    {
+      label1 += uint8Array[i].toString(16).toUpperCase();;
+    }
+    
+  }
+  
+  var module2 = $("#statsmsmodule2").val();
+  var sensor2 = $("#statsmssensor2").spinner("value");
+  var label2 = $("#statsmslabel2").val().trim();
+  if(!label2.length)
+    label2 = "_";
+    
+  if(label2 != "_")
+  {
+    // encode label 2
+    var uint8Array = new TextEncoder("utf-8").encode(label2);
+    
+    label2 = "";
+    for(var i=0;i<uint8Array.length;i++)
+    {
+      label2 += uint8Array[i].toString(16).toUpperCase();;
+    }
+    
+  }
+  
+  controller.queryCommand(false,"SMS|STATSENSORS|" + module1 + "|" + sensor1 + "|" + label1 + "|" + module2 + "|" + sensor2 + "|" + label2,function(obj,answer){
+     
+       closeWaitDialog();
+        
+       if(answer.IsOK)
+          showMessage("Данные успешно сохранены!");
+        else
+          showMessage("Ошибка сохранения данных :(");           
+     
+     });  
+    
+}
+//-----------------------------------------------------------------------------------------------------
 function saveSmsList()
 {
 
@@ -1835,6 +1890,82 @@ controller.OnGetModulesList = function(obj)
           }
         
         });
+        
+        controller.queryCommand(true,'SMS|STATSENSORS',function(obj,answer){
+               
+           $('#statsmssettings').toggle(answer.IsOK);
+                     
+          if(answer.IsOK)
+          {
+            var module1 = parseInt(answer.Params[2]);
+            var sensor1 = parseInt(answer.Params[3]);
+            var label1Encoded =  answer.Params[4];
+            if(label1Encoded == "_")
+              label1Encoded = "";
+
+            var module2 = parseInt(answer.Params[5]);
+            var sensor2 = parseInt(answer.Params[6]);
+            var label2Encoded =  answer.Params[7].trim();
+            if(label2Encoded == "_")
+              label2Encoded = "";
+                
+            
+            var label1 = "";
+            var label2 = "";
+            
+            if(label1Encoded.length > 1)
+            {
+              var uintArray = new Array();
+              
+              for(var i=0;i<label1Encoded.length;i+=2)
+              {
+                uintArray.push(parseInt(label1Encoded.substr(i,2),16));
+              }
+              /*
+              var enc = String.fromCharCode.apply(null,uintArray);              
+              label1 = decodeURIComponent(escape(enc));
+             */ 
+              
+              var arrBuff = new ArrayBuffer(uintArray.length);
+              var bw = new Uint8Array(arrBuff);
+              for(var i=0;i<uintArray.length;i++)
+                bw[i] = uintArray[i];
+                
+              label1 = new TextDecoder().decode(arrBuff);
+            }
+            
+            if(label2Encoded.length > 1)
+            {
+              var uintArray = new Array();
+              
+              for(var i=0;i<label2Encoded.length;i+=2)
+              {
+                uintArray.push(parseInt(label2Encoded.substr(i,2),16));
+              }
+
+              
+              var arrBuff = new ArrayBuffer(uintArray.length);
+              var bw = new Uint8Array(arrBuff);
+              for(var i=0;i<uintArray.length;i++)
+                bw[i] = uintArray[i];
+                
+              label2 = new TextDecoder().decode(arrBuff);
+            }      
+            
+            $('#statsmsmodule1').val(module1);
+            $('#statsmsmodule2').val(module2);
+            
+            $('#statsmssensor1').spinner('value',sensor1);
+            $('#statsmssensor2').spinner('value',sensor2);
+            
+            $('#statsmslabel1').val(label1);
+            $('#statsmslabel2').val(label2);
+            
+            
+          }
+
+        
+        });        
         
         controller.queryCommand(true,'SMS|PROV',function(obj,answer){
                      
@@ -2984,7 +3115,7 @@ $(document).ready(function(){
       }
     });
     
-  $( "#save_delta_button, #save_iot_button, #save_http_button, #save_cc_button, #save_watering_button, #save_rules_button, #save_sms_button, #save_timers_button" ).button({
+  $( "#save_delta_button, #save_iot_button, #save_statsms_button, #save_http_button, #save_cc_button, #save_watering_button, #save_rules_button, #save_sms_button, #save_timers_button" ).button({
       icons: {
         primary: "ui-icon-arrowthickstop-1-n"
       }
@@ -3055,6 +3186,9 @@ $(document).ready(function(){
       }
     }).hide().css('width','100%');       
 */
+
+    $("#statsmssensor1, #statsmssensor2").spinner({min: -1, max: 100});
+
     
     $('#iot_interval, #cc_param, #flow_calibraton1, #flow_calibraton2, #rule_pin_number, #timerPin1, #timerPin2, #timerPin3, #timerPin4, #timerOnMin1, #timerOnMin2, #timerOnMin3, #timerOnMin4, #timerOnSec1, #timerOnSec2, #timerOnSec3, #timerOnSec4, #timerOffMin1, #timerOffMin2, #timerOffMin3, #timerOffMin4, #timerOffSec1, #timerOffSec2, #timerOffSec3, #timerOffSec4, #rule_wnd_interval_input').forceNumericOnly();     
 
