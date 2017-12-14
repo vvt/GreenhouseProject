@@ -3113,6 +3113,16 @@ void SMSModule::Update(uint16_t dt)
       #ifdef USE_GSM_REBOOT_PIN
         WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
       #endif
+
+  #ifdef USE_SIM800_POWERKEY
+    // работаем с импульсом POWERKEY    
+    delay(SIM800_WAIT_POWERKEY_AFTER_POWER_ON); // ждём N миллисекунд, пока питание прочухается
+    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+    delay(SIM800_POWERKEY_PULSE_DURATION);
+    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+    
+  #endif // USE_SIM800_POWERKEY
+      
       needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // дадим модему GSM_WAIT_AFTER_REBOOT_TIME мс на раздупление, прежде чем начнём что-либо делать
 
       #ifdef GSM_DEBUG_MODE
