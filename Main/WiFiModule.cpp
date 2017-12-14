@@ -173,7 +173,7 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
         Serial.println(F("PUBLISH topic found!!!"));
       #endif
 
-      //bool isQoS1 = (bCommand & 6) == MQTT_QOS1;
+      bool isQoS1 = (bCommand & 6) == MQTT_QOS1;
 
       // декодируем длину сообщения
       
@@ -246,6 +246,40 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
         topic += (char) packet[curReadPos];
         curReadPos++;
       }
+
+      // тут работаем с payload, склеивая его с топиком
+      if(isQoS1)
+      {
+       // игнорируем ID сообщения
+       curReadPos += 2; // два байта на ID сообщения
+      }
+
+
+      String* payload = new String();
+
+      for(size_t p=curReadPos;p<dataLen;p++)
+      {
+        (*payload) += (char) packet[p];
+      }
+
+      if(payload->length())
+      {
+          #ifdef MQTT_DEBUG
+            Serial.print(F("Payload are: "));
+            Serial.println(*payload);
+          #endif
+
+          // теперь склеиваем payload с топиком
+          if(topic.length() && topic[topic.length()-1] != '/')
+          {
+            if((*payload)[0] != '/')
+              topic += '/';
+          }
+
+          topic += *payload;
+      }
+      
+      delete payload;
       
       if(topic.length())
       {
@@ -253,8 +287,6 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
             Serial.print(F("Topic are: "));
             Serial.println(topic);
           #endif
-
-          // payload мы игнорируем, он нам не нужен
 
           const char* normalizedTopic = strstr_P(topic.c_str(),(const char*) F("SET/") );
           if(normalizedTopic)
