@@ -4,7 +4,10 @@
 #include "AbstractModule.h"
 #include "Globals.h"
 #include "InteropStream.h"
+#include "DS3231Support.h"
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_WATERING_MODULE
+
 typedef enum
 {
   wwmAutomatic, // в автоматическом режиме
@@ -111,6 +114,6 @@ class WateringModule : public AbstractModule // модуль управлени�
     void Update(uint16_t dt);
 
 };
-
+#endif // USE_WATERING_MODULE
 
 #endif

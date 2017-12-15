@@ -1,6 +1,8 @@
 #include "TempSensors.h"
 #include "ModuleController.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_TEMP_SENSORS
+
 TempSensors* WindowModule = NULL;
 //--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_SENSORS > 0
@@ -1017,5 +1019,5 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
   return PublishSingleton.Flags.Status;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-
+#endif // USE_TEMP_SENSORS
 

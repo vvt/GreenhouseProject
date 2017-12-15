@@ -5,7 +5,6 @@
 PushButton::PushButton(uint8_t _pin)
 {
   buttonPin = _pin;
-  WORK_STATUS.PinMode(buttonPin, INPUT_PULLUP); // подтягиваем к питанию
   
   userData = NULL;
   OnClick = NULL;
@@ -39,6 +38,9 @@ void PushButton::init(void* _userData
     , PushButtonEvent _onInactive
     , PushButtonEvent _onRetention)
 {
+
+  WORK_STATUS.PinMode(buttonPin, INPUT_PULLUP); // подтягиваем к питанию
+  
   userData = _userData;
   OnClick = _onClick;
   OnPress = _onPress;

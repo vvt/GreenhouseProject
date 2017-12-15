@@ -255,10 +255,23 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 // запрещаем использовать более одного дисплея в прошивке (ибо бессмысленно - два дисплея одновременно)
 //--------------------------------------------------------------------------------------------------------------------------------
-#if defined(USE_LCD_MODULE) && defined(USE_NEXTION_MODULE)
-#error PLEASE DONT USE TWO OR MORE DISPLAYS !!!
+#if defined(USE_LCD_MODULE)
+  #if defined(USE_TFT_MODULE) || defined(USE_NEXTION_MODULE)
+  #error PLEASE DONT USE TWO OR MORE DISPLAYS !!!
+  #endif
 #endif
 
+#if defined(USE_NEXTION_MODULE)
+  #if defined(USE_TFT_MODULE) || defined(USE_LCD_MODULE)
+  #error PLEASE DONT USE TWO OR MORE DISPLAYS !!!
+  #endif
+#endif
+
+#if defined(USE_TFT_MODULE)
+  #if defined(USE_LCD_MODULE) || defined(USE_NEXTION_MODULE)
+  #error PLEASE DONT USE TWO OR MORE DISPLAYS !!!
+  #endif
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 // настройки максимумов
 //--------------------------------------------------------------------------------------------------------------------------------

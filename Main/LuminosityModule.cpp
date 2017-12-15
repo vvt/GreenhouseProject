@@ -2,6 +2,8 @@
 #include "ModuleController.h"
 #include "Max44009.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_LUMINOSITY_MODULE
+
 #if LAMP_RELAYS_COUNT > 0
 static uint8_t LAMP_RELAYS[] = { LAMP_RELAYS_PINS }; // объявляем массив пинов реле
 #endif
@@ -468,3 +470,4 @@ bool  LuminosityModule::ExecCommand(const Command& command, bool wantAnswer)
   return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_LUMINOSITY_MODULE

@@ -3100,13 +3100,12 @@ void SMSModule::Update(uint16_t dt)
     #endif
 
 
-  if(flags.inRebootMode) {
+  if(flags.inRebootMode) 
+  {
     // мы в процессе перезагрузки модема, надо проверить, пора ли включать питание?
-    if(millis() - rebootStartTime > GSM_REBOOT_TIME) {
+    if(millis() - rebootStartTime > GSM_REBOOT_TIME) 
+    {
       // две секунды держали питание выключенным, можно включать
-      flags.inRebootMode = false;
-      flags.isAnyAnswerReceived = false; // говорим, что мы ничего от модема не получали
-
       // делать что-либо дополнительное не надо, т.к. как только от модема в порт упадёт строка о готовности - очередь проинициализируется сама.
 
       // ТУТ включение питания модема 
@@ -3114,16 +3113,21 @@ void SMSModule::Update(uint16_t dt)
         WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
       #endif
 
-  #ifdef USE_SIM800_POWERKEY
-    // работаем с импульсом POWERKEY    
-    delay(SIM800_WAIT_POWERKEY_AFTER_POWER_ON); // ждём N миллисекунд, пока питание прочухается
-    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
-    delay(SIM800_POWERKEY_PULSE_DURATION);
-    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
-    
-  #endif // USE_SIM800_POWERKEY
+      #ifdef USE_SIM800_POWERKEY
+      
+        // работаем с импульсом POWERKEY
+        WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);    
+        delay(SIM800_WAIT_POWERKEY_AFTER_POWER_ON); // ждём N миллисекунд, пока питание прочухается
+        WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+        delay(SIM800_POWERKEY_PULSE_DURATION);
+        WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+        
+      #endif // USE_SIM800_POWERKEY
       
       needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // дадим модему GSM_WAIT_AFTER_REBOOT_TIME мс на раздупление, прежде чем начнём что-либо делать
+
+      flags.inRebootMode = false;
+      flags.isAnyAnswerReceived = false; // говорим, что мы ничего от модема не получали
 
       #ifdef GSM_DEBUG_MODE
         Serial.println(F("[REBOOT] - Modem rebooted, wait for ready..."));
@@ -3131,7 +3135,8 @@ void SMSModule::Update(uint16_t dt)
     }
     
     return;
-  }
+    
+  } //if(flags.inRebootMode) 
   
   if(needToWaitTimer > 0) // надо ждать следующей команды запрошенное время
   {
@@ -3145,7 +3150,8 @@ void SMSModule::Update(uint16_t dt)
     answerWaitTimer += dt; // увеличиваем время ожидания ответа на последнюю команду
 
    // сначала проверяем - а не слишком ли долго мы ждём ответа от модема?
-  if(answerWaitTimer > GSM_MAX_ANSWER_TIME) {
+  if(answerWaitTimer > GSM_MAX_ANSWER_TIME) 
+  {
 
      // тут смотрим - возможно, нам надо вызвать функцию обратного вызова для IoT
      #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
@@ -3158,23 +3164,30 @@ void SMSModule::Update(uint16_t dt)
      // очень долго, надо перезапустить последнюю команду.
      // причём лучше всего перезапустить всё сначала
      InitQueue();
-     needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // ещё через 5 секунд попробуем
+     
+     needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME; // ещё через N миллисекунд попробуем
+     
      sendCommandTime = millis(); // сбросили таймера
      answerWaitTimer = 0;
 
-     if(flags.isAnyAnswerReceived) {
+     if(flags.isAnyAnswerReceived) 
+     {
         // получали хоть один ответ от модема - возможно, он завис?
         RebootModem();
         
-     } else {
+     } 
+     else 
+     {
         // ничего не получали, модема не подсоединено?
         #ifdef GSM_DEBUG_MODE
           Serial.println(F("[ERR] - GSM-modem not found, check for presence after short time..."));
         #endif
      }
      
-  } 
-  if(!flags.inRebootMode) { // если мы не в процессе перезагрузки - то можем отрабатывать очередь
+  } // if(answerWaitTimer > GSM_MAX_ANSWER_TIME) 
+   
+  if(!flags.inRebootMode) // если мы не в процессе перезагрузки - то можем отрабатывать очередь
+  { 
     ProcessQueue();
     ProcessQueuedWindowCommand(dt);
   }

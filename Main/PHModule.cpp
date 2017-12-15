@@ -3,6 +3,8 @@
 #include "Memory.h"
 #include <Wire.h>
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_PH_MODULE
+
 #define PH_DEBUG_OUT(which, value) {Serial.print((which)); Serial.println((value));}
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 PHCalculator PHCalculation;
@@ -25,9 +27,13 @@ void PHCalculator::ApplyCalculation(Temperature* temp)
 PCF8574::PCF8574(int address) 
 {
   _address = address;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void PCF8574::begin()
+{
   Wire.begin();
   WORK_STATUS.PinMode(SDA,INPUT,false);
-  WORK_STATUS.PinMode(SCL,OUTPUT,false);  
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);    
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t PCF8574::read8()
@@ -277,6 +283,7 @@ void PhModule::Setup()
   targetReagentsChannel = 0;
   
   // пишем в микросхему
+  pcfModule.begin();
   pcfModule.write8(defaultData);
   pcfModule.lastError();
 
@@ -1084,4 +1091,5 @@ bool  PhModule::ExecCommand(const Command& command, bool wantAnswer)
   return true;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_PH_MODULE
 

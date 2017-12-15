@@ -47,10 +47,12 @@ void FileUtils::readLine(File& f, String& result)
     
     while(1)
     {
-      char ch = f.read();
+      int iCh = f.read();
       
-      if(ch == -1)
+      if(iCh == -1)
         break;
+
+      char ch = (char) iCh;
 
       if(ch == '\r')
         continue;

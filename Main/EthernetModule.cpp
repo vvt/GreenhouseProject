@@ -1,5 +1,8 @@
 #include "EthernetModule.h"
 #include "ModuleController.h"
+
+#ifdef USE_W5100_MODULE
+
 #include <Ethernet.h>
 //--------------------------------------------------------------------------------------------------------------------------------------
 // наш локальный мак-адрес
@@ -129,4 +132,5 @@ bool EthernetModule::ExecCommand(const Command& command, bool wantAnswer)
   return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_W5100_MODULE
 

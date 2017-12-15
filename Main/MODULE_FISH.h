@@ -1,24 +1,18 @@
-#ifndef _SOIL_MOISTURE_MODULE_H
-#define _SOIL_MOISTURE_MODULE_H
+#ifndef _MODULE_FISH_H
+#define _MODULE_FISH_H
 
 #include "AbstractModule.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
-#ifdef USE_SOIL_MOISTURE_MODULE
-
-class SoilMoistureModule : public AbstractModule // модуль датчиков влажности почвы
+class ModuleFish : public AbstractModule // заготовка для модуля
 {
   private:
-  
-    uint16_t lastUpdateCall;
-  
   public:
-    SoilMoistureModule() : AbstractModule("SOIL"), lastUpdateCall(SOIL_MOISTURE_UPDATE_INTERVAL-387) {}
+    ModuleFish(const char* id) : AbstractModule(id) {}
 
     bool ExecCommand(const Command& command, bool wantAnswer);
     void Setup();
     void Update(uint16_t dt);
 
 };
-#endif // USE_SOIL_MOISTURE_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif

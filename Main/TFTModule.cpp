@@ -1,19 +1,22 @@
-#include "RemoteModule.h"
+#include "TFTModule.h"
 #include "ModuleController.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
-void RemoteModule::Setup()
+#ifdef USE_TFT_MODULE
+void TFTModule::Setup()
 {
   // настройка модуля тут
+  myTFTMenu.setup();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void RemoteModule::Update(uint16_t dt)
+void TFTModule::Update(uint16_t dt)
 { 
-  UNUSED(dt);
   // обновление модуля тут
+
+  myTFTMenu.update(dt);
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-bool  RemoteModule::ExecCommand(const Command& command, bool wantAnswer)
+bool  TFTModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
   UNUSED(command);
@@ -21,5 +24,5 @@ bool  RemoteModule::ExecCommand(const Command& command, bool wantAnswer)
   return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-
+#endif // USE_TFT_MODULE
 

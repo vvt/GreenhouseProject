@@ -33,7 +33,7 @@
 
 // what type of board we are using?
 // by default - Arduino Mega, if you are using Arduino Due, change MEGA_BOARD to DUE_BOARD.
-#define TARGET_BOARD MEGA_BOARD 
+#define TARGET_BOARD MEGA_BOARD //DUE_BOARD 
 
 //--------------------------------------------------------------------------------------------------------------------------------
 

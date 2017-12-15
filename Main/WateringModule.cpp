@@ -2,6 +2,8 @@
 #include "ModuleController.h"
 #include "Memory.h"
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_WATERING_MODULE
+
 #ifdef USE_LOG_MODULE
 #include <SD.h> // пробуем записать статус полива не только в EEPROM, но и на SD-карту, если LOG-модуль есть в прошивке
 #endif
@@ -818,6 +820,7 @@ void WateringModule::Update(uint16_t dt)
 
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
 {
   UNUSED(wantAnswer);
@@ -1196,4 +1199,5 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
     
   return PublishSingleton.Flags.Status;
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_WATERING_MODULE

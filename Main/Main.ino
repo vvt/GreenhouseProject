@@ -10,6 +10,7 @@
 #include "AlertModule.h"
 #include "ZeroStreamListener.h"
 #include "Memory.h"
+#include "InteropStream.h"
 
 
 #ifdef USE_HTTP_MODULE
@@ -97,10 +98,12 @@
 #include "IoTModule.h"
 #endif
 
+#ifdef USE_TFT_MODULE
+#include "TFTModule.h"
+#endif
 
 // таймер
 unsigned long lastMillis = 0;
-
 
 // Ждем команды из сериала
 CommandBuffer commandsFromSerial(&Serial);
@@ -249,6 +252,10 @@ ReservationModule reservationModule;
 TimerModule timerModule;
 #endif
 
+#ifdef USE_TFT_MODULE
+TFTModule tftModule;
+#endif
+
 #ifdef USE_READY_DIODE
   #ifdef BLINK_READY_DIODE
    BlinkModeInterop readyDiodeBlinker;
@@ -324,18 +331,18 @@ AlertModule alertsModule;
 
   ExternalWatchdogSettings watchdogSettings;
 #endif
-
+//--------------------------------------------------------------------------------------------------------------------------------
 void setup() 
 {
 
 #if (TARGET_BOARD == DUE_BOARD)
   while(!Serial); // ждём инициализации Serial
 #endif
-   
-  // инициализируем память (EEPROM не надо, а вот I2C - надо)
-  MemInit();
-  
+
   Serial.begin(SERIAL_BAUD_RATE); // запускаем Serial на нужной скорости
+  
+  // инициализируем память (EEPROM не надо, а вот I2C - надо)
+  MemInit();  
 
   WORK_STATUS.PinMode(0,INPUT,false);
   WORK_STATUS.PinMode(1,OUTPUT,false);
@@ -444,6 +451,10 @@ void setup()
   #ifdef USE_HTTP_MODULE
     controller.RegisterModule(&httpModule);
   #endif
+
+  #ifdef USE_TFT_MODULE
+    controller.RegisterModule(&tftModule);
+  #endif
   
  // модуль алертов регистрируем последним, т.к. он должен вычитать зависимости с уже зарегистрированными модулями
   controller.RegisterModule(&zeroStreamModule);
@@ -477,12 +488,13 @@ void setup()
   #ifdef USE_LOG_MODULE
     controller.Log(&logModule,READY); // печатаем в файл действий строчку Ready, которая скажет нам, что мега стартовала
   #endif
-
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 // эта функция вызывается после обновления состояния каждого модуля.
 // передаваемый параметр - указатель на обновлённый модуль.
 // если модулю предстоит долгая работа - помимо этого инструмента
 // модуль должен дёргать функцию yield, если чем-то долго занят!
+//--------------------------------------------------------------------------------------------------------------------------------
 void ModuleUpdateProcessed(AbstractModule* module)
 {
   UNUSED(module);
@@ -536,8 +548,7 @@ void updateExternalWatchdog()
   
 }
 #endif
-
-
+//--------------------------------------------------------------------------------------------------------------------------------
 void loop() 
 {
 // отсюда можно добавлять любой сторонний код
@@ -627,13 +638,14 @@ void loop()
    
 // отсюда можно добавлять любой сторонний код
 
-
 // до сюда можно добавлять любой сторонний код
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 // обработчик простоя, используем и его. Если сторонняя библиотека устроена правильно - она будет
 // вызывать yield периодически - этим грех не воспользоваться, чтобы избежать потери данных
 // в портах UART. 
+//--------------------------------------------------------------------------------------------------------------------------------
 void yield()
 {
 // отсюда можно добавлять любой сторонний код, который надо вызывать, когда МК чем-то долго занят (например, чтобы успокоить watchdog)
@@ -661,8 +673,8 @@ void yield()
 
 // отсюда можно добавлять любой сторонний код, который надо вызывать, когда МК чем-то долго занят (например, чтобы успокоить watchdog)
 
-
 // до сюда можно добавлять любой сторонний код
 
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 

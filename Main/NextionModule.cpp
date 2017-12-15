@@ -2,6 +2,8 @@
 #include "ModuleController.h"
 #include "InteropStream.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_NEXTION_MODULE
+
 NextionWaitScreenInfo _waitScreenInfos[] = 
 {
    NEXTION_WAIT_SCREEN_SENSORS
@@ -516,5 +518,5 @@ bool  NextionModule::ExecCommand(const Command& command, bool wantAnswer)
   return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-
+#endif // USE_NEXTION_MODULE
 

@@ -1,5 +1,7 @@
 #include "NextionController.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_NEXTION_MODULE
+
 char NextionAbstractController::command_buff[NEXTION_COMMAND_BUFFER_LENGTH] = {0};
 //--------------------------------------------------------------------------------------------------------------------------------------
 const char _thsp_FORMAT[] PROGMEM = "thsp=%u";
@@ -578,6 +580,6 @@ uint8_t NextionController::showNumber(long num,uint8_t segNum,bool addLeadingZer
  return written;     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-
+#endif // USE_NEXTION_MODULE
 
 

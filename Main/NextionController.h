@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include "Globals.h"
 #include "AbstractModule.h"
+
+#ifdef USE_NEXTION_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
 #define NEXTION_COMMAND_BUFFER_LENGTH 50 // длина буфера для команд, 50 байт должно хватить с запасом
 #define NEXTION_CHAR_PLACES 7 // сколько у нас позиций под надпись
@@ -186,5 +188,6 @@ class NextionController : public NextionAbstractController
   void doShowSettingsTemp(uint8_t temp,const char* which="open",uint8_t offset=0);
     
 };
+#endif // USE_NEXTION_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif

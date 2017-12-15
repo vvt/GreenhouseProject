@@ -4,6 +4,8 @@
 #include "AbstractModule.h"
 #include "NextionController.h"
 #include "Settings.h"
+
+#ifdef USE_NEXTION_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
  typedef struct
  {
@@ -64,5 +66,6 @@ class NextionModule : public AbstractModule // модуль управления
     void StringReceived(const char* str);
 
 };
+#endif // USE_NEXTION_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif
