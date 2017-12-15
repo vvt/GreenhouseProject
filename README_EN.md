@@ -13,7 +13,7 @@ Project WIKI is located <a href="https://github.com/Porokhnya/GreenhouseProject/
   <li>Able to use different gates to WAN/LAN: GSM/GPRS (SIM800L/Neoway M590), Wi-Fi (ESP8266), LAN (W5100);</li>
   <li>Able to work with sensors using different ways - connected directly to microcontroller, through RS-485, 1-Wire, nRF;</li>
   <li>Able to be configured by using smart rules - is the key feature of the firmware, where user can provide and manage the needed firmware behaviour;</li>
-  <li>Work with different display models - Nextion, LCD 128x64, (7"-TFT with Arduino Due - in development);</li>
+  <li>Work with different display models - Nextion, LCD 128x64, 7" TFT on Arduino Due;</li>
   <li>Work with different microcontrollers: Arduino Mega, Arduino Due and any PCB, based on it;</li>
   <li>Flexible firmware configuration: work through port extenders, include/exclude software modules in the firmware and so on;</li>
   <li>Work with many sensors of many types (humidity, temperature, water flow and so on);</li>
