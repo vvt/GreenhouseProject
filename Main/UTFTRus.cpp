@@ -18,9 +18,11 @@ void UTFTRus::init(UTFT* uTft)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void UTFTRus::printSpecialChar(TFTSpecialSimbol specialSymbol, int x, int y, int deg)
 {
-  char ch = mapChar(specialSymbol);
-  if(ch == -1)
+  int iCh = mapChar(specialSymbol);
+  if(iCh == -1)
     return;
+
+ char ch = (char) iCh;
 
     if (deg==0) 
     {

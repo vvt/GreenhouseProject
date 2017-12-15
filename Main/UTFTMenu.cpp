@@ -4,6 +4,13 @@
 
 #ifdef USE_TFT_MODULE
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTMenu* tftMenuManager;
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void drawButtonsYield() // вызывается после отрисовки каждой кнопки
+{
+  tftMenuManager->updateBuzzer();
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // This code block is only needed to support multiple
 // MCU architectures in a single sketch.
 #if defined(__AVR__)
@@ -125,7 +132,7 @@ void TFTBackButton::update(TFTMenu* menuManager,uint16_t dt)
 void TFTBackButton::draw(TFTMenu* menuManager)
 {
   UNUSED(menuManager);
-  screenButtons->drawButtons(); // draw "Back" button
+  screenButtons->drawButtons(drawButtonsYield); // draw "Back" button
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AbstractTFTScreen::AbstractTFTScreen()
@@ -762,7 +769,7 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 void TFTIdleScreen::draw(TFTMenu* menuManager)
 {
   menuManager->updateBuzzer();  
-  screenButtons->drawButtons(); // рисуем наши кнопки
+  screenButtons->drawButtons(drawButtonsYield); // рисуем наши кнопки
 
   //int availStatusBoxes = 0;
 
@@ -832,6 +839,8 @@ TFTMenu::TFTMenu()
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::setup()
 {
+  tftMenuManager = this;
+  
   resetIdleTimer();
   
   tftDC = new UTFT(TFT_MODEL,TFT_RS_PIN,TFT_WR_PIN,TFT_CS_PIN,TFT_RST_PIN);
@@ -894,7 +903,9 @@ void TFTMenu::setup()
         #endif
         
       #endif
-  
+
+    // пискнем баззером при инициализации экрана
+    buzzer(); 
     
   #endif // USE_BUZZER_ON_TOUCH
   

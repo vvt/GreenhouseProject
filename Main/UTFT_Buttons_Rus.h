@@ -53,11 +53,13 @@
 
 typedef struct
 {
-  uint16_t			pos_x, pos_y, width, height;
+  int16_t			pos_x, pos_y, width, height;
   uint16_t			flags;
   const char				*label;
   bitmapdatatype	data;
 } button_type;
+
+typedef void (*DrawButtonsUpdateFunc)(void);
 
 class UTFT_Buttons_Rus
 {
@@ -66,7 +68,7 @@ class UTFT_Buttons_Rus
 
 		int		addButton(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const char *label, uint16_t flags=0);
 		int		addButton(uint16_t x, uint16_t y, uint16_t width, uint16_t height, bitmapdatatype data, uint16_t flags=0);
-		void	drawButtons();
+		void	drawButtons(DrawButtonsUpdateFunc func=NULL);
 		void	drawButton(int buttonID);
 		void	enableButton(int buttonID, boolean redraw=false);
 		void	disableButton(int buttonID, boolean redraw=false);

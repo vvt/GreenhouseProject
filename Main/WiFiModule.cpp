@@ -323,9 +323,75 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
 
             // тут получаем ответ от контроллера, и выставляем флаг, что нам надо опубликовать топик ответа
             flags.wantToSendReportTopic = true;
-            delete reportTopicString;            
+            delete reportTopicString;
+                        
             reportTopicString = new String();
-            *reportTopicString = PublishSingleton.Text;
+
+            #ifdef MQTT_REPORT_AS_JSON
+              // тут мы должны сформировать объект JSON из ответа, для этого надо разбить ответ по разделителям, и для каждого параметра создать именованное поле
+              // в анонимном JSON-объекте
+              // прикинем, сколько нам памяти надо резервировать, чтобы вместиться
+              int neededJsonLen = 3; // {} - под скобки и завершающий ноль
+              // считаем кол-во параметров ответа
+              int jsonParamsCount=1; // всегда есть один ответ
+              int answerLen = PublishSingleton.Text.length();
+              
+              for(int j=0;j<answerLen;j++)
+              {
+                if(PublishSingleton.Text[j] == '|') // разделитель
+                  jsonParamsCount++;
+              }
+              // у нас есть количество параметров, под каждый параметр нужно минимум 6 символов ("p":""), плюс длина числа, которое будет как имя
+              // параметра, плюс длина самого параметра, плюс запятые между параметрами
+              int paramNameCharsCount = jsonParamsCount > 9 ? 2 : 1;
+
+               neededJsonLen += (6 + paramNameCharsCount)*jsonParamsCount + (jsonParamsCount-1) + PublishSingleton.Text.length();
+
+               // теперь можем резервировать память
+               reportTopicString->reserve(neededJsonLen);
+
+               // теперь формируем наш JSON-объект
+               *reportTopicString = '{'; // начали объект
+
+                if(answerLen > 0)
+                {
+                   int currentParamNumber = 1;
+
+                   *reportTopicString += F("\"p");
+                   *reportTopicString += currentParamNumber;
+                   *reportTopicString += F("\":\"");
+                   
+                   for(int j=0;j<answerLen;j++)
+                   {
+                     if(PublishSingleton.Text[j] == '|')
+                     {
+                       // достигли нового параметра, закрываем предыдущий и формируем новый
+                       currentParamNumber++;
+                       *reportTopicString += F("\",\"p");
+                       *reportTopicString += currentParamNumber;
+                       *reportTopicString += F("\":\"");
+                     }
+                     else
+                     {
+                        char ch = PublishSingleton.Text[j];
+                        
+                        if(ch == '"' || ch == '\\')
+                          *reportTopicString += '\\'; // экранируем двойные кавычки и обратный слеш
+                          
+                        *reportTopicString += ch;
+                     }
+                   } // for
+
+                   // закрываем последний параметр
+                   *reportTopicString += '"';
+                } // answerLen > 0
+
+               *reportTopicString += '}'; // закончили объект
+
+               //
+            #else
+              *reportTopicString = PublishSingleton.Text;
+            #endif
             
           } // if(isSetCommand || isGetCommand)
           #ifdef MQTT_DEBUG

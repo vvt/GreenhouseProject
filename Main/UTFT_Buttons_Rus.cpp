@@ -85,12 +85,16 @@ int UTFT_Buttons_Rus::addButton(uint16_t x, uint16_t y, uint16_t width, uint16_t
 }
 
 
-void UTFT_Buttons_Rus::drawButtons()
+void UTFT_Buttons_Rus::drawButtons(DrawButtonsUpdateFunc func)
 {
 	for (int i=0;i<MAX_BUTTONS;i++)
 	{
 		if ((buttons[i].flags & BUTTON_UNUSED) == 0)
+    {
 			drawButton(i);
+      if(func)
+        func();
+    }
 	}
 }
 
