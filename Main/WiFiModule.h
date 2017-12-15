@@ -32,10 +32,11 @@ typedef struct
     bool isConnected : 1; // законнекчены?
     bool wantToSendConnectPacket : 1; // надо отправить пакет CONNECT ?
     bool wantToSendSubscribePacket : 1; // надо ли отправить пакет для подписки на топики?
+    bool wantToSendReportTopic: 1; // надо ли отсылать топик с ответом на команду ?
     bool reconnectTimerEnabled : 1; // таймер переподключения активен ?
     bool haveTopics : 1; // есть топики для публикации ?
     bool busy : 1; // заняты ?
-    byte pad : 2; // добивка до границы байта
+    byte pad : 1; // добивка до границы байта
   
 } MQTTClientFlags;
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -65,6 +66,8 @@ class MQTTClient
   private:
 
     MQTTClientFlags flags;
+
+    String* reportTopicString;
 
     void switchToNextTopic();
 

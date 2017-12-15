@@ -352,6 +352,8 @@
 #define WM_MANUAL F("MANUAL") // ручной режим управления фрамугами
 #define WORK_MODE F("MODE") // получить/установить режим работы CTGET=STATE|MODE, CTSET=STATE|MODE|AUTO, CTSET=STATE|MODE|MANUAL
 #define WM_INTERVAL F("INTERVAL") // получить/установить интервал на открытие/закрытие окон CTGET=STATE|INTERVAL, CTSET=STATE|INTERVAL|3000
+#define TOPEN_COMMAND F("TOPEN") // получить/установить температуру открытия фрамуг CTGET=STATE|TOPEN, CTSET=STATE|TOPEN|20
+#define TCLOSE_COMMAND F("TCLOSE") // получить/установить температуру закрытия фрамуг CTGET=STATE|TCLOSE, CTSET=STATE|TCLOSE|15
 #define STATE_OPEN F("OPEN") // Открыть CTSET=STATE|WINDOW|0|OPEN, CTSET=STATE|WINDOW|ALL|OPEN, CTSET=STATE|WINDOW|0-2|OPEN|2000
 #define ALL F("ALL") // отработать все каналы
 #define PROP_WINDOW F("WINDOW") // название канала, чтобы было понятно

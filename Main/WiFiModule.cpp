@@ -11,6 +11,7 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 #define MQTT_FILENAME_PATTERN F("MQTT/MQTT.")
 #define DEFAULT_MQTT_CLIENT F("greenhouse")
+#define REPORT_TOPIC_NAME F("/REPORT")
 //--------------------------------------------------------------------------------------------------------------------------------
 // MQTTClient
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -19,7 +20,10 @@ MQTTClient::MQTTClient()
   flags.isConnected = false;
   flags.wantToSendConnectPacket = true;
   flags.wantToSendSubscribePacket = true;
+  flags.wantToSendReportTopic = false;
   flags.busy = false;
+
+  reportTopicString = NULL;
 
   reconnectTimer = MQTT_RECONNECT_WAIT;
   updateTopicsTimer = 0;
@@ -117,7 +121,7 @@ void MQTTClient::setConnected(bool flag)
   flags.isConnected = flag;
   flags.wantToSendConnectPacket = flags.isConnected; // если законнекчены - надо послать первым пакет авторизации
   flags.wantToSendSubscribePacket = flags.isConnected; // если законнекчены - надо послать после пакета авторизации пакет с подпиской на топики
-  flags.reconnectTimerEnabled = !flags.isConnected;    
+  flags.reconnectTimerEnabled = !flags.isConnected;      
 
   if(flags.reconnectTimerEnabled)
     reconnectTimer = 0;
@@ -288,10 +292,16 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
             Serial.println(topic);
           #endif
 
-          const char* normalizedTopic = strstr_P(topic.c_str(),(const char*) F("SET/") );
-          if(normalizedTopic)
+          const char* setCommandPtr = strstr_P(topic.c_str(),(const char*) F("SET/") );
+          const char* getCommandPtr = strstr_P(topic.c_str(),(const char*) F("GET/") );
+          bool isSetCommand = setCommandPtr != NULL;
+          bool isGetCommand = getCommandPtr != NULL;
+
+          if(isSetCommand || isGetCommand)
           {
-            // нашли команду SET, перемещаемся за неё
+            const char* normalizedTopic = isSetCommand ? setCommandPtr : getCommandPtr;
+
+            // нашли команду SET или GET, перемещаемся за неё
             normalizedTopic += 4;
 
             // удаляем ненужные префиксы
@@ -309,9 +319,15 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
             #endif     
 
             // тут мы имеем команду на выполнение - выполняем её
-            ModuleInterop.QueryCommand(ctSET, topic, false);           
+            ModuleInterop.QueryCommand(isSetCommand ? ctSET : ctGET , topic, false);
+
+            // тут получаем ответ от контроллера, и выставляем флаг, что нам надо опубликовать топик ответа
+            flags.wantToSendReportTopic = true;
+            delete reportTopicString;            
+            reportTopicString = new String();
+            *reportTopicString = PublishSingleton.Text;
             
-          } // if(normalizedTopic)
+          } // if(isSetCommand || isGetCommand)
           #ifdef MQTT_DEBUG
           else // unsupported topic
           {
@@ -352,6 +368,7 @@ void MQTTClient::init()
   flags.wantToSendSubscribePacket = true;
   reconnectTimer = MQTT_RECONNECT_WAIT;
   flags.reconnectTimerEnabled = false;
+  flags.wantToSendReportTopic = false;
   updateTopicsTimer = 0;
   flags.busy = false;
   currentTopicNumber = 0;
@@ -489,7 +506,7 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
 
           // мы прочитали ID клиента, теперь мы можем подписаться на все топики для него.
           // для этого делаем топик, прибавляя к ID клиента многоуровневую маску:
-          mqttClientId += F("/SET/#"); 
+          mqttClientId += F("/#"); 
           // теперь все приходящие команды вида clientId/SET/WATER/ON - будут очень просто транслироваться в наши внутренние команды
          
            // конструируем пакет подписки
@@ -512,6 +529,47 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
       return false; // no settings file !!!
       
     } // flags.wantToSendSubscribePacket
+    else 
+    if(flags.wantToSendReportTopic) // надо отослать топик со статусом обработки команды
+    {
+      flags.wantToSendReportTopic = false;
+      
+      // Тут читаем настройки с SD
+      String mqttSettingsFileName = F("mqtt.ini");
+      File f = SD.open(mqttSettingsFileName.c_str());
+
+      if(f)
+      {
+          flags.busy = true;
+
+          String mqttClientId;
+          // первые две строки пропускаем, там адрес сервера и порт        
+          FileUtils::readLine(f,mqttClientId);
+          FileUtils::readLine(f,mqttClientId);
+
+          mqttClientId = "";
+          // в третьей строке - ID клиента
+          FileUtils::readLine(f,mqttClientId);
+
+          if(!mqttClientId.length())
+            mqttClientId = DEFAULT_MQTT_CLIENT;
+
+          mqttClientId += REPORT_TOPIC_NAME;
+
+           // конструируем пакет публикации о статусе отработки команды
+           constructPublishPacket(mqttBuffer,mqttBufferLength,mqttClientId.c_str(), reportTopicString->c_str());
+
+           delete reportTopicString;
+           reportTopicString = NULL;      
+    
+          f.close();
+          
+          return true;
+      } // if(f)
+      return false; // no settings file !!!
+      
+    } // flags.wantToSendReportTopic
+    
     else // режим с отсылкой топиков
     {
       if(flags.haveTopics) // смотрим, надо ли отправлять топики?

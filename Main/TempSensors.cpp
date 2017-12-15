@@ -671,6 +671,34 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         SAVE_STATUS(WINDOWS_MODE_BIT,workMode == wmAutomatic ? 1 : 0); // сохраняем режим работы окон
         
       } // WORK_MODE
+      else if(commandRequested == TOPEN_COMMAND)
+      {
+        // установка температуры открытия
+        uint8_t tOpen = (uint8_t) atoi(command.GetArg(1));
+        sett->SetOpenTemp(tOpen);
+        
+        PublishSingleton.Flags.Status = true;
+        if(wantAnswer) 
+        {
+          PublishSingleton = commandRequested;
+          PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+        }
+         
+      }
+      else if(commandRequested == TCLOSE_COMMAND)
+      {
+        // установка температуры закрытия
+        uint8_t tClose = (uint8_t) atoi(command.GetArg(1));
+        sett->SetCloseTemp(tClose);
+        
+        PublishSingleton.Flags.Status = true;
+        if(wantAnswer) 
+        {
+          PublishSingleton = commandRequested;
+          PublishSingleton << PARAM_DELIMITER << REG_SUCC;
+        }
+         
+      }
       else if(commandRequested == WM_INTERVAL) // запросили установку интервала
       {
               unsigned long newInt = (unsigned long) atol(command.GetArg(1));
@@ -1007,6 +1035,28 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
           {
             PublishSingleton = TEMP_SETTINGS;
             PublishSingleton << PARAM_DELIMITER << (sett->GetOpenTemp()) << PARAM_DELIMITER << (sett->GetCloseTemp());
+          }
+        }
+        else
+        if(commandRequested == TOPEN_COMMAND) // запросили температуру открытия
+        {
+          PublishSingleton.Flags.Status = true;
+          
+          if(wantAnswer)
+          {
+            PublishSingleton = commandRequested;
+            PublishSingleton << PARAM_DELIMITER << (sett->GetOpenTemp());
+          }
+        }
+        else
+        if(commandRequested == TCLOSE_COMMAND) // запросили температуру закрытия
+        {
+          PublishSingleton.Flags.Status = true;
+          
+          if(wantAnswer)
+          {
+            PublishSingleton = commandRequested;
+            PublishSingleton << PARAM_DELIMITER << (sett->GetCloseTemp());
           }
         }
         
