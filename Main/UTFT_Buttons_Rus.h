@@ -50,10 +50,13 @@
 #define BUTTON_BITMAP			0x0008	
 #define BUTTON_NO_BORDER		0x0010
 #define BUTTON_UNUSED			0x8000
+#define BUTTON_HAS_BACK_COLOR 0x0020
+#define BUTTON_HAS_FONT_COLOR 0x0040
 
 typedef struct
 {
   int16_t			pos_x, pos_y, width, height;
+  word backColor, fontColor;
   uint16_t			flags;
   const char				*label;
   bitmapdatatype	data;
@@ -80,6 +83,8 @@ class UTFT_Buttons_Rus
 		void	setTextFont(uint8_t* font);
 		void	setSymbolFont(uint8_t* font);
 		void	setButtonColors(word atxt, word iatxt, word brd, word brdhi, word back);
+    void setButtonBackColor(int buttonID, word color);
+    void setButtonFontColor(int buttonID, word color);
 
 	protected:
 		UTFT		*_UTFT;

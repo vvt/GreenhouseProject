@@ -729,6 +729,10 @@
 #define TFT_LIGHT_OFF_CAPTION "выкл"
 #define TFT_AUTO_MODE_CAPTION "авто"
 #define TFT_MANUAL_MODE_CAPTION "ручной"
+#define AUTO_MODE_LABEL "РЕЖИМ: АВТО"
+#define MANUAL_MODE_LABEL "РЕЖИМ: РУЧНОЙ"
+#define OPEN_ALL_LABEL "ОТКРЫТЬ ВСЕ"
+#define CLOSE_ALL_LABEL "ЗАКРЫТЬ ВСЕ"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // backlight OFF delay, if no actions with screen found, ms
 // время выключения при бездействии, миллисекунд

@@ -1,6 +1,8 @@
 #include "UTFTMenu.h"
 #include "AbstractModule.h"
 #include "ModuleController.h"
+#include "TempSensors.h"
+#include "InteropStream.h"
 
 #ifdef USE_TFT_MODULE
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -86,53 +88,18 @@ TFTInfoBoxContentRect TFTInfoBox::getContentRect(TFTMenu* menuManager)
     return result;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// TFTBackButton
 extern imagedatatype tft_back_button[];
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-TFTBackButton::TFTBackButton(const char* backTo)
+int addBackButton(TFTMenu* menuManager,UTFT_Buttons_Rus* buttons,int leftOffset)
 {
-  backToScreen = backTo;
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-TFTBackButton::~TFTBackButton()
-{
-  delete screenButtons;
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void TFTBackButton::setup(TFTMenu* menuManager, int leftOffset)
-{
-  screenButtons = new UTFT_Buttons_Rus(menuManager->getDC(), menuManager->getTouch(),menuManager->getRusPrinter());
-  screenButtons->setTextFont(BigRusFont);
-  screenButtons->setButtonColors(TFT_BUTTON_COLORS);
-
   int buttonsTop = menuManager->getDC()->getDisplayYSize() - TFT_IDLE_SCREEN_BUTTON_HEIGHT - 20; // координата Y для кнопки "Назад"
   int screenWidth = menuManager->getDC()->getDisplayXSize();
 
   // если передан 0 как leftOffset - позиционируемся по центру экрана, иначе - как запросили. Y-координата при этом остаётся нетронутой, т.к. у нас фиксированное место для размещения кнопок управления
   int curButtonLeft = leftOffset ? leftOffset : (screenWidth - TFT_IDLE_SCREEN_BUTTON_WIDTH )/2;
 
-  backButton = screenButtons->addButton( curButtonLeft ,  buttonsTop, TFT_IDLE_SCREEN_BUTTON_WIDTH,  TFT_IDLE_SCREEN_BUTTON_HEIGHT, tft_back_button ,BUTTON_BITMAP);
- 
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void TFTBackButton::update(TFTMenu* menuManager,uint16_t dt)
-{
-  UNUSED(dt);
+ return buttons->addButton( curButtonLeft ,  buttonsTop, TFT_IDLE_SCREEN_BUTTON_WIDTH,  TFT_IDLE_SCREEN_BUTTON_HEIGHT, tft_back_button ,BUTTON_BITMAP | BUTTON_NO_BORDER);
   
-  int pressed_button = screenButtons->checkButtons();
-
-  if(pressed_button == backButton)
-  {
-    menuManager->buzzer(); // пискнули
-    menuManager->switchToScreen(backToScreen);
-    return;
-  }
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void TFTBackButton::draw(TFTMenu* menuManager)
-{
-  UNUSED(menuManager);
-  screenButtons->drawButtons(drawButtonsYield); // draw "Back" button
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 AbstractTFTScreen::AbstractTFTScreen()
@@ -156,29 +123,241 @@ TFTWindowScreen::TFTWindowScreen()
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTWindowScreen::~TFTWindowScreen()
 {
- delete backButton; 
+ delete screenButtons;
+ for(size_t i=0;i<labels.size();i++)
+ {
+  delete labels[i];
+ }
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTWindowScreen::setup(TFTMenu* menuManager)
 {
-  backButton = new TFTBackButton("IDLE");
-  // для кнопки "Назад" мы можем задать смещение слева, по умолчанию она рисуется по центру экрана, если leftOffset == 0
-  backButton->setup(menuManager,0);
 
   //TODO: Тут создаём наши контролы
+
+  #if SUPPORTED_WINDOWS > 0
+  
+    screenButtons = new UTFT_Buttons_Rus(menuManager->getDC(), menuManager->getTouch(),menuManager->getRusPrinter());
+    screenButtons->setTextFont(BigRusFont);
+    screenButtons->setButtonColors(TFT_CHANNELS_BUTTON_COLORS);
+
+    // первая - кнопка назад
+    backButton = addBackButton(menuManager,screenButtons,0);
+ 
+    int buttonsTop = INFO_BOX_V_SPACING;
+    int screenWidth = menuManager->getDC()->getDisplayXSize();
+
+    // добавляем кнопки для управления всеми каналами
+    int allChannelsLeft = (screenWidth - (WINDOWS_ALL_CHANNELS_BUTTON_WIDTH*3) - INFO_BOX_V_SPACING*2)/2;
+    screenButtons->addButton( allChannelsLeft ,  buttonsTop, WINDOWS_ALL_CHANNELS_BUTTON_WIDTH,  WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT, OPEN_ALL_LABEL);
+    allChannelsLeft += WINDOWS_ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+    screenButtons->addButton( allChannelsLeft ,  buttonsTop, WINDOWS_ALL_CHANNELS_BUTTON_WIDTH,  WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT, CLOSE_ALL_LABEL);
+    allChannelsLeft += WINDOWS_ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+    int addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, WINDOWS_ALL_CHANNELS_BUTTON_WIDTH,  WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT, AUTO_MODE_LABEL);
+    screenButtons->setButtonFontColor(addedId,WINDOWS_BUTTONS_TEXT_COLOR);
+
+    buttonsTop += WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
+
+    int computedButtonLeft = (screenWidth - (WINDOWS_CHANNELS_BUTTON_WIDTH*WINDOWS_CHANNELS_BUTTONS_PER_LINE) - ((WINDOWS_CHANNELS_BUTTONS_PER_LINE-1)*INFO_BOX_V_SPACING))/2;
+    int curButtonLeft = computedButtonLeft;
+  
+    // теперь проходимся по кол-ву каналов и добавляем наши кнопки - дя каждого канала - по кнопке
+    for(int i=0;i<SUPPORTED_WINDOWS;i++)
+    {
+       if( i > 0 && !(i%WINDOWS_CHANNELS_BUTTONS_PER_LINE))
+       {
+        buttonsTop += WINDOWS_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
+        curButtonLeft = computedButtonLeft;
+       }
+       String* label = new String('#');
+       *label += (i+1);
+       labels.push_back(label);
+       
+       addedId = screenButtons->addButton(curButtonLeft ,  buttonsTop, WINDOWS_CHANNELS_BUTTON_WIDTH,  WINDOWS_CHANNELS_BUTTON_HEIGHT, label->c_str());
+       screenButtons->setButtonFontColor(addedId,WINDOWS_BUTTONS_TEXT_COLOR);
+       
+       curButtonLeft += WINDOWS_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+
+    } // for
+    
+  
+    #endif // SUPPORTED_WINDOWS > 0
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
 {
-  backButton->update(menuManager, dt);
+ UNUSED(dt);
+
+ #if SUPPORTED_WINDOWS > 0
+
+  byte BUTTONS_OFFSET = 4; // с какого индекса начинаются наши кнопки
+ 
+ if(screenButtons)
+ {
+    int pressed_button = screenButtons->checkButtons();
+
+    if(pressed_button != -1)
+    {
+      // есть клик на кнопку
+      menuManager->buzzer(); // пискнули
+    }
+    
+    if(pressed_button == backButton)
+    {
+      menuManager->switchToScreen("IDLE");
+      return;
+    }
+
+    if(pressed_button == 3)
+    {
+      // Кнопка смены режима
+      bool windowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
+      windowsAutoMode = !windowsAutoMode;
+      String command = windowsAutoMode ? F("STATE|MODE|AUTO") : F("STATE|MODE|MANUAL");
+      ModuleInterop.QueryCommand(ctSET,command,false);
+
+      return;
+    }
+
+    if(pressed_button == 1)
+    {
+      // открыть все окна
+      ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);
+      return;
+    }
+    
+    if(pressed_button == 2)
+    {
+      // закрыть все окна
+      ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);
+      return;
+    }
+
+    if(pressed_button > 3)
+    {
+      // кнопки управления каналами
+      int channelNum = pressed_button - BUTTONS_OFFSET;
+
+      bool isWindowOpen = WindowModule->IsWindowOpen(channelNum);
+      String command = F("STATE|WINDOW|");
+      command += channelNum;
+      command += '|';
+
+      command += isWindowOpen ? F("CLOSE") : F("OPEN");
+      ModuleInterop.QueryCommand(ctSET,command,false);
+
+      return;
+    }
+    // тут нам надо обновить состояние кнопок для каналов.
+    // если канал окна в движении - надо кнопку выключать,
+    // иначе - в зависимости от состояния канала
+    
+     ControllerState state = WORK_STATUS.GetState();
+
+     // проходимся по всем каналам
+     bool anyChannelActive = false;
+
+     for(int i=0, channelNum=0;i<SUPPORTED_WINDOWS;i++, channelNum+=2)
+     {
+       int buttonID = i+BUTTONS_OFFSET; // у нас первые 4 кнопки - не для каналов
+       
+       // если канал включен - в бите единичка, иначе - нолик. оба выключены - окно не движется
+       bool firstChannelBit = (state.WindowsState & (1 << channelNum));
+       bool secondChannelBit = (state.WindowsState & (1 << (channelNum+1)));
+
+       bool savedFirstChannelBit =  (lastWindowsState & (1 << channelNum));
+       bool savedSecondChannelBit = (lastWindowsState & (1 << (channelNum+1)));
+       
+       bool isChannelOnIdle = !firstChannelBit && !secondChannelBit;
+
+
+       // теперь смотрим, в какую сторону движется окно
+       // если оно открывается - первый бит канала единичка, второй - нолик
+       // если закрывается - наоборот
+       // тут выяснение необходимости перерисовать кнопку. 
+       // перерисовываем только тогда, когда состояние сменилось
+       // или мы ещё не сохранили у себя первое состояние
+       bool wantRedrawChannel = !inited || (firstChannelBit != savedFirstChannelBit || secondChannelBit != savedSecondChannelBit);
+
+       if(isChannelOnIdle)
+       {
+          // смотрим - окно открыто или закрыто?
+          bool isWindowOpen = WindowModule->IsWindowOpen(i);
+          
+          if(isWindowOpen)
+          {
+             screenButtons->setButtonBackColor(i+BUTTONS_OFFSET,MODE_ON_COLOR);
+          }
+          else
+          {
+            screenButtons->setButtonBackColor(i+BUTTONS_OFFSET,MODE_OFF_COLOR);
+          }
+          // включаем кнопку
+          screenButtons->enableButton(buttonID, wantRedrawChannel);
+       }
+       else
+       {
+          anyChannelActive = true;
+         // окно движется, блокируем кнопку
+         screenButtons->disableButton(buttonID, wantRedrawChannel);
+       }
+       
+     } // for
+
+     // теперь проверяем, надо ли вкл/выкл кнопки управления всеми окнами
+     bool wantRedrawAllChannelsButtons = !inited || (lastAnyChannelActive != anyChannelActive);
+
+     if(anyChannelActive)
+     {
+      screenButtons->disableButton(1, wantRedrawAllChannelsButtons);
+      screenButtons->disableButton(2, wantRedrawAllChannelsButtons);
+     }
+     else
+     {
+      screenButtons->enableButton(1, wantRedrawAllChannelsButtons);
+      screenButtons->enableButton(2, wantRedrawAllChannelsButtons);      
+     }
+
+     bool windowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
+     if(windowsAutoMode)
+     {
+        screenButtons->setButtonBackColor(3,MODE_ON_COLOR);
+        screenButtons->relabelButton(3,AUTO_MODE_LABEL,!inited || (windowsAutoMode != lastWindowsAutoMode));
+     }
+     else
+     {
+        screenButtons->setButtonBackColor(3,MODE_OFF_COLOR);      
+        screenButtons->relabelButton(3,MANUAL_MODE_LABEL,!inited || (windowsAutoMode != lastWindowsAutoMode));
+     }
+
+      // сохраняем состояние окон
+     lastWindowsState = state.WindowsState;
+     lastAnyChannelActive = anyChannelActive;
+     lastWindowsAutoMode = windowsAutoMode;
+     
+     inited = true;
+
+ 
+     
+ } // if(screenButtons)
+ #endif // SUPPORTED_WINDOWS > 0
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTWindowScreen::draw(TFTMenu* menuManager)
 {
   //TODO: тут рисуем наш экран
-  
+  UNUSED(menuManager);
 
-  backButton->draw(menuManager);
+ #if SUPPORTED_WINDOWS > 0
+  if(screenButtons)
+  {
+    screenButtons->drawButtons(drawButtonsYield);
+  }
+ #endif 
+
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_TEMP_SENSORS
@@ -968,6 +1147,7 @@ void TFTMenu::switchToScreen(const char* screenName)
     {
       tftDC->fillScr(TFT_BACK_COLOR); // clear screen first
       currentScreenIndex = i;
+      si->screen->update(this,0);
       si->screen->draw(this);
       resetIdleTimer(); // сбрасываем таймер ничегонеделанья
       break;

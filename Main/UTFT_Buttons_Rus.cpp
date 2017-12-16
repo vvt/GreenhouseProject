@@ -39,7 +39,24 @@ UTFT_Buttons_Rus::UTFT_Buttons_Rus(UTFT *ptrUTFT, URTouch *ptrURTouch, UTFTRus* 
 	_font_text				= NULL;
 	_font_symbol			= NULL;
 }
+void UTFT_Buttons_Rus::setButtonBackColor(int buttonID, word color)
+{
+   if(buttonID < 0)
+    return;
 
+    buttons[buttonID].backColor = color;
+    buttons[buttonID].flags |= BUTTON_HAS_BACK_COLOR;
+    
+}
+void UTFT_Buttons_Rus::setButtonFontColor(int buttonID, word color)
+{
+   if(buttonID < 0)
+    return;
+
+    buttons[buttonID].fontColor = color;
+    buttons[buttonID].flags |= BUTTON_HAS_FONT_COLOR;
+    
+}
 int UTFT_Buttons_Rus::addButton(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const char *label, uint16_t flags)
 {
 	int btcnt = 0;
@@ -119,14 +136,25 @@ void UTFT_Buttons_Rus::drawButton(int buttonID)
 	}
 	else
 	{
-		_UTFT->setColor(_color_background);
+    if(buttons[buttonID].flags & BUTTON_HAS_BACK_COLOR && !(buttons[buttonID].flags & BUTTON_DISABLED))
+      _UTFT->setColor(buttons[buttonID].backColor);
+    else
+		  _UTFT->setColor(_color_background);
+     
 		_UTFT->fillRoundRect(buttons[buttonID].pos_x, buttons[buttonID].pos_y, buttons[buttonID].pos_x+buttons[buttonID].width, buttons[buttonID].pos_y+buttons[buttonID].height);
 		_UTFT->setColor(_color_border);
 		_UTFT->drawRoundRect(buttons[buttonID].pos_x, buttons[buttonID].pos_y, buttons[buttonID].pos_x+buttons[buttonID].width, buttons[buttonID].pos_y+buttons[buttonID].height);
+    
 		if (buttons[buttonID].flags & BUTTON_DISABLED)
 			_UTFT->setColor(_color_text_inactive);
 		else
-			_UTFT->setColor(_color_text);
+    {
+      if (buttons[buttonID].flags & BUTTON_HAS_FONT_COLOR)
+        _UTFT->setColor(buttons[buttonID].fontColor);
+			else
+			  _UTFT->setColor(_color_text);
+    }
+     
 		if (buttons[buttonID].flags & BUTTON_SYMBOL)
 		{
 			_UTFT->setFont(_font_symbol);
@@ -140,7 +168,12 @@ void UTFT_Buttons_Rus::drawButton(int buttonID)
 			text_x = ((buttons[buttonID].width/2) - ((lenOfLabel * _UTFT->getFontXsize())/2)) + buttons[buttonID].pos_x;
 			text_y = (buttons[buttonID].height/2) - (_UTFT->getFontYsize()/2) + buttons[buttonID].pos_y;
 		}
-		_UTFT->setBackColor(_color_background);
+   
+		if(buttons[buttonID].flags & BUTTON_HAS_BACK_COLOR && !(buttons[buttonID].flags & BUTTON_DISABLED))
+      _UTFT->setBackColor(buttons[buttonID].backColor);
+    else
+      _UTFT->setBackColor(_color_background);
+      
 		//_UTFT->print(buttons[buttonID].label, text_x, text_y);
     pRusPrinter->print(buttons[buttonID].label, text_x, text_y);
     

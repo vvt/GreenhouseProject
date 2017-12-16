@@ -389,7 +389,7 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
                *reportTopicString += '}'; // закончили объект
 
                //
-            #else
+            #else // ответ как есть, в виде RAW
               *reportTopicString = PublishSingleton.Text;
             #endif
             

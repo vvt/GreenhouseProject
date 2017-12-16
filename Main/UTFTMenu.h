@@ -19,6 +19,7 @@
 #define TFT_IDLE_SCREEN_BUTTON_HEIGHT 90
 #define TFT_IDLE_SCREEN_BUTTON_SPACING 10
 #define TFT_FONT_COLOR 0x4B, 0x4C, 0x4B //0x4A69
+#define TFT_CHANNELS_BUTTON_COLORS 0x3A8D, VGA_SILVER, VGA_GRAY, VGA_SILVER, 0xEF7D
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #define INFO_BOX_WIDTH 240
 #define INFO_BOX_HEIGHT 80
@@ -38,6 +39,14 @@
 
 #define MODE_ON_COLOR VGA_GREEN
 #define MODE_OFF_COLOR VGA_MAROON
+
+#define WINDOWS_BUTTONS_TEXT_COLOR VGA_WHITE
+#define WINDOWS_CHANNELS_BUTTONS_PER_LINE 4
+#define WINDOWS_CHANNELS_BUTTON_WIDTH 165
+#define WINDOWS_CHANNELS_BUTTON_HEIGHT 50
+
+#define WINDOWS_ALL_CHANNELS_BUTTON_WIDTH 226
+#define WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT 70
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class TFTMenu;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -79,22 +88,6 @@ class TFTInfoBox
 
     int boxWidth, boxHeight, posX, posY;
     const char* boxCaption;
-};
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-class TFTBackButton
-{
-  public:
-    TFTBackButton(const char* backTo);
-   ~TFTBackButton(); 
-   
-    void setup(TFTMenu* menuManager, int leftOffset);
-    void update(TFTMenu* menuManager,uint16_t dt);
-    void draw(TFTMenu* menuManager);
-
-private:
-  UTFT_Buttons_Rus* screenButtons;
-  int backButton; 
-  const char* backToScreen;      
 };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // абстрактный класс экрана для TFT
@@ -173,6 +166,9 @@ private:
 // класс экрана информации по окнам
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_TEMP_SENSORS
+
+typedef Vector<String*> WindowsChannelsCaptions;
+
 class TFTWindowScreen : public AbstractTFTScreen
 {
   public:
@@ -185,7 +181,16 @@ class TFTWindowScreen : public AbstractTFTScreen
     void draw(TFTMenu* menuManager);
 
     private:
-      TFTBackButton* backButton;
+      int backButton;
+      UTFT_Buttons_Rus* screenButtons;
+
+      unsigned long lastWindowsState; // последнее состояние окон
+      bool inited;
+      bool lastAnyChannelActive;
+      bool lastWindowsAutoMode;
+
+      WindowsChannelsCaptions labels;
+
 };
 #endif
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
