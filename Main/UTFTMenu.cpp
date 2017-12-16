@@ -171,6 +171,7 @@ void TFTWindowScreen::setup(TFTMenu* menuManager)
         buttonsTop += WINDOWS_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
         curButtonLeft = computedButtonLeft;
        }
+       
        String* label = new String('#');
        *label += (i+1);
        labels.push_back(label);
