@@ -112,13 +112,373 @@ AbstractTFTScreen::~AbstractTFTScreen()
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_WATERING_MODULE
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// TFTWateringScreen
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTWateringScreen::TFTWateringScreen()
+{
+  inited = false;
+  lastWaterChannelsState = 0;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTWateringScreen::~TFTWateringScreen()
+{
+ delete screenButtons;
+ for(size_t i=0;i<labels.size();i++)
+ {
+  delete labels[i];
+ }
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTWateringScreen::setup(TFTMenu* menuManager)
+{
+
+  //TODO: Тут создаём наши контролы
+
+  #if WATER_RELAYS_COUNT > 0
+  
+    screenButtons = new UTFT_Buttons_Rus(menuManager->getDC(), menuManager->getTouch(),menuManager->getRusPrinter());
+    screenButtons->setTextFont(BigRusFont);
+    screenButtons->setButtonColors(TFT_CHANNELS_BUTTON_COLORS);
+
+    // первая - кнопка назад
+    backButton = addBackButton(menuManager,screenButtons,0);
+ 
+    int buttonsTop = INFO_BOX_V_SPACING;
+    int screenWidth = menuManager->getDC()->getDisplayXSize();
+
+    // добавляем кнопки для управления всеми каналами
+    int allChannelsLeft = (screenWidth - (ALL_CHANNELS_BUTTON_WIDTH*3) - INFO_BOX_V_SPACING*2)/2;
+    screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, TURN_ON_ALL_WATER_LABEL);
+    allChannelsLeft += ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+    screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, TURN_OFF_ALL_WATER_LABEL);
+    allChannelsLeft += ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+    int addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, AUTO_MODE_LABEL);
+    screenButtons->setButtonFontColor(addedId,CHANNELS_BUTTONS_TEXT_COLOR);
+
+    buttonsTop += ALL_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
+
+    int computedButtonLeft = (screenWidth - (CHANNELS_BUTTON_WIDTH*CHANNELS_BUTTONS_PER_LINE) - ((CHANNELS_BUTTONS_PER_LINE-1)*INFO_BOX_V_SPACING))/2;
+    int curButtonLeft = computedButtonLeft;
+  
+    // теперь проходимся по кол-ву каналов и добавляем наши кнопки - дя каждого канала - по кнопке
+    for(int i=0;i<WATER_RELAYS_COUNT;i++)
+    {
+       if( i > 0 && !(i%CHANNELS_BUTTONS_PER_LINE))
+       {
+        buttonsTop += CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
+        curButtonLeft = computedButtonLeft;
+       }
+       
+       String* label = new String('#');
+       *label += (i+1);
+       labels.push_back(label);
+       
+       addedId = screenButtons->addButton(curButtonLeft ,  buttonsTop, CHANNELS_BUTTON_WIDTH,  CHANNELS_BUTTON_HEIGHT, label->c_str());
+       screenButtons->setButtonFontColor(addedId,CHANNELS_BUTTONS_TEXT_COLOR);
+       
+       curButtonLeft += CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+
+    } // for
+    
+  
+    #endif // WATER_RELAYS_COUNT > 0
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
+{
+ UNUSED(dt);
+
+ #if WATER_RELAYS_COUNT > 0
+
+  byte BUTTONS_OFFSET = 4; // с какого индекса начинаются наши кнопки
+ 
+ if(screenButtons)
+ {
+    int pressed_button = screenButtons->checkButtons();
+
+    if(pressed_button != -1)
+    {
+      // есть клик на кнопку
+      menuManager->buzzer(); // пискнули
+    }
+    
+    if(pressed_button == backButton)
+    {
+      menuManager->switchToScreen("IDLE");
+      return;
+    }
+
+    if(pressed_button == 3)
+    {
+      // Кнопка смены режима
+      bool waterAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
+      waterAutoMode = !waterAutoMode;
+      String command = waterAutoMode ? F("WATER|MODE|AUTO") : F("WATER|MODE|MANUAL");
+      ModuleInterop.QueryCommand(ctSET,command,false);
+
+      return;
+    }
+
+    if(pressed_button == 1)
+    {
+      // включить все каналы
+      ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);
+      return;
+    }
+    
+    if(pressed_button == 2)
+    {
+      // выключить все каналы
+      ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);
+      return;
+    }
+
+    if(pressed_button > 3)
+    {
+      // кнопки управления каналами
+      int channelNum = pressed_button - BUTTONS_OFFSET;
+
+      ControllerState state = WORK_STATUS.GetState();
+
+      bool isWaterOn = state.WaterChannelsState & (1 << channelNum);
+      String command = F("WATER|");
+
+      command += isWaterOn ? F("OFF|") : F("ON|");
+      command += channelNum;
+      
+      ModuleInterop.QueryCommand(ctSET,command,false);
+
+      return;
+    }
+
+    
+    // тут нам надо обновить состояние кнопок для каналов
+    
+     ControllerState state = WORK_STATUS.GetState();
+
+     // проходимся по всем каналам
+     for(int i=0;i<WATER_RELAYS_COUNT;i++)
+     {
+       int buttonID = i+BUTTONS_OFFSET; // у нас первые 4 кнопки - не для каналов
+
+       bool isChannelActive = (state.WaterChannelsState & (1 << i));
+       bool savedIsChannelActive =  (lastWaterChannelsState & (1 << i));
+       
+       bool wantRedrawChannel = !inited || (isChannelActive != savedIsChannelActive);
+
+        if(wantRedrawChannel)
+        {
+            if(isChannelActive)
+            {
+               screenButtons->setButtonBackColor(buttonID,MODE_ON_COLOR);
+            }
+            else
+            {
+              screenButtons->setButtonBackColor(buttonID,MODE_OFF_COLOR);
+            }
+
+          screenButtons->drawButton(buttonID);
+          menuManager->updateBuzzer();
+        }
+       
+     } // for
+
+
+     bool wateringAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
+     if(wateringAutoMode)
+     {
+        screenButtons->setButtonBackColor(3,MODE_ON_COLOR);
+        screenButtons->relabelButton(3,AUTO_MODE_LABEL,!inited || (wateringAutoMode != lastWateringAutoMode));
+     }
+     else
+     {
+        screenButtons->setButtonBackColor(3,MODE_OFF_COLOR);      
+        screenButtons->relabelButton(3,MANUAL_MODE_LABEL,!inited || (wateringAutoMode != lastWateringAutoMode));
+     }
+
+      // сохраняем состояние каналов полива
+     lastWaterChannelsState = state.WaterChannelsState;
+     lastWateringAutoMode = wateringAutoMode;
+     inited = true;
+     
+
+ 
+     
+ } // if(screenButtons)
+ #endif // WATER_RELAYS_COUNT > 0
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTWateringScreen::draw(TFTMenu* menuManager)
+{
+  UNUSED(menuManager);
+
+ #if WATER_RELAYS_COUNT > 0
+  if(screenButtons)
+  {
+    screenButtons->drawButtons(drawButtonsYield);
+  }
+ #endif 
+
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_WATERING_MODULE
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_LUMINOSITY_MODULE
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// TFTLightScreen
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTLightScreen::TFTLightScreen()
+{
+  inited = false;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTLightScreen::~TFTLightScreen()
+{
+ delete screenButtons;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTLightScreen::setup(TFTMenu* menuManager)
+{
+
+  
+    screenButtons = new UTFT_Buttons_Rus(menuManager->getDC(), menuManager->getTouch(),menuManager->getRusPrinter());
+    screenButtons->setTextFont(BigRusFont);
+    screenButtons->setButtonColors(TFT_CHANNELS_BUTTON_COLORS);
+
+    // первая - кнопка назад
+    backButton = addBackButton(menuManager,screenButtons,0);
+ 
+    int buttonsTop = INFO_BOX_V_SPACING;
+    int screenWidth = menuManager->getDC()->getDisplayXSize();
+
+    // добавляем кнопки для управления досветкой
+    bool isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
+    
+    int allChannelsLeft = (screenWidth - (ALL_CHANNELS_BUTTON_WIDTH*3) - INFO_BOX_V_SPACING*2)/2;
+    int addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, TURN_ON_ALL_LIGHT_LABEL);
+    screenButtons->setButtonBackColor(addedId,isLightOn ? MODE_ON_COLOR : CHANNELS_BUTTONS_BG_COLOR);
+    allChannelsLeft += ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+    addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, TURN_OFF_ALL_LIGHT_LABEL);
+    screenButtons->setButtonBackColor(addedId,!isLightOn ? MODE_ON_COLOR : CHANNELS_BUTTONS_BG_COLOR);
+
+    allChannelsLeft += ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+
+    addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, AUTO_MODE_LABEL);
+    screenButtons->setButtonFontColor(addedId,CHANNELS_BUTTONS_TEXT_COLOR);
+    
+  
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
+{
+ UNUSED(dt);
+
+ 
+ if(screenButtons)
+ {
+    int pressed_button = screenButtons->checkButtons();
+
+    if(pressed_button != -1)
+    {
+      // есть клик на кнопку
+      menuManager->buzzer(); // пискнули
+    }
+    
+    if(pressed_button == backButton)
+    {
+      menuManager->switchToScreen("IDLE");
+      return;
+    }
+
+    if(pressed_button == 3)
+    {
+      // Кнопка смены режима
+      bool lightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
+      lightAutoMode = !lightAutoMode;
+      String command = lightAutoMode ? F("LIGHT|MODE|AUTO") : F("LIGHT|MODE|MANUAL");
+      ModuleInterop.QueryCommand(ctSET,command,false);
+
+      return;
+    }
+
+    if(pressed_button == 1)
+    {
+      // включить досветку
+      ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);
+      return;
+    }
+    
+    if(pressed_button == 2)
+    {
+      // выключить досветку
+      ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);
+      return;
+    }
+
+    bool lightIsOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
+    bool lightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
+
+    if(!inited || (lastLightIsOn != lightIsOn))
+    {
+        screenButtons->setButtonBackColor(1,lightIsOn ? MODE_ON_COLOR : CHANNELS_BUTTONS_BG_COLOR);
+        screenButtons->setButtonBackColor(2,!lightIsOn ? MODE_ON_COLOR : CHANNELS_BUTTONS_BG_COLOR);
+
+        screenButtons->setButtonFontColor(1,lightIsOn ? CHANNELS_BUTTONS_TEXT_COLOR : CHANNEL_BUTTONS_TEXT_COLOR);
+        screenButtons->setButtonFontColor(2,!lightIsOn ? CHANNELS_BUTTONS_TEXT_COLOR : CHANNEL_BUTTONS_TEXT_COLOR);
+        
+        screenButtons->drawButton(1);
+        screenButtons->drawButton(2);
+    }
+     
+     if(lightAutoMode)
+     {
+        screenButtons->setButtonBackColor(3,MODE_ON_COLOR);
+        screenButtons->relabelButton(3,AUTO_MODE_LABEL,!inited || (lightAutoMode != lastLightAutoMode));
+     }
+     else
+     {
+        screenButtons->setButtonBackColor(3,MODE_OFF_COLOR);      
+        screenButtons->relabelButton(3,MANUAL_MODE_LABEL,!inited || (lightAutoMode != lastLightAutoMode));
+     }
+
+      // сохраняем состояние досветки
+     lastLightIsOn = lightIsOn;
+     lastLightAutoMode = lightAutoMode;
+     inited = true;
+     
+
+ 
+     
+ } // if(screenButtons)
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTLightScreen::draw(TFTMenu* menuManager)
+{
+  UNUSED(menuManager);
+
+  if(screenButtons)
+  {
+    screenButtons->drawButtons(drawButtonsYield);
+  }
+
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_LUMINOSITY_MODULE
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_TEMP_SENSORS
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // TFTWindowScreen
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTWindowScreen::TFTWindowScreen()
 {
-  
+  inited = false;
+  lastWindowsState = 0;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTWindowScreen::~TFTWindowScreen()
@@ -148,27 +508,27 @@ void TFTWindowScreen::setup(TFTMenu* menuManager)
     int screenWidth = menuManager->getDC()->getDisplayXSize();
 
     // добавляем кнопки для управления всеми каналами
-    int allChannelsLeft = (screenWidth - (WINDOWS_ALL_CHANNELS_BUTTON_WIDTH*3) - INFO_BOX_V_SPACING*2)/2;
-    screenButtons->addButton( allChannelsLeft ,  buttonsTop, WINDOWS_ALL_CHANNELS_BUTTON_WIDTH,  WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT, OPEN_ALL_LABEL);
-    allChannelsLeft += WINDOWS_ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+    int allChannelsLeft = (screenWidth - (ALL_CHANNELS_BUTTON_WIDTH*3) - INFO_BOX_V_SPACING*2)/2;
+    screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, OPEN_ALL_LABEL);
+    allChannelsLeft += ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
 
-    screenButtons->addButton( allChannelsLeft ,  buttonsTop, WINDOWS_ALL_CHANNELS_BUTTON_WIDTH,  WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT, CLOSE_ALL_LABEL);
-    allChannelsLeft += WINDOWS_ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+    screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, CLOSE_ALL_LABEL);
+    allChannelsLeft += ALL_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
 
-    int addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, WINDOWS_ALL_CHANNELS_BUTTON_WIDTH,  WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT, AUTO_MODE_LABEL);
-    screenButtons->setButtonFontColor(addedId,WINDOWS_BUTTONS_TEXT_COLOR);
+    int addedId = screenButtons->addButton( allChannelsLeft ,  buttonsTop, ALL_CHANNELS_BUTTON_WIDTH,  ALL_CHANNELS_BUTTON_HEIGHT, AUTO_MODE_LABEL);
+    screenButtons->setButtonFontColor(addedId,CHANNELS_BUTTONS_TEXT_COLOR);
 
-    buttonsTop += WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
+    buttonsTop += ALL_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
 
-    int computedButtonLeft = (screenWidth - (WINDOWS_CHANNELS_BUTTON_WIDTH*WINDOWS_CHANNELS_BUTTONS_PER_LINE) - ((WINDOWS_CHANNELS_BUTTONS_PER_LINE-1)*INFO_BOX_V_SPACING))/2;
+    int computedButtonLeft = (screenWidth - (CHANNELS_BUTTON_WIDTH*CHANNELS_BUTTONS_PER_LINE) - ((CHANNELS_BUTTONS_PER_LINE-1)*INFO_BOX_V_SPACING))/2;
     int curButtonLeft = computedButtonLeft;
   
     // теперь проходимся по кол-ву каналов и добавляем наши кнопки - дя каждого канала - по кнопке
     for(int i=0;i<SUPPORTED_WINDOWS;i++)
     {
-       if( i > 0 && !(i%WINDOWS_CHANNELS_BUTTONS_PER_LINE))
+       if( i > 0 && !(i%CHANNELS_BUTTONS_PER_LINE))
        {
-        buttonsTop += WINDOWS_CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
+        buttonsTop += CHANNELS_BUTTON_HEIGHT + INFO_BOX_V_SPACING;
         curButtonLeft = computedButtonLeft;
        }
        
@@ -176,10 +536,10 @@ void TFTWindowScreen::setup(TFTMenu* menuManager)
        *label += (i+1);
        labels.push_back(label);
        
-       addedId = screenButtons->addButton(curButtonLeft ,  buttonsTop, WINDOWS_CHANNELS_BUTTON_WIDTH,  WINDOWS_CHANNELS_BUTTON_HEIGHT, label->c_str());
-       screenButtons->setButtonFontColor(addedId,WINDOWS_BUTTONS_TEXT_COLOR);
+       addedId = screenButtons->addButton(curButtonLeft ,  buttonsTop, CHANNELS_BUTTON_WIDTH,  CHANNELS_BUTTON_HEIGHT, label->c_str());
+       screenButtons->setButtonFontColor(addedId,CHANNELS_BUTTONS_TEXT_COLOR);
        
-       curButtonLeft += WINDOWS_CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+       curButtonLeft += CHANNELS_BUTTON_WIDTH + INFO_BOX_V_SPACING;
 
 
     } // for
@@ -338,8 +698,8 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
      lastWindowsState = state.WindowsState;
      lastAnyChannelActive = anyChannelActive;
      lastWindowsAutoMode = windowsAutoMode;
-     
      inited = true;
+     
 
  
      
@@ -1053,6 +1413,27 @@ void TFTMenu::setup()
     wsi.screenName = "WINDOW"; 
     wsi.screen = windowScreen;  
     screens.push_back(wsi);
+  #endif
+
+  // добавляем экран управления каналами полива
+  #ifdef USE_WATERING_MODULE
+    AbstractTFTScreen* wateringScreen = new TFTWateringScreen();
+    wateringScreen->setup(this);
+    TFTScreenInfo watersi; 
+    watersi.screenName = "WATER"; 
+    watersi.screen = wateringScreen;  
+    screens.push_back(watersi);
+  #endif
+
+
+  // добавляем экран управления досветкой
+  #ifdef USE_LUMINOSITY_MODULE
+    AbstractTFTScreen* lightScreen = new TFTLightScreen();
+    lightScreen->setup(this);
+    TFTScreenInfo lsi; 
+    lsi.screenName = "LIGHT"; 
+    lsi.screen = lightScreen;  
+    screens.push_back(lsi);
   #endif
 
   #ifdef USE_BUZZER_ON_TOUCH

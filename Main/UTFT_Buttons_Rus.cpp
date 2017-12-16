@@ -132,6 +132,7 @@ void UTFT_Buttons_Rus::drawButton(int buttonID)
 			else
 				_UTFT->setColor(_color_border);
 			_UTFT->drawRect(buttons[buttonID].pos_x, buttons[buttonID].pos_y, buttons[buttonID].pos_x+buttons[buttonID].width, buttons[buttonID].pos_y+buttons[buttonID].height);
+     yield();
 		}
 	}
 	else
@@ -142,8 +143,10 @@ void UTFT_Buttons_Rus::drawButton(int buttonID)
 		  _UTFT->setColor(_color_background);
      
 		_UTFT->fillRoundRect(buttons[buttonID].pos_x, buttons[buttonID].pos_y, buttons[buttonID].pos_x+buttons[buttonID].width, buttons[buttonID].pos_y+buttons[buttonID].height);
+    yield();
 		_UTFT->setColor(_color_border);
 		_UTFT->drawRoundRect(buttons[buttonID].pos_x, buttons[buttonID].pos_y, buttons[buttonID].pos_x+buttons[buttonID].width, buttons[buttonID].pos_y+buttons[buttonID].height);
+    yield();
     
 		if (buttons[buttonID].flags & BUTTON_DISABLED)
 			_UTFT->setColor(_color_text_inactive);
@@ -176,13 +179,16 @@ void UTFT_Buttons_Rus::drawButton(int buttonID)
       
 		//_UTFT->print(buttons[buttonID].label, text_x, text_y);
     pRusPrinter->print(buttons[buttonID].label, text_x, text_y);
+    yield();
     
 		if ((buttons[buttonID].flags & BUTTON_SYMBOL) and (buttons[buttonID].flags & BUTTON_SYMBOL_REP_3X))
 		{
 //			_UTFT->print(buttons[buttonID].label, text_x-_UTFT->getFontXsize(), text_y);
 //			_UTFT->print(buttons[buttonID].label, text_x+_UTFT->getFontXsize(), text_y);
       pRusPrinter->print(buttons[buttonID].label, text_x-_UTFT->getFontXsize(), text_y);
+      yield();
       pRusPrinter->print(buttons[buttonID].label, text_x+_UTFT->getFontXsize(), text_y);
+      yield();
 		}
 	}
 	_UTFT->setFont(_font_current);
@@ -271,10 +277,11 @@ int UTFT_Buttons_Rus::checkButtons()
 					_UTFT->drawRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
 				else
 					_UTFT->drawRoundRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
+          yield();
 			}
 		}
 
-		while (_URTouch->dataAvailable() == true) {};
+		while (_URTouch->dataAvailable() == true) { yield(); };
 
 		if (result != -1)
 		{
@@ -285,6 +292,8 @@ int UTFT_Buttons_Rus::checkButtons()
 					_UTFT->drawRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
 				else
 					_UTFT->drawRoundRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
+
+        yield();
 			}
 		}
 

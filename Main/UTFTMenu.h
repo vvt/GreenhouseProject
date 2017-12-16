@@ -40,13 +40,14 @@
 #define MODE_ON_COLOR VGA_GREEN
 #define MODE_OFF_COLOR VGA_MAROON
 
-#define WINDOWS_BUTTONS_TEXT_COLOR VGA_WHITE
-#define WINDOWS_CHANNELS_BUTTONS_PER_LINE 4
-#define WINDOWS_CHANNELS_BUTTON_WIDTH 165
-#define WINDOWS_CHANNELS_BUTTON_HEIGHT 50
-
-#define WINDOWS_ALL_CHANNELS_BUTTON_WIDTH 226
-#define WINDOWS_ALL_CHANNELS_BUTTON_HEIGHT 70
+#define CHANNELS_BUTTONS_TEXT_COLOR VGA_WHITE
+#define CHANNELS_BUTTONS_BG_COLOR 0xEF7D
+#define CHANNEL_BUTTONS_TEXT_COLOR 0x3A8D
+#define CHANNELS_BUTTONS_PER_LINE 4
+#define CHANNELS_BUTTON_WIDTH 165
+#define CHANNELS_BUTTON_HEIGHT 50
+#define ALL_CHANNELS_BUTTON_WIDTH 226
+#define ALL_CHANNELS_BUTTON_HEIGHT 70
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class TFTMenu;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -190,6 +191,57 @@ class TFTWindowScreen : public AbstractTFTScreen
       bool lastWindowsAutoMode;
 
       WindowsChannelsCaptions labels;
+
+};
+#endif
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_WATERING_MODULE
+typedef Vector<String*> WaterChannelsCaptions;
+
+class TFTWateringScreen : public AbstractTFTScreen
+{
+  public:
+  
+    TFTWateringScreen();
+    ~TFTWateringScreen();
+    
+    void setup(TFTMenu* menuManager);
+    void update(TFTMenu* menuManager,uint16_t dt);
+    void draw(TFTMenu* menuManager);
+
+    private:
+      int backButton;
+      UTFT_Buttons_Rus* screenButtons;
+
+      bool inited;
+      uint16_t lastWaterChannelsState; // последнее состояние полива
+      bool lastWateringAutoMode;
+
+      WaterChannelsCaptions labels;
+
+};
+#endif
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_LUMINOSITY_MODULE
+class TFTLightScreen : public AbstractTFTScreen
+{
+  public:
+  
+    TFTLightScreen();
+    ~TFTLightScreen();
+    
+    void setup(TFTMenu* menuManager);
+    void update(TFTMenu* menuManager,uint16_t dt);
+    void draw(TFTMenu* menuManager);
+
+    private:
+      int backButton;
+      UTFT_Buttons_Rus* screenButtons;
+
+      bool inited;
+      bool lastLightIsOn; // последнее состояние досветки
+      bool lastLightAutoMode;
+
 
 };
 #endif
