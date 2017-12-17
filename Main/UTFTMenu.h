@@ -48,6 +48,11 @@
 #define CHANNELS_BUTTON_HEIGHT 50
 #define ALL_CHANNELS_BUTTON_WIDTH 226
 #define ALL_CHANNELS_BUTTON_HEIGHT 70
+
+#define TFT_TEXT_INPUT_WIDTH 170
+#define TFT_TEXT_INPUT_HEIGHT 80
+#define TFT_ARROW_BUTTON_WIDTH 70
+#define TFT_ARROW_BUTTON_HEIGHT 80
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class TFTMenu;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -245,6 +250,33 @@ class TFTLightScreen : public AbstractTFTScreen
 
 };
 #endif
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+class TFTSettingsScreen : public AbstractTFTScreen
+{
+  public:
+  
+    TFTSettingsScreen();
+    ~TFTSettingsScreen();
+    
+    void setup(TFTMenu* menuManager);
+    void update(TFTMenu* menuManager,uint16_t dt);
+    void draw(TFTMenu* menuManager);
+
+    private:
+      int backButton, decOpenTempButton, incOpenTempButton, decCloseTempButton, incCloseTempButton;
+      UTFT_Buttons_Rus* screenButtons;
+
+      bool inited;
+
+      uint8_t openTemp, closeTemp;
+
+      TFTInfoBox* closeTempBox;
+      TFTInfoBox* openTempBox;
+
+      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, int val); 
+
+
+};
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {

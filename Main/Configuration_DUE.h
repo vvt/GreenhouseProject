@@ -743,6 +743,8 @@
 #define TURN_OFF_ALL_WATER_LABEL "ВЫКЛ ПОЛИВ"
 #define TURN_ON_ALL_LIGHT_LABEL "СВЕТ ВКЛ"
 #define TURN_OFF_ALL_LIGHT_LABEL "СВЕТ ВЫКЛ"
+#define TFT_TOPEN_CAPTION "Т открытия"
+#define TFT_TCLOSE_CAPTION "Т закрытия"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // backlight OFF delay, if no actions with screen found, ms
 // время выключения при бездействии, миллисекунд

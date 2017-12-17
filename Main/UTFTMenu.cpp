@@ -725,6 +725,206 @@ void TFTWindowScreen::draw(TFTMenu* menuManager)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // TFTIdleScreen
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// TFTSettingsScreen
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTSettingsScreen::TFTSettingsScreen()
+{
+  inited = false;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TFTSettingsScreen::~TFTSettingsScreen()
+{
+ delete screenButtons;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTSettingsScreen::setup(TFTMenu* menuManager)
+{
+
+    // получаем температуры
+    GlobalSettings* s = MainController->GetSettings();
+    openTemp = s->GetOpenTemp();
+    closeTemp = s->GetCloseTemp();
+
+    UTFT* dc = menuManager->getDC();
+
+    dc->setFont(BigRusFont);
+    int textFontHeight = dc->getFontYsize();
+  
+    screenButtons = new UTFT_Buttons_Rus(dc, menuManager->getTouch(),menuManager->getRusPrinter());
+    screenButtons->setTextFont(SensorFont);
+    screenButtons->setButtonColors(TFT_CHANNELS_BUTTON_COLORS);
+
+    // первая - кнопка назад
+    backButton = addBackButton(menuManager,screenButtons,0);
+
+ 
+    int screenWidth = dc->getDisplayXSize();
+    int screenHeight = dc->getDisplayYSize();
+
+    // добавляем кнопки для управления температурой
+
+    // у нас - 4 кнопки руления температурой, и два бокса для её вывода. Между кнопками и боксом - просвет, между двумя параметрами - двойной просвет.
+
+
+    // вычисляем ширину всего занятого пространства
+    int widthOccupied = TFT_TEXT_INPUT_WIDTH*2 + TFT_ARROW_BUTTON_WIDTH*4 + INFO_BOX_V_SPACING*6;
+    
+    // теперь вычисляем левую границу для начала рисования
+    int leftPos = (screenWidth - widthOccupied)/2;
+
+    // теперь вычисляем верхнюю границу для отрисовки кнопок
+    int topPos = (screenHeight - TFT_ARROW_BUTTON_HEIGHT)/2;
+
+    UTFTRus* rusPrinter = menuManager->getRusPrinter();
+
+    static char leftArrowCaption[2] = {0};
+    static char rightArrowCaption[2] = {0};
+
+    leftArrowCaption[0] = rusPrinter->mapChar(charLeftArrow);
+    rightArrowCaption[0] = rusPrinter->mapChar(charRightArrow);
+
+    int textBoxHeightWithCaption =  TFT_TEXT_INPUT_HEIGHT + textFontHeight + INFO_BOX_CONTENT_PADDING;
+    int textBoxTopPos = topPos - textFontHeight - INFO_BOX_CONTENT_PADDING;
+
+    // теперь добавляем наши кнопки
+    decCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
+    leftPos += INFO_BOX_V_SPACING + TFT_ARROW_BUTTON_WIDTH;
+
+    closeTempBox = new TFTInfoBox(TFT_TCLOSE_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos);
+    leftPos += INFO_BOX_V_SPACING + TFT_TEXT_INPUT_WIDTH;
+        
+    incCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
+    leftPos += INFO_BOX_V_SPACING*2 + TFT_ARROW_BUTTON_WIDTH;
+
+    decOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
+    leftPos += INFO_BOX_V_SPACING + TFT_ARROW_BUTTON_WIDTH;
+
+    openTempBox = new TFTInfoBox(TFT_TOPEN_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos);
+    leftPos += INFO_BOX_V_SPACING + TFT_TEXT_INPUT_WIDTH;
+   
+    incOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
+
+  
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTSettingsScreen::drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, int val)
+{
+  UTFT* dc = menuManager->getDC();
+  TFTInfoBoxContentRect rc =  box->getContentRect(menuManager);
+  dc->setColor(INFO_BOX_BACK_COLOR);
+  dc->fillRect(rc.x,rc.y,rc.x+rc.w,rc.y+rc.h);
+
+  dc->setFont(SevenSegNumFontMDS);
+  dc->setBackColor(INFO_BOX_BACK_COLOR);
+  dc->setColor(SENSOR_BOX_FONT_COLOR);
+
+  String strVal;
+  strVal = val;
+  
+  int fontWidth = dc->getFontXsize();
+  int fontHeight = dc->getFontYsize();
+
+  int leftPos = rc.x + (rc.w - (strVal.length()*fontWidth))/2;
+  int topPos = rc.y + (rc.h - fontHeight)/2;
+  dc->print(strVal.c_str(),leftPos,topPos);
+
+  dc->setFont(BigRusFont);
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
+{
+ UNUSED(dt);
+
+ 
+ if(screenButtons)
+ {
+    int pressed_button = screenButtons->checkButtons();
+
+    if(pressed_button != -1)
+    {
+      // есть клик на кнопку
+      menuManager->buzzer(); // пискнули
+    }
+    
+    if(pressed_button == backButton)
+    {
+      menuManager->switchToScreen("IDLE");
+      return;
+    }
+
+    if(pressed_button == decOpenTempButton)
+    {
+      if(openTemp < 1)
+        return;
+
+      openTemp--;
+      MainController->GetSettings()->SetOpenTemp(openTemp);
+      drawValueInBox(menuManager,openTempBox,openTemp);  
+
+      return;
+    }
+    
+    if(pressed_button == incOpenTempButton)
+    {
+      if(openTemp > 49)
+        return;
+
+      openTemp++;
+      MainController->GetSettings()->SetOpenTemp(openTemp);
+      drawValueInBox(menuManager,openTempBox,openTemp);  
+
+      return;
+    }
+    
+    if(pressed_button == decCloseTempButton)
+    {
+      if(closeTemp < 1)
+        return;
+
+      closeTemp--;
+      MainController->GetSettings()->SetCloseTemp(closeTemp);
+      drawValueInBox(menuManager,closeTempBox,closeTemp);  
+
+      return;
+    }
+
+    if(pressed_button == incCloseTempButton)
+    {
+      if(closeTemp > 49)
+        return;
+
+      closeTemp++;
+      MainController->GetSettings()->SetCloseTemp(closeTemp);
+      drawValueInBox(menuManager,closeTempBox,closeTemp);  
+
+      return;
+    }
+       
+    inited = true;
+     
+
+ 
+     
+ } // if(screenButtons)
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTSettingsScreen::draw(TFTMenu* menuManager)
+{
+  UNUSED(menuManager);
+
+  if(screenButtons)
+  {
+    screenButtons->drawButtons(drawButtonsYield);
+  }
+
+  closeTempBox->draw(menuManager);
+  openTempBox->draw(menuManager);
+
+  drawValueInBox(menuManager,closeTempBox,closeTemp);
+  drawValueInBox(menuManager,openTempBox,openTemp);
+
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_TEMP_SENSORS
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 extern imagedatatype tft_windows_button[];
@@ -1435,6 +1635,15 @@ void TFTMenu::setup()
     lsi.screen = lightScreen;  
     screens.push_back(lsi);
   #endif
+
+  // добавляем экран настроек
+    AbstractTFTScreen* settingsScreen = new TFTSettingsScreen();
+    settingsScreen->setup(this);
+    TFTScreenInfo ssi; 
+    ssi.screenName = "OPTIONS"; 
+    ssi.screen = settingsScreen;  
+    screens.push_back(ssi);
+
 
   #ifdef USE_BUZZER_ON_TOUCH
   
