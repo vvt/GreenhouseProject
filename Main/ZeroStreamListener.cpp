@@ -218,6 +218,17 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = PONG;
           PublishSingleton.Flags.AddModuleIDToAnswer = false;
         } // if
+        else if(t == F("LIMITS"))
+        {
+          // получить настойки ограничений
+            PublishSingleton.Flags.Status = true;
+            PublishSingleton.Flags.AddModuleIDToAnswer = false;
+            PublishSingleton = t;
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << MAX_ALERT_RULES;
+            PublishSingleton << PARAM_DELIMITER;
+            PublishSingleton << MAX_DELTAS;
+        }
         else if(t == F("TUNIT")) // unit for temperatures ( For query use "CTGET=0|TUNIT", answer is "OK=TUNIT|C" for Celsius, "OK=TUNIT|F" for Fahrenheit )
         {
             PublishSingleton.Flags.Status = true;

@@ -1835,6 +1835,17 @@ controller.OnGetModulesList = function(obj)
 {  
 
   showWaitDialog();
+  
+  
+    controller.queryCommand(true,'0|LIMITS',function(obj,answer){
+         
+    if(answer.IsOK)
+    {
+      MAX_RULES = parseInt(answer.Params[1]);
+      MAX_DELTAS = parseInt(answer.Params[2]);
+    }
+  
+  });
 
     var hasDeltaModule = controller.Modules.includes('DELTA');
     $('#DELTA_MENU').toggle(hasDeltaModule); // работаем с дельтами только если в прошивке есть модуль дельт
@@ -3132,26 +3143,14 @@ $(document).ready(function(){
         primary: "ui-icon-note"
       }
     });
-    /*
-      $( "#sensors_info_button" ).button({
-      icons: {
-        primary: "ui-icon-info"
-      }
-    }).hide().css('width','100%');
-    */
+
     
     $('#new_cc_list').button({
       icons: {
         primary: "ui-icon-note"
       }
     });
-    /*
-    $('#flow_calibration_button, #ph_calibration_button').button({
-      icons: {
-        primary: "ui-icon-note"
-      }
-    }).hide().css('width','100%'); 
-    */   
+  
     
     $('#delete_cc_list').button({
       icons: {
@@ -3170,22 +3169,7 @@ $(document).ready(function(){
         primary: "ui-icon-play"
       }
     });
-    exec_command_button
-      
-  /*     
-    $( "#controller_time_button" ).button({
-      icons: {
-        primary: "ui-icon-clock"
-      }
-    }).hide().css('width','100%');       
-      
- 
- $( "#wifi_menu" ).button({
-      icons: {
-        primary: "ui-icon-signal-diag"
-      }
-    }).hide().css('width','100%');       
-*/
+        
 
     $("#statsmssensor1, #statsmssensor2").spinner({min: -1, max: 100});
 
