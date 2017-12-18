@@ -60,16 +60,16 @@ void LogModule::CreateActionsFile(const DS3231Time& tm)
 
    String logDirectory = ACTIONS_DIRECTORY; // папка с логами действий
 
-   if(!SD.exists(logDirectory)) // нет папки ACTIONS_DIRECTORY
+   if(!SDFat.exists(logDirectory.c_str())) // нет папки ACTIONS_DIRECTORY
    {
     #ifdef LOGGING_DEBUG_MODE
     LOG_DEBUG_WRITE(F("Creating the actions directory..."));
     #endif
       
-      SD.mkdir(logDirectory); // создаём папку
+      SDFat.mkdir(logDirectory.c_str()); // создаём папку
    }
 
- if(!SD.exists(logDirectory)) // проверяем её существование, на всякий
+ if(!SDFat.exists(logDirectory.c_str())) // проверяем её существование, на всякий
   {
     // не удалось создать папку actions
     #ifdef LOGGING_DEBUG_MODE
@@ -81,16 +81,17 @@ void LogModule::CreateActionsFile(const DS3231Time& tm)
 
   logFileName = logDirectory + String(F("/")) + logFileName; // формируем полный путь
 
-  if(actionFile)
+  if(actionFile.isOpen())
   {
     // уже есть открытый файл, проверяем, не пытаемся ли мы открыть файл с таким же именем
-    if(logFileName.endsWith(actionFile.name())) // такой же файл
+    String existingName = FileUtils::GetFileName(actionFile);
+    if(logFileName.endsWith(existingName)) // такой же файл
       return; 
     else
       actionFile.close(); // закрываем старый
   } // if
   
-  actionFile = SD.open(logFileName,FILE_WRITE); // открываем файл
+  actionFile.open(logFileName.c_str(),FILE_WRITE); // открываем файл
    
 }
 #endif
@@ -99,7 +100,7 @@ void LogModule::WriteAction(const LogAction& action)
 {
 #ifdef LOG_ACTIONS_ENABLED  
   EnsureActionsFileCreated(); // убеждаемся, что файл создан
-  if(!actionFile)
+  if(!actionFile.isOpen())
   {
     // что-то пошло не так
     #ifdef LOGGING_DEBUG_MODE
@@ -160,7 +161,7 @@ void LogModule::EnsureActionsFileCreated()
     // перешли на другой день недели, создаём новый файл
     lastActionsDOW = tm.dayOfWeek;
     
-    if(actionFile)
+    if(actionFile.isOpen())
       actionFile.close();
       
     CreateActionsFile(tm); // создаём новый файл
@@ -174,7 +175,7 @@ void LogModule::CreateNewLogFile(const DS3231Time& tm)
   if(!MainController->HasSDCard())//hasSD)
     return;
   
-    if(logFile) // есть открытый файл
+    if(logFile.isOpen()) // есть открытый файл
       logFile.close(); // закрываем его
 
    // формируем имя нашего нового лог-файла:
@@ -188,22 +189,23 @@ void LogModule::CreateNewLogFile(const DS3231Time& tm)
    currentLogFileName += String(tm.month);
    
    if(tm.dayOfMonth < 10)
-    currentLogFileName += F("0");
+    currentLogFileName += '0';
+    
    currentLogFileName += String(tm.dayOfMonth);
 
    currentLogFileName += F(".LOG");
 
    String logDirectory = LOGS_DIRECTORY; // папка с логами
-   if(!SD.exists(logDirectory)) // нет папки LOGS_DIRECTORY
+   if(!SDFat.exists(logDirectory.c_str())) // нет папки LOGS_DIRECTORY
    {
     #ifdef LOGGING_DEBUG_MODE
     LOG_DEBUG_WRITE(F("Creating the logs directory..."));
     #endif
       
-      SD.mkdir(logDirectory); // создаём папку
+      SDFat.mkdir(logDirectory.c_str()); // создаём папку
    }
    
-  if(!SD.exists(logDirectory)) // проверяем её существование, на всякий
+  if(!SDFat.exists(logDirectory.c_str())) // проверяем её существование, на всякий
   {
     // не удалось создать папку logs
     #ifdef LOGGING_DEBUG_MODE
@@ -220,9 +222,9 @@ void LogModule::CreateNewLogFile(const DS3231Time& tm)
    // теперь можем создать файл - даже если он существует, он откроется на запись
    currentLogFileName = logDirectory + String(F("/")) + currentLogFileName; // формируем полный путь
 
-   logFile = SD.open(currentLogFileName,FILE_WRITE);
+   logFile.open(currentLogFileName.c_str(),FILE_WRITE);
 
-   if(logFile)
+   if(logFile.isOpen())
    {
    #ifdef LOGGING_DEBUG_MODE
     LOG_DEBUG_WRITE(String(F("File ")) + currentLogFileName + String(F(" successfully created!")));
@@ -409,7 +411,7 @@ void LogModule::GatherLogInfo(const DS3231Time& tm)
 {
   // собираем информацию в лог
   
-  if(!logFile) // что-то пошло не так
+  if(!logFile.isOpen()) // что-то пошло не так
   {
     #ifdef LOGGING_DEBUG_MODE
     LOG_DEBUG_WRITE(F("Current log file not open!"));
@@ -660,15 +662,15 @@ if(MainController->HasSDCard())//hasSD)
           fullFilePath += F("/");
           fullFilePath += fileNameRequested;
 
-          if(SD.exists(fullFilePath.c_str()))
+          if(SDFat.exists(fullFilePath.c_str()))
           {
             // такой файл существует, можно отдавать
-            if(logFile)
+            if(logFile.isOpen())
               logFile.close(); // сперва закрываем текущий лог-файл
 
             // теперь можно открывать файл на чтение
-            File fRead = SD.open(fullFilePath,FILE_READ);
-            if(fRead)
+            SdFile fRead;
+            if(fRead.open(fullFilePath.c_str(),FILE_READ))
             {
               // файл открыли, можно читать
               // сперва отправим в потом строчку OK=FOLLOW
@@ -706,7 +708,7 @@ if(MainController->HasSDCard())//hasSD)
                 CreateNewLogFile(tm); // создаём новый файл
             #endif
             
-          } // SD.exists
+          } // SDFat.exists
           
         } // if(argsCnt > 1)
         else
@@ -727,15 +729,15 @@ if(MainController->HasSDCard())//hasSD)
           fullFilePath += F("/");
           fullFilePath += fileNameRequested;
 
-          if(SD.exists(fullFilePath.c_str()))
+          if(SDFat.exists(fullFilePath.c_str()))
           {
             // такой файл существует, можно отдавать
-            if(actionFile)
+            if(actionFile.isOpen())
               actionFile.close(); // сперва закрываем текущий файл действий
 
             // теперь можно открывать файл на чтение
-            File fRead = SD.open(fullFilePath,FILE_READ);
-            if(fRead)
+            SdFile fRead;
+            if(fRead.open(fullFilePath.c_str(),FILE_READ))
             {
               // файл открыли, можно читать
               // сперва отправим в потом строчку OK=FOLLOW
@@ -773,7 +775,7 @@ if(MainController->HasSDCard())//hasSD)
                 CreateActionsFile(tm); // создаём новый файл действий
             #endif
             
-          } // SD.exists
+          } // SDFat.exists
           
         } // if(argsCnt > 1)
         else

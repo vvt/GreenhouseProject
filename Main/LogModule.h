@@ -3,7 +3,7 @@
 #include "AbstractModule.h"
 #include "Globals.h"
 #include "DS3231Support.h"
-#include <SD.h>
+#include <SdFat.h>
 //--------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
@@ -28,8 +28,8 @@ class LogModule : public AbstractModule // модуль логгирования
   int8_t lastDOW;
 
   //bool hasSD;
-  File logFile; // текущий файл для логгирования
-  File actionFile; // файл с записями о произошедших действиях
+  SdFile logFile; // текущий файл для логгирования
+  SdFile actionFile; // файл с записями о произошедших действиях
   String currentLogFileName; // текущее имя файла, с которым мы работаем сейчас
   unsigned long loggingInterval; // интервал между логгированиями
 

@@ -122,12 +122,12 @@ bool TCPClient::Prepare(const char* command)
    // теперь считаем длину данных
   contentLength = cachedData->length();
 
-  if(workFile)
+  if(workFile.isOpen())
   {
     // прибавляем длину данных, которые надо передать
-    contentLength += workFile.size();
+    contentLength += workFile.fileSize();
     // переходим на начало файла
-    workFile.seek(0);
+    workFile.seekSet(0);
   }
   
  // вычисляем кол-во пакетов, которые нам надо послать
@@ -160,13 +160,13 @@ bool TCPClient::Prepare(const char* command)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void TCPClient::OpenSDFile()
 {
-  if(workFile)
+  if(workFile.isOpen())
     return;
 
   char file_name[13];
   sprintf_P(file_name,(const char*) F("%u.TCP"),state.tcpClientID);
   // открываем файл на запись
-  workFile = SD.open(file_name, FILE_WRITE | O_TRUNC); // открываем файл и усекаем его до нуля   
+  workFile.open(file_name, FILE_WRITE | O_TRUNC); // открываем файл и усекаем его до нуля   
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ void TCPClient::WriteErrorToFile()
  {
   OpenSDFile();
   
-   if(workFile)
+   if(workFile.isOpen())
    {     
      String b = ERR_ANSWER; TCP_WRITE_TO_FILE(b);
      b = COMMAND_DELIMITER; TCP_WRITE_TO_FILE(b);
@@ -196,7 +196,7 @@ void TCPClient::WriteErrorToFile()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void TCPClient::CloseSDFile()
 {
-  if(workFile)
+  if(workFile.isOpen())
     workFile.close(); // закрываем файл
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -212,7 +212,7 @@ size_t TCPClient::write(uint8_t toWr)
 
  OpenSDFile();
  
- if(workFile)
+ if(workFile.isOpen())
   workFile.write(toWr);
 
   return 1;
@@ -256,7 +256,7 @@ bool TCPClient::SendPacket(Stream* s)
       cachedData = new String();
 
      // тут вычитываем данные из файла, длиной dataLeft
-        if(workFile) // если файл открыт
+        if(workFile.isOpen()) // если файл открыт
         {
         // Блочное чтение из файла в нашем случае показало себя медленней, чем побайтовое (WTF???)            
           for(uint16_t i=0;i<dataLeft;i++)
@@ -270,7 +270,7 @@ bool TCPClient::SendPacket(Stream* s)
   else
   {
     // уже только работа с файлом
-    if(workFile)
+    if(workFile.isOpen())
     {
       // у нас идёт работа только с данными, полученными с контроллера
       for(uint16_t i=0;i<nextPacketLength;i++) // читаем данные из файла и выдаём их в поток

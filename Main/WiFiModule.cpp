@@ -48,10 +48,11 @@ void MQTTClient::AddTopic(const char* topicIndex, const char* topicName, const c
   String fName = MQTT_FILENAME_PATTERN;
   fName += topicIndex;
 
-  SD.mkdir(F("MQTT")); // create directory
+  String dirName = F("MQTT");
+  SDFat.mkdir(dirName.c_str()); // create directory
   
-  File f = SD.open(fName.c_str(),FILE_WRITE | O_TRUNC);
-  if(f)
+  SdFile f;
+  if(f.open(fName.c_str(),FILE_WRITE | O_TRUNC))
   {
     f.println(topicName); // имя топика
     f.println(moduleName); // имя модуля
@@ -81,13 +82,22 @@ byte MQTTClient::GetSavedTopicsCount()
 {
       if(!MainController->HasSDCard()) // нет SD-карты, деградируем в жёстко прошитые настройки
         return 0;
+
+        String folderName = F("MQTT");
+        return FileUtils::CountFiles(folderName);
+        
+  /*
+      if(!MainController->HasSDCard()) // нет SD-карты, деградируем в жёстко прошитые настройки
+        return 0;
       else
       {
           byte result = 0; // не думаю, что будет больше 255 топиков :)
           // подсчитываем кол-во файлов в папке топиков
           String folderName = F("MQTT/");
 
-         File dir = SD.open(folderName.c_str());
+          SDFat.mkdir(folderName.c_str());
+
+         SdFile dir = SDFat.open(folderName.c_str());
          
          if(dir)
          {
@@ -95,7 +105,7 @@ byte MQTTClient::GetSavedTopicsCount()
 
             while(1)
             {
-              File f = dir.openNextFile();
+              SdFile f = dir.openNextFile();
               if(!f)
                 break;
 
@@ -108,7 +118,7 @@ byte MQTTClient::GetSavedTopicsCount()
 
          return result;
       } // else
-      
+    */  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void MQTTClient::setConnected(bool flag)
@@ -499,8 +509,8 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
       String mqttClientId = DEFAULT_MQTT_CLIENT; // клиент по умолчанию
       String mqttUser, mqttPass;
 
-      File f = SD.open(mqttSettingsFileName.c_str());
-      if(f)
+      SdFile f;
+      if(f.open(mqttSettingsFileName.c_str(),FILE_READ))
       {
         // первые две строки пропускаем, там адрес сервера и порт        
         FileUtils::readLine(f,mqttClientId);
@@ -552,9 +562,9 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
 
        // Тут читаем настройки с SD
       String mqttSettingsFileName = F("mqtt.ini");
-      File f = SD.open(mqttSettingsFileName.c_str());
+      SdFile f;
 
-      if(f)
+      if(f.open(mqttSettingsFileName.c_str(),FILE_READ))
       {
           flags.busy = true;
 
@@ -602,9 +612,9 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
       
       // Тут читаем настройки с SD
       String mqttSettingsFileName = F("mqtt.ini");
-      File f = SD.open(mqttSettingsFileName.c_str());
+      SdFile f;
 
-      if(f)
+      if(f.open(mqttSettingsFileName.c_str(),FILE_READ))
       {
           flags.busy = true;
 
@@ -646,7 +656,7 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
         String topicFileName = MQTT_FILENAME_PATTERN;
         topicFileName += String(currentTopicNumber);
 
-        if(!SD.exists(topicFileName.c_str())) // нет топика
+        if(!SDFat.exists(topicFileName.c_str())) // нет топика
         {
           currentTopicNumber = 0; // переключаемся на первый топик
           flags.haveTopics = false;
@@ -654,9 +664,9 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
         }
 
         // тут можем читать из файла настроек топика
-        File f = SD.open(topicFileName.c_str());
+        SdFile f;
         
-        if(!f) // не получилось открыть файл
+        if(!f.open(topicFileName.c_str(),FILE_READ)) // не получилось открыть файл
         {
           switchToNextTopic();
           return false;          
@@ -768,7 +778,7 @@ void MQTTClient::switchToNextTopic()
     // проверим - не надо ли завернуть на старт?
     String topicFileName = MQTT_FILENAME_PATTERN;
     topicFileName += String(currentTopicNumber);
-    if(!SD.exists(topicFileName.c_str()))
+    if(!SDFat.exists(topicFileName.c_str()))
     {
       currentTopicNumber = 0; // следующего файла нет, начинаем сначала
     }
@@ -984,9 +994,9 @@ void MQTTClient::getMQTTServer(String& host,int& port)
   // Тут читаем настройки MQTT-сервера с SD
   
   String mqttSettingsFileName = F("mqtt.ini");
-  File f = SD.open(mqttSettingsFileName.c_str());
+  SdFile f;
 
-  if(!f)
+  if(!f.open(mqttSettingsFileName.c_str(),FILE_READ))
   {
     host = F("127.0.0.1");
     port = 1883;
@@ -1044,7 +1054,7 @@ void MQTTClient::update(uint16_t dt)
         String topicFileName = MQTT_FILENAME_PATTERN;
         topicFileName += String(currentTopicNumber);
 
-        flags.haveTopics = SD.exists(topicFileName.c_str()); // и выставляем флаг, что топики получены
+        flags.haveTopics = SDFat.exists(topicFileName.c_str()); // и выставляем флаг, что топики получены
         if(!flags.haveTopics)
         {
           // нет файла настроек топика, переходим на начало
@@ -1133,6 +1143,11 @@ bool WiFiModule::IsKnownAnswer(const String& line)
   return ( line == F("OK") || line == F("ERROR") || line == F("FAIL") || line.endsWith(F("SEND OK")) || line.endsWith(F("SEND FAIL")));
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+bool isESPBootFound(const String& line)
+{
+  return (line == F("ready")) || line.startsWith(F("Ai-Thinker Technology"));
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 void WiFiModule::ProcessAnswerLine(String& line)
 {
 
@@ -1143,7 +1158,7 @@ void WiFiModule::ProcessAnswerLine(String& line)
   #endif
 
    // проверяем, не перезагрузился ли модем
-  if(line == F("ready") && currentAction != wfaWantReady) // мы проверяем на ребут только тогда, когда сами его не вызвали
+  if(isESPBootFound(line) && currentAction != wfaWantReady) // мы проверяем на ребут только тогда, когда сами его не вызвали
   {
     #ifdef WIFI_DEBUG
       WIFI_DEBUG_WRITE(F("ESP boot found, init queue.."),currentAction);
@@ -1323,7 +1338,7 @@ void WiFiModule::ProcessAnswerLine(String& line)
     case wfaWantReady:
     {
       // ждём ответа "ready" от модуля
-      if(line == F("ready")) // получили
+      if(isESPBootFound(line)) // получили
       {
         #ifdef WIFI_DEBUG
           WIFI_DEBUG_WRITE(F("[OK] => ESP restarted."),currentAction);
@@ -2105,6 +2120,8 @@ void WiFiModule::Setup()
 
   #ifdef USE_WIFI_REBOOT_PIN
     WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
+    delay(200);
     WORK_STATUS.PinWrite(WIFI_REBOOT_PIN,WIFI_POWER_ON);
   #endif
 
@@ -3065,11 +3082,11 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
               String mqttSettingsFileName = F("mqtt.ini");
               String newline = "\n";
               
-              File f = SD.open(mqttSettingsFileName.c_str(), FILE_WRITE | O_TRUNC);
+              SdFile f;
               
               #define MQTT_WRITE_TO_FILE(f,str) f.write((const uint8_t*) str.c_str(),str.length())
               
-              if(f)
+              if(f.open(mqttSettingsFileName.c_str(), FILE_WRITE | O_TRUNC))
               {
                 // адрес сервера
                 MQTT_WRITE_TO_FILE(f,mqttServer);
@@ -3260,9 +3277,9 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
           topicFileName += command.GetArg(1);
         
           // тут можем читать из файла настроек топика
-                File f = SD.open(topicFileName.c_str());
+                SdFile f;
                 
-                if(f)
+                if(f.open(topicFileName.c_str(),FILE_READ))
                 {   
                   // теперь читаем настройки топика
                   // первой строкой идёт имя топика
@@ -3329,9 +3346,9 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
            String mqttServer, mqttPort, mqttClientId, mqttUser, mqttPass;
 
            String mqttSettingsFileName = F("mqtt.ini");
-           File f = SD.open(mqttSettingsFileName.c_str());
+           SdFile f;
 
-           if(f)
+           if(f.open(mqttSettingsFileName.c_str(),FILE_READ))
            {
             FileUtils::readLine(f,mqttServer); // адрес сервера
             FileUtils::readLine(f,mqttPort); // порт сервера
@@ -3352,7 +3369,6 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
             PublishSingleton << PARAM_DELIMITER << mqttClientId; 
             PublishSingleton << PARAM_DELIMITER << mqttUser; 
             PublishSingleton << PARAM_DELIMITER << mqttPass; 
-
            
         }
       }

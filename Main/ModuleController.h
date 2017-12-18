@@ -21,7 +21,7 @@
 #include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
 
 
-#include <SD.h>
+#include <SdFat.h>
 //--------------------------------------------------------------------------------------------------------------------------------------
 class AbstractModule; // forward declaration
 class AlertRule;
@@ -33,8 +33,11 @@ class FileUtils
 {
   public:
   
-     static void readLine(File& f, String& result);
-     static void RemoveFiles(const String& dirName);
+     static void readLine(SdFile& f, String& result);
+
+     static String GetFileName(SdFile& f);
+     static int CountFiles(const String& dirName, bool recursive=true);
+     static void RemoveFiles(const String& dirName, bool recursive=true);
 
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -130,5 +133,6 @@ public:
 //--------------------------------------------------------------------------------------------------------------------------------------
 extern PublishStruct PublishSingleton; // сюда публикуем все ответы от всех модудей
 extern ModuleController* MainController; // главный контроллер
+extern SdFat SDFat;
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif

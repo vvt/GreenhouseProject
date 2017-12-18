@@ -284,7 +284,7 @@ void WIFI_EVENT_FUNC()
         {
           // Не убираем переводы строки, когда пришёл пакет с данными, поскольку \r\n может придти прямо в пакете данных.
           // Т.к. у нас \r\n служит признаком окончания команды - значит, мы должны учитывать эти символы в пакете,
-          // и не можем самовоизвольно их отбрасывать.
+          // и не можем самовольно их отбрасывать.
           *wiFiReceiveBuff += NEWLINE; 
         }
           
@@ -302,7 +302,15 @@ void WIFI_EVENT_FUNC()
           wifiModule.ProcessAnswerLine(s);
         }
         else
+        {
           *wiFiReceiveBuff += ch;
+          
+          if(wiFiReceiveBuff->length() > 500) // буфер слишком длинный
+          {
+            delete wiFiReceiveBuff;
+            wiFiReceiveBuff = new String();
+          }
+        }
     }
   
     

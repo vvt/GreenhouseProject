@@ -6,43 +6,115 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 PublishStruct PublishSingleton;
 ModuleController* MainController = NULL;
+SdFat SDFat;
 //--------------------------------------------------------------------------------------------------------------------------------------
-void FileUtils::RemoveFiles(const String& dirName)
+void FileUtils::RemoveFiles(const String& dirName, bool recursive)
 {
-  File iter = SD.open(dirName);
-  if(!iter)
-    return;
-
-  while(1)
+  const char* dirP = dirName.c_str();
+  
+  if(!SDFat.exists(dirP))
   {
-    File entry = iter.openNextFile();
-    if(!entry)
-      break;
+    return;
+  }
 
-    if(entry.isDirectory())
+  SdFile root;
+  if(!root.open(dirP,FILE_READ))
+  {
+    return;
+  }
+
+  root.rewind();
+
+
+  SdFile entry;
+  while(entry.openNext(&root,FILE_READ))
+  {
+    
+    if(entry.isDir())
     {
-      String subPath = dirName + "/";
-      subPath += entry.name();
-      FileUtils::RemoveFiles(subPath);
-      entry.close();
+      if(recursive)
+      {
+        String subPath = dirName + "/";
+        subPath += FileUtils::GetFileName(entry);        
+        FileUtils::RemoveFiles(subPath,recursive);
+
+        if(!SDFat.rmdir(subPath.c_str()))
+        {
+        }
+        else
+        {
+          entry.close();
+        }
+      }
     }
     else
     {
-      String fullPath = dirName;
-      fullPath += "/";
-      fullPath += entry.name();
-      SD.remove(fullPath);
-      entry.close();
+     String subPath = dirName + "/" + FileUtils::GetFileName(entry);
+
+      if(!SDFat.remove(subPath.c_str()))
+      {
+      }
+      else
+      {
+        entry.close();
+      }
     }
-  }
+  } // while
 
 
-  iter.close();  
+  root.close();
+  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void FileUtils::readLine(File& f, String& result)
+int FileUtils::CountFiles(const String& dirName, bool recursive)
 {
-  if(!f)
+  int result = 0;
+  const char* dirP = dirName.c_str();
+  
+  if(!SDFat.exists(dirP))
+    return result;
+
+  SdFile root;
+  if(!root.open(dirP,O_READ))
+    return result;
+
+  root.rewind();
+
+  SdFile entry;
+  while(entry.openNext(&root,O_READ))
+  {
+    if(entry.isDir())
+    {
+      if(recursive)
+      {
+        String subPath = dirName + "/";
+        subPath += FileUtils::GetFileName(entry);
+        result += FileUtils::CountFiles(subPath,recursive);      
+      }
+    }
+    else
+    {      
+      result++;
+    }
+    entry.close();
+  } // while
+
+
+  root.close();
+  return result;
+
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+String FileUtils::GetFileName(SdFile& f)
+{
+      char nameBuff[50] = {0};
+      f.getName(nameBuff,50);
+      return nameBuff;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void FileUtils::readLine(SdFile& f, String& result)
+{
+  if(!f.isOpen())
     return;
     
     while(1)
@@ -102,14 +174,29 @@ void ModuleController::Setup()
 {  
   MainController = this;
 
-//  settings.Load(); // загружаем настройки
-
 #ifdef USE_DS3231_REALTIME_CLOCK
 _rtc.begin();
 #endif
 
 #if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE)|| (defined(SENSORS_SETTINGS_ON_SD_ENABLED) && defined(USE_LCD_MODULE))
-  sdCardInitFlag = SD.begin(SDCARD_CS_PIN); // пробуем инициализировать SD-модуль
+
+  pinMode(SDCARD_CS_PIN,OUTPUT);
+  digitalWrite(SDCARD_CS_PIN,HIGH);
+
+ #if TARGET_BOARD == DUE_BOARD
+  delay(400);
+  for(int i=0;i<5;i++)
+  {
+      sdCardInitFlag = SDFat.begin(SDCARD_CS_PIN, SPI_HALF_SPEED); // пробуем инициализировать SD-модуль
+      if(sdCardInitFlag)
+        break;
+        
+    delay(500);
+  }
+ #else
+    sdCardInitFlag = SDFat.begin(SDCARD_CS_PIN); // пробуем инициализировать SD-модуль
+ #endif
+ 
   WORK_STATUS.PinMode(SDCARD_CS_PIN,OUTPUT,false);
   WORK_STATUS.PinMode(MOSI,OUTPUT,false);
   WORK_STATUS.PinMode(MISO,INPUT,false);

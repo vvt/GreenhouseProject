@@ -146,7 +146,7 @@ bool IdlePageMenuItem::SelectNextDirectory(LCDMenu* menu)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void IdlePageMenuItem::SelectNextSDSensor(LCDMenu* menu)
 {
-    if(!workDir) // нет открытой текущей папки
+    if(!workDir.isOpen()) // нет открытой текущей папки
     {
       if(!SelectNextDirectory(menu))
         return;
@@ -154,6 +154,24 @@ void IdlePageMenuItem::SelectNextSDSensor(LCDMenu* menu)
       OpenCurrentSDDirectory(menu);
     }
 
+    if(workDir.isOpen())
+    {
+      if(workFile.isOpen())
+        workFile.close();
+
+        workFile.openNext(&workDir,O_READ);
+
+        if(!workFile.isOpen()) {
+           // дошли до конца, надо выбрать следующую папку
+           workDir.close(); // закрываем текущую папку, чтобы перейти на новую папку
+           SelectNextSDSensor(menu);
+           return;
+        }
+
+        // файл открыли, можно работать
+      
+    } // if
+/*
     if(workDir)
     {
       if(workFile)
@@ -171,14 +189,14 @@ void IdlePageMenuItem::SelectNextSDSensor(LCDMenu* menu)
         // файл открыли, можно работать
       
     } // if
-    
+*/    
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void IdlePageMenuItem::OpenCurrentSDDirectory(LCDMenu* menu)
 {
   UNUSED(menu);
   
-  if(workDir)
+  if(workDir.isOpen())
     workDir.close();
 
     String folderName = "LCD";
@@ -208,18 +226,18 @@ void IdlePageMenuItem::OpenCurrentSDDirectory(LCDMenu* menu)
       
     } // switch
 
-    workDir = SD.open(folderName);
+    workDir.open(folderName.c_str(),FILE_READ);
     
-    if(workDir)
-      workDir.rewindDirectory();
+    if(workDir.isOpen())
+      workDir.rewind();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 char* IdlePageMenuItem::ReadCurrentFile()
 {
-    if(!workFile)
+    if(!workFile.isOpen())
       return NULL;
 
-    uint32_t sz = workFile.size();
+    uint32_t sz = workFile.fileSize();
 
     if(sz > 0)
     {
@@ -242,12 +260,13 @@ void IdlePageMenuItem::RequestSDSensorData(LCDMenu* menu)
   displayString = NULL;
 
   
-    if(!workFile)
+    if(!workFile.isOpen())
       return;
 
    // получаем имя файла
     String idx;
-    char* fName = workFile.name();
+    String strFileName = FileUtils::GetFileName(workFile);
+    const char* fName = strFileName.c_str();
 
     while(*fName && *fName != '.')
     {
@@ -1675,15 +1694,126 @@ String LCDMenu::GetFileContent(byte directory,byte fileIndex, int& resultSensorI
   resultSensorIndex = -1;
   
   #ifdef SENSORS_SETTINGS_ON_SD_ENABLED
-    String folderName = GetFolderName(directory);
 
+  
+  String folderName = GetFolderName(directory);
+  const char* dirP = folderName.c_str();
     
-    File dir = SD.open(folderName);
+    SdFile dir;
+    if(dir.open(dirP, O_READ)) 
+    {
+      
+        dir.rewind();
+        SdFile workFile;
+        for(int i=0;i<fileIndex;i++)
+        {
+          if(workFile.isOpen())
+            workFile.close();
+
+          workFile.openNext(&dir,O_READ);
+            
+          if(!workFile.isOpen())
+            break;
+        } // for
+
+        if(workFile.isOpen())
+        {
+          // получаем индекс датчика (он является именем файла до расширения)
+          String idx;
+          String strFileName = FileUtils::GetFileName(workFile);
+          const char* fName = strFileName.c_str();
+          while(*fName && *fName != '.')
+            idx += *fName++;
+
+          resultSensorIndex = idx.toInt();
+                      
+          uint32_t sz = workFile.fileSize();
+          if(sz > 0)
+          {
+              char* toRead = new char[sz+1];
+              toRead[sz] = '\0';
+              workFile.read(toRead,sz);
+              result = toRead;
+          
+              delete [] toRead;
+
+          }
+          workFile.close();
+        } // if(workFile)
+
+
+        dir.close();
+    }
+
+
+
+  
+
+ /* 
+ if(!SDFat.exists(dirP))
+    return result;
+
+  SdFile root;
+  if(!root.open(dirP,O_READ))
+    return result;
+
+  root.rewind();
+
+  int processed = 0;
+  SdFile entry;
+  while(entry.openNext(&root,O_READ))
+  {
+    
+    if(!entry.isDir())
+    {
+        
+
+        if(processed == fileIndex)
+        {
+          // нашли наш файл
+          String idx;
+          String strFileName = FileUtils::GetFileName(entry);
+          const char* fName = strFileName.c_str();
+          while(*fName && *fName != '.')
+            idx += *fName++;
+
+          resultSensorIndex = idx.toInt();
+                      
+          uint32_t sz = entry.fileSize();
+          if(sz > 0)
+          {
+              char* toRead = new char[sz+1];
+              toRead[sz] = '\0';
+              entry.read(toRead,sz);
+              result = toRead;
+          
+              delete [] toRead;
+          
+            entry.close();
+            break;
+          }
+        } // if
+
+        processed++;
+
+    }
+    entry.close();
+  } // while
+
+
+  root.close();
+*/
+
+  /*
+  
+    String folderName = GetFolderName(directory);
+    
+    SdFile dir = SDFat.open(folderName);
     if(dir) 
     {
       
         dir.rewindDirectory();
-        File workFile;
+        SdFile workFile;
         for(int i=0;i<fileIndex;i++)
         {
           if(workFile)
@@ -1721,6 +1851,7 @@ String LCDMenu::GetFileContent(byte directory,byte fileIndex, int& resultSensorI
 
         dir.close();
     }
+    */
   #endif
 
   return result;
@@ -1745,21 +1876,20 @@ void LCDMenu::AddSDSensor(byte folder,byte sensorIndex,const String& strCaption)
   if(MainController->HasSDCard())
   {
     String folderName = GetFolderName(folder);
-    if(SD.mkdir(folderName))
-    {
+    SDFat.mkdir(folderName.c_str());
+   
       folderName += F("/");
       folderName += String(sensorIndex);
       folderName += F(".INF");
 
-      File outFile = SD.open(folderName,FILE_WRITE | O_TRUNC);
+      SdFile outFile;
 
-      if(outFile)
+      if(outFile.open(folderName.c_str(),FILE_WRITE | O_TRUNC))
       {
         outFile.write((byte*)strCaption.c_str(),strCaption.length());
         outFile.close();
       }
         
-    }
   }
  #endif 
 }
@@ -1804,11 +1934,12 @@ byte LCDMenu::GetFilesCount(byte directory)
         return 0;
       else
       {
-          byte result = 0; // не думаю, что будет больше 255 датчиков :)
+        //  byte result = 0; // не думаю, что будет больше 255 датчиков :)
           // подсчитываем кол-во файлов в папке
           String folderName = GetFolderName(directory); // эта строка уже в оперативке, т.к. является именем модуля
-
-         File dir = SD.open(folderName);
+          return FileUtils::CountFiles(folderName,false);
+/*
+         SdFile dir = SDFat.open(folderName);
          
          if(dir)
          {
@@ -1816,7 +1947,7 @@ byte LCDMenu::GetFilesCount(byte directory)
 
             while(1)
             {
-              File f = dir.openNextFile();
+              SdFile f = dir.openNextFile();
               if(!f)
                 break;
 
@@ -1828,6 +1959,7 @@ byte LCDMenu::GetFilesCount(byte directory)
          } // if(dir)
 
          return result;
+*/         
       } // else
       
     

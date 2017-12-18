@@ -2,7 +2,7 @@
 #define _TCP_CLIENT_H
 #include "Globals.h"
 #include "ModuleController.h"
-#include <SD.h>
+#include <SdFat.h>
 #include <Arduino.h>
 //--------------------------------------------------------------------------------------------------------------------------------------
 // класс обработки запроса, посланного по TCP/IP на ESP8266. Подготавливает данные,
@@ -42,7 +42,7 @@ class TCPClient : public Stream
     unsigned long contentLength; // длина контента, которую надо отослать
     unsigned long sentContentLength; // какую общую длину уже отослали
 
-    File workFile; // файл, в который мы будем складывать ответы от модулей
+    SdFile workFile; // файл, в который мы будем складывать ответы от модулей
     
     String* cachedData; // данные, которые будем кешировать для отсыла
     String* commandHolder; // сюда складываем команду

@@ -537,7 +537,14 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
 
         if(t == RESET_COMMAND)
         {
+          #if TARGET_BOARD == DUE_BOARD
+            const int RSTC_KEY = 0xA5;
+            RSTC->RSTC_CR = RSTC_CR_KEY(RSTC_KEY) | RSTC_CR_PROCRST | RSTC_CR_PERRST;
+            while (true);
+          #else
           resetFunc(); // ресетимся, писать в ответ ничего не надо
+          #endif
+          
         } // RESET_COMMAND
         else
         if(t == F("AUTO")) // CTSET=0|AUTO - перевести в автоматический режим

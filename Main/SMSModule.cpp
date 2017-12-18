@@ -1992,8 +1992,8 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
           filePath += hash;
           filePath += F(".sms");
     
-          File smsFile = SD.open(filePath);
-          if(smsFile)
+          SdFile smsFile;
+          if(smsFile.open(filePath.c_str(),FILE_READ))
           {
       
           #ifdef GSM_DEBUG_MODE
@@ -2001,9 +2001,11 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
           #endif            
             // нашли такой файл, будем читать с него данные
             String answerMessage, commandToExecute;
-            signed char ch = 0;
+            //signed char ch = 0;
     
             // в первой строке у нас лежит сообщение, которое надо послать после выполнения команды.
+             FileUtils::readLine(smsFile,answerMessage);
+            /*
             while(1)
             {
               ch = (signed char) smsFile.read();
@@ -2019,8 +2021,11 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
             } // while
     
             ch = 0;
+            */
     
             // во второй строке - команда
+             FileUtils::readLine(smsFile,commandToExecute);
+            /*
             while(1)
             {
               ch = (signed char) smsFile.read();
@@ -2029,7 +2034,7 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     
              commandToExecute += ch;    
             } // while
-    
+            */
             // закрываем файл
             smsFile.close();
 
@@ -3360,8 +3365,9 @@ void SMSModule::SendStatToCaller(const String& phoneNum)
   // поэтому тут читаем возможные настройки из файла.
   if(MainController->HasSDCard())
   {
-    File statFile = SD.open(F("STAT.SMS"),FILE_READ);
-    if(statFile)
+    SdFile statFile;
+    String fileName = F("STAT.SMS");
+    if(statFile.open(fileName.c_str(),FILE_READ))
     {
       String module1,sensor1,label1,module2,sensor2,label2;
       
@@ -3547,13 +3553,13 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
               #endif
               // создаём имя файлв
               String filePath = F("sms");
-              SD.mkdir(filePath);
+              SDFat.mkdir(filePath.c_str());
               filePath += F("/");
               filePath += hash;
               filePath += F(".sms");
 
-              File smsFile = SD.open(filePath,FILE_WRITE | O_TRUNC);
-              if(smsFile)
+              SdFile smsFile;
+              if(smsFile.open(filePath.c_str(),FILE_WRITE | O_TRUNC))
               {
                 // в аргументе номер 2 у нас лежит ответ, который надо послать
                 hexMessage = command.GetArg(2);
@@ -3609,8 +3615,9 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
         {
             if(MainController->HasSDCard())
             {
-                File statFile = SD.open(F("STAT.SMS"),FILE_WRITE | O_TRUNC);
-                if(statFile)
+                SdFile statFile;
+                String fileName = F("STAT.SMS");
+                if(statFile.open(fileName.c_str(),FILE_WRITE | O_TRUNC))
                 {
                   // пишем в файл параметры, не забывая расшифровывать подпись из HEX в UTF-8
                   statFile.println(command.GetArg(1)); // пишем модуль 1
@@ -3742,8 +3749,9 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
            
             if(MainController->HasSDCard())
             {
-              File statFile = SD.open(F("STAT.SMS"),FILE_READ);
-              if(statFile)
+              SdFile statFile;
+              String fName = F("STAT.SMS");
+              if(statFile.open(fName.c_str() ,FILE_READ))
               {
                 String module1, sensor1, label1, module2, sensor2, label2;
                 

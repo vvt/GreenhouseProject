@@ -326,7 +326,7 @@ class IdlePageMenuItem : public AbstractLCDMenuItem // класс экрана �
     IdlePageMenuItemFlags idleFlags;
     void SelectNextSDSensor(LCDMenu* menu);
     void RequestSDSensorData(LCDMenu* menu);
-    File workDir, workFile;
+    SdFile workDir, workFile;
     bool SelectNextDirectory(LCDMenu* menu);
     void OpenCurrentSDDirectory(LCDMenu* menu);
     char* ReadCurrentFile();
