@@ -86,39 +86,6 @@ byte MQTTClient::GetSavedTopicsCount()
         String folderName = F("MQTT");
         return FileUtils::CountFiles(folderName);
         
-  /*
-      if(!MainController->HasSDCard()) // нет SD-карты, деградируем в жёстко прошитые настройки
-        return 0;
-      else
-      {
-          byte result = 0; // не думаю, что будет больше 255 топиков :)
-          // подсчитываем кол-во файлов в папке топиков
-          String folderName = F("MQTT/");
-
-          SDFat.mkdir(folderName.c_str());
-
-         SdFile dir = SDFat.open(folderName.c_str());
-         
-         if(dir)
-         {
-            dir.rewindDirectory();
-
-            while(1)
-            {
-              SdFile f = dir.openNextFile();
-              if(!f)
-                break;
-
-              f.close();
-              result++;
-            } // while
-
-            dir.close();
-         } // if(dir)
-
-         return result;
-      } // else
-    */  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void MQTTClient::setConnected(bool flag)

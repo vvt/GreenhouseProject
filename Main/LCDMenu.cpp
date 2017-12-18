@@ -1746,112 +1746,6 @@ String LCDMenu::GetFileContent(byte directory,byte fileIndex, int& resultSensorI
     }
 
 
-
-  
-
- /* 
- if(!SDFat.exists(dirP))
-    return result;
-
-  SdFile root;
-  if(!root.open(dirP,O_READ))
-    return result;
-
-  root.rewind();
-
-  int processed = 0;
-  SdFile entry;
-  while(entry.openNext(&root,O_READ))
-  {
-    
-    if(!entry.isDir())
-    {
-        
-
-        if(processed == fileIndex)
-        {
-          // нашли наш файл
-          String idx;
-          String strFileName = FileUtils::GetFileName(entry);
-          const char* fName = strFileName.c_str();
-          while(*fName && *fName != '.')
-            idx += *fName++;
-
-          resultSensorIndex = idx.toInt();
-                      
-          uint32_t sz = entry.fileSize();
-          if(sz > 0)
-          {
-              char* toRead = new char[sz+1];
-              toRead[sz] = '\0';
-              entry.read(toRead,sz);
-              result = toRead;
-          
-              delete [] toRead;
-          
-            entry.close();
-            break;
-          }
-        } // if
-
-        processed++;
-
-    }
-    entry.close();
-  } // while
-
-
-  root.close();
-*/
-
-  /*
-  
-    String folderName = GetFolderName(directory);
-    
-    SdFile dir = SDFat.open(folderName);
-    if(dir) 
-    {
-      
-        dir.rewindDirectory();
-        SdFile workFile;
-        for(int i=0;i<fileIndex;i++)
-        {
-          if(workFile)
-            workFile.close();
-            
-          workFile = dir.openNextFile();
-          if(!workFile)
-            break;
-        } // for
-
-        if(workFile)
-        {
-          // получаем индекс датчика (он является именем файла до расширения)
-          String idx;
-          char* fName = workFile.name();
-          while(*fName && *fName != '.')
-            idx += *fName++;
-
-          resultSensorIndex = idx.toInt();
-                      
-          uint32_t sz = workFile.size();
-          if(sz > 0)
-          {
-              char* toRead = new char[sz+1];
-              toRead[sz] = '\0';
-              workFile.read(toRead,sz);
-              result = toRead;
-          
-              delete [] toRead;
-
-          }
-          workFile.close();
-        } // if(workFile)
-
-
-        dir.close();
-    }
-    */
   #endif
 
   return result;
@@ -1934,32 +1828,10 @@ byte LCDMenu::GetFilesCount(byte directory)
         return 0;
       else
       {
-        //  byte result = 0; // не думаю, что будет больше 255 датчиков :)
           // подсчитываем кол-во файлов в папке
           String folderName = GetFolderName(directory); // эта строка уже в оперативке, т.к. является именем модуля
           return FileUtils::CountFiles(folderName,false);
-/*
-         SdFile dir = SDFat.open(folderName);
-         
-         if(dir)
-         {
-            dir.rewindDirectory();
-
-            while(1)
-            {
-              SdFile f = dir.openNextFile();
-              if(!f)
-                break;
-
-              f.close();
-              result++;
-            } // while
-
-            dir.close();
-         } // if(dir)
-
-         return result;
-*/         
+        
       } // else
       
     

@@ -30,13 +30,14 @@ TFTSensorInfo TFTSensors [TFT_SENSOR_BOXES_COUNT] = { TFT_SENSORS };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // TFTInfoBox
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-TFTInfoBox::TFTInfoBox(const char* caption, int width, int height, int x, int y)
+TFTInfoBox::TFTInfoBox(const char* caption, int width, int height, int x, int y, int cxo)
 {
   boxCaption = caption;
   boxWidth = width;
   boxHeight = height;
   posX = x;
   posY = y;
+  captionXOffset = cxo;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTInfoBox::~TFTInfoBox()
@@ -49,7 +50,7 @@ void TFTInfoBox::drawCaption(TFTMenu* menuManager, const char* caption)
   UTFT* dc = menuManager->getDC();
   dc->setBackColor(TFT_BACK_COLOR);
   dc->setColor(INFO_BOX_CAPTION_COLOR);
-  menuManager->getRusPrinter()->print(caption,posX,posY);
+  menuManager->getRusPrinter()->print(caption,posX+captionXOffset,posY);
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -353,8 +354,10 @@ void TFTLightScreen::setup(TFTMenu* menuManager)
     // первая - кнопка назад
     backButton = addBackButton(menuManager,screenButtons,0);
  
-    int buttonsTop = INFO_BOX_V_SPACING;
     int screenWidth = menuManager->getDC()->getDisplayXSize();
+    int screenHeight = menuManager->getDC()->getDisplayYSize();
+
+    int buttonsTop = (screenHeight - ALL_CHANNELS_BUTTON_HEIGHT)/2;//INFO_BOX_V_SPACING;
 
     // добавляем кнопки для управления досветкой
     bool isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
@@ -744,6 +747,8 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
     GlobalSettings* s = MainController->GetSettings();
     openTemp = s->GetOpenTemp();
     closeTemp = s->GetCloseTemp();
+    unsigned long ulI = s->GetOpenInterval()/1000;
+    interval = ulI;
 
     UTFT* dc = menuManager->getDC();
 
@@ -773,7 +778,8 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
     int leftPos = (screenWidth - widthOccupied)/2;
 
     // теперь вычисляем верхнюю границу для отрисовки кнопок
-    int topPos = (screenHeight - TFT_ARROW_BUTTON_HEIGHT)/2;
+    int topPos = (screenHeight - TFT_ARROW_BUTTON_HEIGHT*2 - INFO_BOX_V_SPACING*5)/2;
+    int secondRowTopPos = topPos + TFT_ARROW_BUTTON_HEIGHT + INFO_BOX_V_SPACING*3;
 
     UTFTRus* rusPrinter = menuManager->getRusPrinter();
 
@@ -785,21 +791,25 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
 
     int textBoxHeightWithCaption =  TFT_TEXT_INPUT_HEIGHT + textFontHeight + INFO_BOX_CONTENT_PADDING;
     int textBoxTopPos = topPos - textFontHeight - INFO_BOX_CONTENT_PADDING;
+    int secondRowTextBoxTopPos = secondRowTopPos - textFontHeight - INFO_BOX_CONTENT_PADDING;
 
     // теперь добавляем наши кнопки
     decCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
+    decIntervalButton = screenButtons->addButton( leftPos ,  secondRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
     leftPos += INFO_BOX_V_SPACING + TFT_ARROW_BUTTON_WIDTH;
 
-    closeTempBox = new TFTInfoBox(TFT_TCLOSE_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos);
+    closeTempBox = new TFTInfoBox(TFT_TCLOSE_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos,-(TFT_ARROW_BUTTON_WIDTH+INFO_BOX_V_SPACING));
+    intervalBox = new TFTInfoBox(TFT_INTERVAL_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,secondRowTextBoxTopPos,-(TFT_ARROW_BUTTON_WIDTH+INFO_BOX_V_SPACING));
     leftPos += INFO_BOX_V_SPACING + TFT_TEXT_INPUT_WIDTH;
         
     incCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
+    incIntervalButton = screenButtons->addButton( leftPos ,  secondRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
     leftPos += INFO_BOX_V_SPACING*2 + TFT_ARROW_BUTTON_WIDTH;
 
     decOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
     leftPos += INFO_BOX_V_SPACING + TFT_ARROW_BUTTON_WIDTH;
 
-    openTempBox = new TFTInfoBox(TFT_TOPEN_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos);
+    openTempBox = new TFTInfoBox(TFT_TOPEN_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos,-(TFT_ARROW_BUTTON_WIDTH+INFO_BOX_V_SPACING));
     leftPos += INFO_BOX_V_SPACING + TFT_TEXT_INPUT_WIDTH;
    
     incOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
@@ -807,7 +817,7 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void TFTSettingsScreen::drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, int val)
+void TFTSettingsScreen::drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val)
 {
   UTFT* dc = menuManager->getDC();
   TFTInfoBoxContentRect rc =  box->getContentRect(menuManager);
@@ -899,6 +909,34 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
 
       return;
     }
+
+    if(pressed_button == decIntervalButton)
+    {
+      if(interval < 2)
+        return;
+
+      interval--;
+      unsigned long ulInterval = interval;
+      ulInterval *= 1000;
+      MainController->GetSettings()->SetOpenInterval(ulInterval);
+      drawValueInBox(menuManager,intervalBox,interval);  
+
+      return;
+    }
+    
+    if(pressed_button == incIntervalButton)
+    {
+      if(interval >= UINT_MAX)
+        return;
+
+      interval++;
+      unsigned long ulInterval = interval;
+      ulInterval *= 1000;
+      MainController->GetSettings()->SetOpenInterval(ulInterval);
+      drawValueInBox(menuManager,intervalBox,interval);  
+
+      return;
+    }    
        
     inited = true;
      
@@ -919,9 +957,11 @@ void TFTSettingsScreen::draw(TFTMenu* menuManager)
 
   closeTempBox->draw(menuManager);
   openTempBox->draw(menuManager);
+  intervalBox->draw(menuManager);
 
   drawValueInBox(menuManager,closeTempBox,closeTemp);
   drawValueInBox(menuManager,openTempBox,openTemp);
+  drawValueInBox(menuManager,intervalBox,interval);
 
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1684,11 +1724,13 @@ void TFTMenu::setup()
 void TFTMenu::lcdOn()
 {
   //TODO: Включение дисплея!!!
+//  tftDC->LCD_Write_COM(0x11); // not working
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::lcdOff()
 {
   //TODO: Выключение дисплея!!!
+//  tftDC->LCD_Write_COM(0x10); // not working
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::update(uint16_t dt)
@@ -1701,9 +1743,6 @@ void TFTMenu::update(uint16_t dt)
      switchToScreen("IDLE"); // переключаемся на стартовый экран, если ещё ни разу не показали ничего     
   }
 
-  // обновляем текущий экран
-  TFTScreenInfo* currentScreenInfo = &(screens[currentScreenIndex]);
-  currentScreenInfo->screen->update(this,dt);
 
   if(flags.isLCDOn)
   {
@@ -1724,6 +1763,11 @@ void TFTMenu::update(uint16_t dt)
       flags.isLCDOn = true;
     }
   }
+
+  // обновляем текущий экран
+  TFTScreenInfo* currentScreenInfo = &(screens[currentScreenIndex]);
+  currentScreenInfo->screen->update(this,dt);
+  
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------

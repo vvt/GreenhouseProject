@@ -2005,36 +2005,11 @@ void SMSModule::ProcessIncomingSMS(const String& line) // обрабатывае
     
             // в первой строке у нас лежит сообщение, которое надо послать после выполнения команды.
              FileUtils::readLine(smsFile,answerMessage);
-            /*
-            while(1)
-            {
-              ch = (signed char) smsFile.read();
-              if(ch == -1)
-                break;
-                
-              if(ch == '\r')
-                continue;
-              else if(ch == '\n')
-                break;
-             else
-              answerMessage += ch;
-            } // while
-    
-            ch = 0;
-            */
+
     
             // во второй строке - команда
              FileUtils::readLine(smsFile,commandToExecute);
-            /*
-            while(1)
-            {
-              ch = (signed char) smsFile.read();
-              if(ch == -1 || ch =='\r' || ch == '\n')
-                break;
-    
-             commandToExecute += ch;    
-            } // while
-            */
+
             // закрываем файл
             smsFile.close();
 

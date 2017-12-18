@@ -621,7 +621,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
         PublishSingleton.Flags.Status = true;
         if(wantAnswer) 
         {
-          PublishSingleton = TEMP_SETTINGS;
+          PublishSingleton = commandRequested;
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
         }
       } // TEMP_SETTINGS
@@ -711,7 +711,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                 PublishSingleton.Flags.Status = true;
                 if(wantAnswer) 
                 {
-                  PublishSingleton = WM_INTERVAL;
+                  PublishSingleton = commandRequested;
                   PublishSingleton << PARAM_DELIMITER << REG_SUCC;
                 }
               } // if
@@ -741,7 +741,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                  if(wantAnswer) 
                  {
                   uint8_t _tempCnt = State.GetStateCount(StateTemperature);
-                  PublishSingleton = PROP_TEMP_CNT;
+                  PublishSingleton = commandRequested;
                   PublishSingleton << PARAM_DELIMITER << _tempCnt;
                  }
               } // if
@@ -810,7 +810,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                     PublishSingleton.Flags.Status = true;
                     if(wantAnswer)
                     {
-                      PublishSingleton = PROP_WINDOW_CNT;
+                      PublishSingleton = commandRequested;
                       PublishSingleton << PARAM_DELIMITER  << SUPPORTED_WINDOWS;
                     }
 
@@ -823,7 +823,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                if(wantAnswer)
                {
                  PublishSingleton = PROP_WINDOW;
-                 PublishSingleton << PARAM_DELIMITER << PROP_WINDOW_STATEMASK;
+                 PublishSingleton << PARAM_DELIMITER << commandRequested;
                  PublishSingleton << PARAM_DELIMITER << SUPPORTED_WINDOWS << PARAM_DELIMITER;
 
                  // теперь выводим маску. для начала считаем, сколько байт нам нужно вывести.
@@ -1011,7 +1011,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton.Flags.Status = true;
           if(wantAnswer)
           {
-            PublishSingleton = WORK_MODE;
+            PublishSingleton = commandRequested;
             PublishSingleton << PARAM_DELIMITER << (workMode == wmAutomatic ? WM_AUTOMATIC : WM_MANUAL);
           }
           
@@ -1022,7 +1022,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton.Flags.Status = true;
           if(wantAnswer)
           {
-            PublishSingleton = WM_INTERVAL;
+            PublishSingleton = commandRequested;
             PublishSingleton << PARAM_DELIMITER  << (sett->GetOpenInterval());
           }
         } // WM_INTERVAL
@@ -1033,7 +1033,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
           
           if(wantAnswer)
           {
-            PublishSingleton = TEMP_SETTINGS;
+            PublishSingleton = commandRequested;
             PublishSingleton << PARAM_DELIMITER << (sett->GetOpenTemp()) << PARAM_DELIMITER << (sett->GetCloseTemp());
           }
         }

@@ -76,7 +76,7 @@ typedef struct
 class TFTInfoBox
 {
   public:
-    TFTInfoBox(const char* caption, int width, int height, int x, int y);
+    TFTInfoBox(const char* caption, int width, int height, int x, int y, int captionXOffset=0);
     ~TFTInfoBox();
 
     void draw(TFTMenu* menuManager);
@@ -92,7 +92,7 @@ class TFTInfoBox
 
    private:
 
-    int boxWidth, boxHeight, posX, posY;
+    int boxWidth, boxHeight, posX, posY, captionXOffset;
     const char* boxCaption;
 };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -263,17 +263,19 @@ class TFTSettingsScreen : public AbstractTFTScreen
     void draw(TFTMenu* menuManager);
 
     private:
-      int backButton, decOpenTempButton, incOpenTempButton, decCloseTempButton, incCloseTempButton;
+      int backButton, decOpenTempButton, incOpenTempButton, decCloseTempButton, incCloseTempButton, incIntervalButton, decIntervalButton;
       UTFT_Buttons_Rus* screenButtons;
 
       bool inited;
 
       uint8_t openTemp, closeTemp;
+      uint16_t interval;
 
       TFTInfoBox* closeTempBox;
       TFTInfoBox* openTempBox;
+      TFTInfoBox* intervalBox;
 
-      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, int val); 
+      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val); 
 
 
 };
