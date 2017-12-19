@@ -76,6 +76,47 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
+{
+  GlobalSettings* settings = MainController->GetSettings();
+  unsigned long interval = settings->GetOpenInterval();
+
+  if(isCloseSwitchTriggered || isOpenSwitchTriggered) // если сработал один из концевиков, то это значит, что нам надо выключить моторы, и обновить позицию
+  {
+    if(IsBusy())
+    {
+      // двигаемся, надо останавливаться
+      flags.OnMyWay = false;
+      SwitchRelays(); // держим реле выключенными
+      
+        // говорим, что мы сменили позицию
+        SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);  
+
+       // теперь смотрим, какой концевик сработал
+       if(isCloseSwitchTriggered)
+       {
+        // концевик на закрытие
+        CurrentPosition = 0;
+       }
+       
+       if(isOpenSwitchTriggered)
+       {
+        // концевик на открытие
+        CurrentPosition = interval; 
+       }
+       
+
+       flags.Direction = dirNOTHING; // уже никуда не движемся
+     }
+  } // if(isCloseSwitchTriggered || isOpenSwitchTriggered)
+
+  if(hasPosition)
+  {
+    //TODO: ВОТ ТУТ НАДО ОБНОВЛЯТЬ ПОЗИЦИЮ, ПОЛУЧЕННУЮ ОТ ОБРАТНЙО СВЯЗИ, НО ДЕЛАТЬ ЭТО С УЧЁТОМ ТОГО, ЧТО ОКНО МОЖЕТ ДВИГАТЬСЯ В ТЕКУЩИЙ МОМЕНТ!!!
+  }
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::UpdateState(uint16_t dt)
 {
   
@@ -417,6 +458,16 @@ void TempSensors::Update(uint16_t dt)
   smallSensorsChange = 0;
 
 
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void TempSensors::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
+{
+  #if SUPPORTED_WINDOWS > 0
+    if(windowNumber >= SUPPORTED_WINDOWS)
+      windowNumber = SUPPORTED_WINDOWS-1;
+
+      Windows[windowNumber].Feedback(isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents);
+  #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)

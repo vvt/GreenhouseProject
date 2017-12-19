@@ -469,6 +469,7 @@ class SettingsMenuItem : public AbstractLCDMenuItem // класс меню уп�
 
     uint8_t openTemp;
     uint8_t closeTemp;
+    unsigned long openInterval;
   
    public:
     SettingsMenuItem();

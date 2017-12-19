@@ -1324,8 +1324,9 @@ void SettingsMenuItem::init(LCDMenu* parent)
   
   openTemp = s->GetOpenTemp();
   closeTemp = s->GetCloseTemp();
+  openInterval = s->GetOpenInterval();
   
-  itemsCount = 2;
+  itemsCount = 3;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void SettingsMenuItem::draw(DrawContext* dc)
@@ -1342,6 +1343,7 @@ void SettingsMenuItem::draw(DrawContext* dc)
   {
      F("Тоткр")
     ,F("Тзакр")
+    ,F("Моторы")
    
   };
 
@@ -1357,8 +1359,13 @@ void SettingsMenuItem::draw(DrawContext* dc)
   String tmp;
   if(i == 1)
     tmp = String(closeTemp);
-  else  
+  else if(i==0) 
     tmp = String(openTemp);
+ else
+ {
+   unsigned long tmpInterval = openInterval/1000;
+   tmp = tmpInterval;
+ }
     
   cur_top += HINT_FONT_HEIGHT + HINT_FONT_BOX_PADDING;
   left += HINT_FONT_BOX_PADDING*2;
@@ -1396,13 +1403,14 @@ void SettingsMenuItem::update(uint16_t dt, LCDMenu* menu)
   GlobalSettings* s = MainController->GetSettings();
 
  uint8_t lastOT = openTemp;
- uint8_t lastCT = closeTemp; 
+ uint8_t lastCT = closeTemp;
+ unsigned long lastOpenInterval = openInterval; 
   
   openTemp = s->GetOpenTemp();
   closeTemp = s->GetCloseTemp();
-
+  openInterval = s->GetOpenInterval();
   
-  bool anyChangesFound = (lastOT != openTemp) || (lastCT != closeTemp);
+  bool anyChangesFound = (lastOT != openTemp) || (lastCT != closeTemp) || (lastOpenInterval != openInterval);
 
   if(anyChangesFound)
     menu->notifyMenuUpdated(this);  
@@ -1419,6 +1427,7 @@ void SettingsMenuItem::setFocus(bool f)
     GlobalSettings* s = MainController->GetSettings();
     s->SetOpenTemp(openTemp);
     s->SetCloseTemp(closeTemp);
+    s->SetOpenInterval(openInterval);
     //s->Save();
   }
 }
@@ -1430,6 +1439,7 @@ bool SettingsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 
     uint8_t lastOT = openTemp;
     uint8_t lastCT = closeTemp;
+    unsigned long lastOpenInterval = openInterval;
 
     if(dir != 0)
     {
@@ -1449,7 +1459,7 @@ bool SettingsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           }
           break;
           
-          case 1: // выключить температуру закрытия
+          case 1: // поменять температуру закрытия
           {
             closeTemp += dir;
             if(closeTemp > SCREEN_MAX_TEMP_VALUE)
@@ -1460,11 +1470,25 @@ bool SettingsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
           }
           break;
           
-        
+          case 2: // поменять время работы моторов
+          {
+            long change = dir;
+            change *=1000;
+            
+            openInterval += change;
+            
+            if(openInterval >= 999000)
+            {
+              openInterval = dir > 0 ? 0 : 999000;
+            }
+              
+            s->SetOpenInterval(openInterval);
+          }
+          break;        
        } // switch
     }
 
-    if(lastOT != openTemp || lastCT != closeTemp) // состояние изменилось, просим меню перерисоваться
+    if(lastOT != openTemp || lastCT != closeTemp || openInterval != lastOpenInterval) // состояние изменилось, просим меню перерисоваться
       menu->wantRedraw();
 
     return true; // сами обработали смену позиции энкодера

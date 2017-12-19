@@ -66,6 +66,8 @@ public:
   
   void Setup(uint8_t relayChannel1, uint8_t relayChannel2); // настраиваем перед пуском
 
+  void Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents);
+
 
   WindowState() 
   {
@@ -123,6 +125,9 @@ class TempSensors : public AbstractModule // модуль опроса темп�
     void SaveChannelState(uint8_t channel, uint8_t state); // сохраняем состояние каналов
     
     bool IsWindowOpen(uint8_t windowNumber); // сообщает, открывается или открыто ли нужное окно
+
+    // получена информация обратной связи по состоянию окна
+    void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents);
 
 };
 //--------------------------------------------------------------------------------------------------------------------------------------

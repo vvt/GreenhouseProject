@@ -1621,10 +1621,13 @@ void TFTMenu::setup()
 {
   tftMenuManager = this;
   
-  resetIdleTimer();
   
   tftDC = new UTFT(TFT_MODEL,TFT_RS_PIN,TFT_WR_PIN,TFT_CS_PIN,TFT_RST_PIN);
   tftTouch = new URTouch(TFT_TOUCH_CLK_PIN,TFT_TOUCH_CS_PIN,TFT_TOUCH_DIN_PIN,TFT_TOUCH_DOUT_PIN,TFT_TOUCH_IRQ_PIN);
+
+  #if TFT_INIT_DELAY > 0
+  delay(TFT_INIT_DELAY);
+  #endif
   
   tftDC->InitLCD(LANDSCAPE);
   tftDC->fillScr(TFT_BACK_COLOR);
@@ -1635,6 +1638,7 @@ void TFTMenu::setup()
   
   rusPrint.init(tftDC);
 
+  resetIdleTimer();
 
   // добавляем экран ожидания
   AbstractTFTScreen* idleScreen = new TFTIdleScreen();
