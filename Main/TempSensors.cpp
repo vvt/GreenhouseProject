@@ -15,11 +15,8 @@ static uint8_t WINDOWS_RELAYS[] = { WINDOWS_RELAYS_PINS };
 //--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 {
-//  Parent = parent;
-
   // считаем, что как будто мы открыты, т.к. при старте контроллера надо принудительно закрыть окна
   CurrentPosition = MainController->GetSettings()->GetOpenInterval();
-  RequestedPosition = CurrentPosition;
 
   // запоминаем, какие каналы модуля реле мы используем (в случае со сдвиговым регистром - это номера битов)
   RelayChannel1 = relayChannel1;
@@ -27,56 +24,43 @@ void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-bool WindowState::ChangePosition(uint8_t dir, unsigned long newPos)
+bool WindowState::ChangePosition(unsigned long newPos)
 {
-  bool bRet = false;
+ // Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
+ // Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
   
-  if(IsBusy()) // заняты сменой позиции
-    return bRet;
-
   if(CurrentPosition == newPos) // та же самая позиция запрошена, ничего не делаем
-    return bRet;
+  {
+  //  Serial.println(F("SAME POSITION!"));
+    return false;
+  }
 
-  
+  // если текущая позиция больше запрошенной - надо закрывать, иначе - открывать
+  uint8_t dir = CurrentPosition > newPos ? dirCLOSE : dirOPEN;
+ 
   if(dir == dirOPEN)
   {
-      if(newPos < CurrentPosition) // запросили открыть назад - невозможно.
-      {
-       //  do Nothing();
-      }
-      else
-      {  
+
        // открываем тут
        TimerInterval = newPos - CurrentPosition;
-       TimerTicks = 0;
-       RequestedPosition = newPos;
        flags.Direction = dir;
-       flags.OnMyWay = true; // поогнали!
-       bRet = true;
 
-       //Serial.println("OPEN FROM POSITION " + String(CurrentPosition) + " to " + String(newPos));
-      }
+   //    Serial.println("OPEN FROM POSITION " + String(CurrentPosition) + " TO " + String(newPos));
   }
   else
   if(dir == dirCLOSE)
   {
-      if(newPos > CurrentPosition) // запросили закрыть вперёд - невозможно
-      {
-       // do Nothing();
-      }
-      else
-       {
         TimerInterval = CurrentPosition - newPos;
-        TimerTicks = 0;
-        RequestedPosition = newPos;
         flags.Direction = dir;
-        flags.OnMyWay = true; // поогнали!
-        bRet = true;
 
-       // Serial.println("CLOSE FROM POSITION " + String(CurrentPosition) + " to " + String(newPos));
-       }
+    //    Serial.println("CLOSE FROM POSITION " + String(CurrentPosition) + " TO " + String(newPos));
+
   }
-    return bRet;
+
+// Serial.println();
+  
+  flags.OnMyWay = true; // поогнали!
+  return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
@@ -102,38 +86,46 @@ void WindowState::UpdateState(uint16_t dt)
     }
 
    uint8_t bRelay1State, bRelay2State; // состояние выходов реле
-   
+
+   if(TimerInterval < dt)
+    dt = TimerInterval;
+
+   TimerInterval -= dt;
+       
    switch(flags.Direction)
    {
       case dirOPEN:
+      {
         bRelay1State = RELAY_ON; // крутимся в одну сторону
         bRelay2State = RELAY_OFF;
-        
+        CurrentPosition += dt;
+      } 
       break;
 
       case dirCLOSE:
+      {
         bRelay1State = RELAY_OFF; // или в другую
         bRelay2State = RELAY_ON;
-        
+        CurrentPosition -= dt;
+      } 
       break;
 
       case dirNOTHING:
       default:
-
+      {
         bRelay1State = SHORT_CIRQUIT_STATE; // накоротко, мотор не крутится
         bRelay2State = SHORT_CIRQUIT_STATE;
-        
+      } 
       break;
    } // switch
 
-    TimerTicks += dt;
-    if(TimerTicks >= TimerInterval) // отработали, выключаем
-    {
-        CurrentPosition = RequestedPosition; // сохранили текущую позицию
-        TimerInterval = 0; // обнуляем интервал
-        TimerTicks = 0; // и таймер
-        flags.Direction = dirNOTHING; // уже никуда не движемся
 
+
+     if(!TimerInterval)
+     {
+       // приехали, останавливаемся
+       flags.Direction = dirNOTHING; // уже никуда не движемся
+       
         //ВЫКЛЮЧАЕМ РЕЛЕ
         SwitchRelays();
         
@@ -142,9 +134,10 @@ void WindowState::UpdateState(uint16_t dt)
         // говорим, что мы сменили позицию
         SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);
 
-        return;
-        
-    } // if
+       // Serial.println(F("Position changed!"));
+
+        return;     
+     }
 
     // продолжаем работу, включаем реле в нужное состояние
     SwitchRelays(bRelay1State,bRelay2State);
@@ -168,21 +161,6 @@ void TempSensors::WriteToShiftRegister() // ПИШЕМ В СДВИГОВЫЙ Р�
   if(!hasChanges)
     return;
 
-/*
-  Serial.print("Writing to shift register: ");
-  
-  for(uint8_t i=0;i<shiftRegisterDataSize;i++) {
-    byte b = shiftRegisterData[i];
-      for(byte k=0;k<8;k++) {
-        if(b & (1 << k))
-          Serial.print('1');
-        else
-          Serial.print('0');
-      }
-  }
-    
-  Serial.println("");
-*/
    if(shiftRegisterDataSize > 0)
    {
     
@@ -282,7 +260,7 @@ void TempSensors::SetupWindows()
      #endif
 
     // просим окна закрыться при старте контроллера
-    Windows[i].ChangePosition(dirCLOSE,0);
+    Windows[i].ChangePosition(0);
   } // for
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -482,30 +460,67 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
           String whichCommand = command.GetArg(2); // какую команду запросили?
           whichCommand.toUpperCase();
-          bool bOpen = (whichCommand == STATE_OPEN); // запросили открытие фрамуг?
           
+          bool bOpen = (whichCommand == STATE_OPEN); // запросили открытие фрамуг?          
           bool bAll = (token == ALL); // на все окна распространяется запрос?
           bool bIntervalAsked = token.indexOf("-") != -1; // запросили интервал каналов?
-          uint8_t channelIdx = token.toInt();
-          unsigned long interval = sett->GetOpenInterval();
+          uint8_t channelIdx = token.toInt(); // номер канала окна
           
-          if(command.GetArgsCount() > 3)
-            interval = (unsigned long) atol(command.GetArg(3)); // получили интервал для работы реле
+          unsigned long motorsFullWorkTime = sett->GetOpenInterval();
+          unsigned long targetPosition = bOpen ? motorsFullWorkTime : 0; // если не запрошено интервала - будем использовать настройки прощивки, и открываем/закрываем полностью
+
+          //Serial.print(F("Motors FULL work time: "));
+          //Serial.println(motorsFullWorkTime);
+                        
+          if(command.GetArgsCount() > 3) // запрошен интервал или проценты на позицию
+          {
+            String strIntervalPassed = command.GetArg(3);
+            bool bPercentsRequested = strIntervalPassed.endsWith("%");
+            
+            if(bPercentsRequested)
+              strIntervalPassed.remove(strIntervalPassed.length()-1);
+              
+            targetPosition = (unsigned long) atol(strIntervalPassed.c_str()); // получили интервал для работы реле
+
+            if(bPercentsRequested)
+            {
+             // Serial.print(F("Percents requested: "));
+             // Serial.println(targetPosition);
+              
+              // конвертируем запрошенные проценты в актуальный интервал
+              targetPosition = (motorsFullWorkTime*targetPosition)/100;
+
+              //Serial.print(F("Computed interval: "));
+              //Serial.println(targetPosition);
+              
+            }
+            else // запросили обычный интервал
+            {
+              // тут надо проверить - не выходим ли за границы диапазона работы приводов?
+              if(targetPosition > motorsFullWorkTime)
+                targetPosition = motorsFullWorkTime;
+            }
+          } // if(command.GetArgsCount() > 3)
 
  
           PublishSingleton.Flags.Status = true;
+
           // откуда до куда шаримся
           uint8_t from = 0;
           uint8_t to = SUPPORTED_WINDOWS;
 
-
           if(bIntervalAsked)
           {
-             // парсим интервал
+             // парсим интервал окон, с которыми надо работать
              int delim = token.indexOf("-");
              from = token.substring(0,delim).toInt();
              to = token.substring(delim+1,token.length()).toInt();
              
+          }
+          else if(!bAll) // если не интервал окон и не все окна - значит, одно окно
+          {            
+            from = channelIdx;
+            to = from;
           }
 
           // правильно расставляем шаги - от меньшего к большему
@@ -513,99 +528,27 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
           to = max(from,to);
           from = tmp;
 
-             to++; // включаем to в интервал, это надо, если пришла команда интервала, например, 2-3, тогда в этом случае опросятся третий и четвертый каналы
-             if(to >= SUPPORTED_WINDOWS)
+          to++; // включаем to в интервал, это надо, если пришла команда интервала, например, 2-3, тогда в этом случае опросятся третий и четвертый каналы
+           
+           if(to >= SUPPORTED_WINDOWS)
               to = SUPPORTED_WINDOWS;
           
-          if(bAll || bIntervalAsked)
+          for(uint8_t i=from;i<to;i++)
           {
-            // по всем каналам шаримся
-            bool bAnyPosChanged = false;
-            
-            for(uint8_t i=from;i<to;i++)
-            {
-              if(Windows[i].ChangePosition(bOpen? dirOPEN : dirCLOSE,bOpen ? interval : 0))
-              {
-                if(wantAnswer) 
-                  PublishSingleton = (bOpen ? STATE_OPENING : STATE_CLOSING);
-                bAnyPosChanged = true;
-              } 
-            } // for
-            
-            if(!bAnyPosChanged) // позицию окон не сменили, значит, они либо в этой позиции, либо в процессе смены позиции
-            {
-              // проверяем, заняты ли окна чем-то
-              if(Windows[from].IsBusy())
-               {
-                // окно занято сменой позиции
-                if(wantAnswer) 
-                  PublishSingleton = (Windows[from].GetDirection() == dirOPEN ? STATE_OPENING : STATE_CLOSING);
+            // просим окно сменить позицию
+            Windows[i].ChangePosition(targetPosition);
+          } // for
 
-                SAVE_STATUS(WINDOWS_STATUS_BIT,Windows[from].GetDirection() == dirOPEN ? 1 : 0); // сохраняем состояние окон
-               }
-               else
-               {
-                // окно не сменяет позицию
-                if(wantAnswer) 
-                  PublishSingleton =  (bOpen ? STATE_OPEN : STATE_CLOSED);
+          // если запрошенный или рассчитанный интервал больше нуля - окна открыты, иначе - закрыты
+          SAVE_STATUS(WINDOWS_STATUS_BIT,targetPosition > 0 ? 1 : 0); // сохраняем состояние окон
+          SAVE_STATUS(WINDOWS_MODE_BIT,workMode == wmAutomatic ? 1 : 0); // сохраняем режим работы окон
 
-                SAVE_STATUS(WINDOWS_STATUS_BIT,bOpen ? 1 : 0); // сохраняем состояние окон  
-               }
-               
-              SAVE_STATUS(WINDOWS_MODE_BIT,workMode == wmAutomatic ? 1 : 0); // сохраняем режим работы окон
-
-            } // не смогли сменить позицию
-            else
-            {
-              // сменили позицию, пишем в лог действие
-              MainController->Log(this,commandRequested + String(PARAM_DELIMITER) + whichCommand);
-
-              SAVE_STATUS(WINDOWS_STATUS_BIT,bOpen ? 1 : 0); // сохраняем состояние окон
-              SAVE_STATUS(WINDOWS_MODE_BIT,workMode == wmAutomatic ? 1 : 0); // сохраняем режим работы окон
-
-            } // else
-
-          }
-          else
-          { 
-            
-              if(Windows[channelIdx].ChangePosition( bOpen ? dirOPEN : dirCLOSE, bOpen ? interval : 0) ) // смогли сменить позицию окна
-              {
-                  // сменили позицию, пишем в лог действие
-                  MainController->Log(this,commandRequested + String(PARAM_DELIMITER) + whichCommand);
-                  if(wantAnswer) 
-                    PublishSingleton = (bOpen ? STATE_OPENING : STATE_CLOSING);
-
-              SAVE_STATUS(WINDOWS_STATUS_BIT,bOpen ? 1 : 0); // сохраняем состояние окон
-              SAVE_STATUS(WINDOWS_MODE_BIT,workMode == wmAutomatic ? 1 : 0); // сохраняем режим работы окон
-                    
-              }
-               else
-               {
-                // позицию окна не сменили, смотрим - занято ли оно?
+          // какую команду запросили, такую и возвращаем, всё равно в результате выполнения
+          // все запрошенные окна встанут в одну позицию
+          PublishSingleton = (bOpen ? STATE_OPENING : STATE_CLOSING);
                 
-                    if(Windows[channelIdx].IsBusy()) // занято, возвращаем состояние - открывается или закрывается
-                    {
-                       if(wantAnswer) 
-                        PublishSingleton = (Windows[channelIdx].GetDirection() == dirOPEN ? STATE_OPENING : STATE_CLOSING);
-    
-                       SAVE_STATUS(WINDOWS_STATUS_BIT,Windows[channelIdx].GetDirection() == dirOPEN ? 1 : 0); // сохраняем состояние окон  
-                        
-                    }   
-                    else // окно ничем не занято, возвращаем положение - открыто или закрыто
-                    {
-                      if(wantAnswer) 
-                          PublishSingleton =  (bOpen ? STATE_OPEN : STATE_CLOSED);
-    
-                      SAVE_STATUS(WINDOWS_STATUS_BIT,bOpen ? 1 : 0); // сохраняем состояние окон
-                    }
-    
-                    SAVE_STATUS(WINDOWS_MODE_BIT,workMode == wmAutomatic ? 1 : 0); // сохраняем режим работы окон
-                
-               } // else не сменили позицию
-          }
 
-        } // else can process
+        } // else command from user
         
       } // if PROP_WINDOW
       else
