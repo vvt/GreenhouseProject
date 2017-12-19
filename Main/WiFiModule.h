@@ -79,6 +79,8 @@ class MQTTClient
     uint8_t intervalBetweenTopics; // интервал между публикацией топиков
     uint8_t currentTopicNumber; // номер текущего топика для опубликования
 
+    void convertAnswerToJSON(const String& answer, String* resultBuffer);
+
     void constructConnectPacket(String& mqttBuffer,int& mqttBufferLength,const char* id, const char* user, const char* pass,const char* willTopic,uint8_t willQoS, uint8_t willRetain, const char* willMessage);
     void encode(MQTTBuffer& buff,const char* str);
     void constructFixedHeader(byte command, MQTTBuffer& fixedHeader,size_t payloadSize);

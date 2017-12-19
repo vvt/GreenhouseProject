@@ -137,6 +137,12 @@ class TFTIdleScreen : public AbstractTFTScreen
     void draw(TFTMenu* menuManager);
 
 private:
+
+  #ifdef USE_DS3231_REALTIME_CLOCK
+  int lastMinute;
+  void DrawDateTime(TFTMenu* menuManager);
+  #endif
+
   UTFT_Buttons_Rus* screenButtons;
   IdleScreenFlags flags;
 

@@ -1077,7 +1077,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
           GlobalSettings* settings = MainController->GetSettings();
           
           PublishSingleton.Flags.Status = true;
-          PublishSingleton = WATER_SETTINGS_COMMAND; 
+          PublishSingleton = t; 
           PublishSingleton << PARAM_DELIMITER; 
           PublishSingleton << (settings->GetWateringOption()) << PARAM_DELIMITER;
           PublishSingleton << (settings->GetWateringWeekDays()) << PARAM_DELIMITER;
@@ -1091,7 +1091,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         if(t == WATER_CHANNELS_COUNT_COMMAND)
         {
           PublishSingleton.Flags.Status = true;
-          PublishSingleton = WATER_CHANNELS_COUNT_COMMAND; 
+          PublishSingleton = t; 
           PublishSingleton << PARAM_DELIMITER << WATER_RELAYS_COUNT;
           
         }
@@ -1106,7 +1106,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
         if(t == F("STATEMASK")) // запросили маску состояния каналов
         {
           PublishSingleton.Flags.Status = true;
-          PublishSingleton = F("STATEMASK");
+          PublishSingleton = t;
           PublishSingleton << PARAM_DELIMITER << WATER_RELAYS_COUNT;
           
           #if WATER_RELAYS_COUNT > 0
@@ -1147,7 +1147,7 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
 
                     GlobalSettings* settings = MainController->GetSettings();
                  
-                    PublishSingleton = WATER_CHANNEL_SETTINGS; 
+                    PublishSingleton = t; 
                     PublishSingleton << PARAM_DELIMITER << (command.GetArg(1)) << PARAM_DELIMITER 
                     << (settings->GetChannelWateringWeekDays(idx)) << PARAM_DELIMITER
                     << (settings->GetChannelWateringTime(idx)) << PARAM_DELIMITER
@@ -1165,8 +1165,26 @@ bool  WateringModule::ExecCommand(const Command& command, bool wantAnswer)
                   #endif // WATER_RELAYS_COUNT > 0
                           
                 } // if
-           } // if
-        } // else
+
+           } // if(argsCount > 1)
+          else // всего один аргумент
+          {
+            // тут просто получаем состояние канала, команда CTGET=WATER|1, например
+            uint8_t idx = (uint8_t) atoi(command.GetArg(0));
+            #if WATER_RELAYS_COUNT > 0
+              if(idx >= WATER_RELAYS_COUNT)
+                idx = WATER_RELAYS_COUNT - 1;
+
+                PublishSingleton.Flags.Status = true;
+                PublishSingleton = idx;
+                PublishSingleton << PARAM_DELIMITER;
+                
+                PublishSingleton << (wateringChannels[idx].IsActive() ? STATE_ON : STATE_OFF);
+            #endif
+          } // one command argument           
+          
+        } // else command with arbuments
+        
     } // else have arguments
   } // if ctGET
  

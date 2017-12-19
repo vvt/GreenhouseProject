@@ -60,6 +60,7 @@ public:
   bool ChangePosition(unsigned long newPos); // меняет позицию
   
   unsigned long GetCurrentPosition() {return CurrentPosition;}
+  void ResetToMaxPosition();
   uint8_t GetDirection() {return flags.Direction;}
 
   void UpdateState(uint16_t dt); // обновляет состояние фрамуги
@@ -125,6 +126,7 @@ class TempSensors : public AbstractModule // модуль опроса темп�
     void SaveChannelState(uint8_t channel, uint8_t state); // сохраняем состояние каналов
     
     bool IsWindowOpen(uint8_t windowNumber); // сообщает, открывается или открыто ли нужное окно
+    void CloseAllWindows();
 
     // получена информация обратной связи по состоянию окна
     void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents);

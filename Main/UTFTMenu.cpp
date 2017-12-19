@@ -1002,7 +1002,9 @@ extern imagedatatype tft_options_button[];
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTIdleScreen::TFTIdleScreen() : AbstractTFTScreen()
 {
-  
+  #ifdef USE_DS3231_REALTIME_CLOCK
+      lastMinute = -1;
+  #endif  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTIdleScreen::~TFTIdleScreen()
@@ -1028,6 +1030,40 @@ TFTIdleScreen::~TFTIdleScreen()
   }
 #endif  
 }
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_DS3231_REALTIME_CLOCK
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTIdleScreen::DrawDateTime(TFTMenu* menuManager)
+{
+    DS3231Clock rtc = MainController->GetClock();
+    DS3231Time tm = rtc.getTime();
+
+  if(lastMinute == tm.minute)
+    return;
+
+    static char dt_buff[20] = {0};
+    sprintf_P(dt_buff,(const char*) F("%02d.%02d.%d %02d:%02d"), tm.dayOfMonth, tm.month, tm.year, tm.hour, tm.minute);
+
+    lastMinute = tm.minute;
+
+    UTFT* dc = menuManager->getDC();
+    dc->setFont(BigRusFont);
+    dc->setBackColor(TFT_BACK_COLOR);
+    dc->setColor(SENSOR_BOX_FONT_COLOR); 
+
+    int screenWidth = dc->getDisplayXSize();
+    int screenHeight = dc->getDisplayYSize();
+    int fontWidth = dc->getFontXsize();
+    int fontHeight = dc->getFontYsize();
+    int textLen = menuManager->getRusPrinter()->print(dt_buff,0, 0, 0, true);
+
+    int left = (screenWidth - (textLen*fontWidth))/2;
+    int top = screenHeight - (fontHeight + 4);
+    dc->print(dt_buff,left,top);
+      
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_DS3231_REALTIME_CLOCK
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTIdleScreen::drawSensorData(TFTMenu* menuManager,TFTInfoBox* box, int sensorIndex, bool forceDraw)
 {
@@ -1383,7 +1419,7 @@ void TFTIdleScreen::setup(TFTMenu* menuManager)
   screenButtons->setTextFont(BigRusFont);
   screenButtons->setButtonColors(TFT_BUTTON_COLORS);
 
-  int buttonsTop = menuManager->getDC()->getDisplayYSize() - TFT_IDLE_SCREEN_BUTTON_HEIGHT - 20; // координата Y для кнопок стартового экрана
+  int buttonsTop = menuManager->getDC()->getDisplayYSize() - TFT_IDLE_SCREEN_BUTTON_HEIGHT - 30; // координата Y для кнопок стартового экрана
   int screenWidth = menuManager->getDC()->getDisplayXSize();
 
   // вычисляем, сколько кнопок доступно
@@ -1433,7 +1469,7 @@ void TFTIdleScreen::setup(TFTMenu* menuManager)
   
   int startLeft = (screenWidth - (SENSOR_BOXES_PER_LINE*SENSOR_BOX_WIDTH + (SENSOR_BOXES_PER_LINE-1)*SENSOR_BOX_V_SPACING))/2;
   curInfoBoxLeft = startLeft;
-  int sensorsTop = availStatusBoxes ? (INFO_BOX_V_SPACING + INFO_BOX_HEIGHT + SENSOR_BOX_V_SPACING*2) : SENSOR_BOX_V_SPACING;
+  int sensorsTop = availStatusBoxes ? (INFO_BOX_V_SPACING + INFO_BOX_HEIGHT + SENSOR_BOX_V_SPACING) : SENSOR_BOX_V_SPACING;
   int sensorBoxesPlacedInLine = 0;
   int createdSensorIndex = 0;
   
@@ -1487,6 +1523,14 @@ void TFTIdleScreen::setup(TFTMenu* menuManager)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 {
+
+  #ifdef USE_DS3231_REALTIME_CLOCK
+  if(dt == 0)
+    lastMinute = -1;
+    
+    DrawDateTime(menuManager);
+  #endif
+
   // Смотрим, какая кнопка нажата
   int pressed_button = screenButtons->checkButtons();
 

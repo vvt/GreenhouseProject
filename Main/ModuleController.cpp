@@ -159,6 +159,10 @@ void ModuleController::begin()
  // тут можно написать код, который выполнится непосредственно перед началом работы
  
  UniDispatcher.Setup(); // настраиваем диспетчера универсальных датчиков
+
+ #ifdef USE_FEEDBACK_MANAGER
+ FeedbackManager.Setup();
+ #endif
  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -339,6 +343,11 @@ void ModuleController::Alarm(AlertRule* rule)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::UpdateModules(uint16_t dt, CallbackUpdateFunc func)
 {  
+  
+ #ifdef USE_FEEDBACK_MANAGER
+ FeedbackManager.Update(dt); // обновляем состояние менеджера обратной связи
+ #endif
+  
   size_t sz = modules.size();
   for(size_t i=0;i<sz;i++)
   { 

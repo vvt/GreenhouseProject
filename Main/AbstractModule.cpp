@@ -3,6 +3,9 @@
 #ifdef USE_PH_MODULE
 #include "PHModule.h"
 #endif
+#ifdef USE_TEMP_SENSORS
+#include "TempSensors.h"
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 PublishStruct& PublishStruct::operator=(const String& src)
 {
@@ -1271,3 +1274,81 @@ OneState* ModuleState::GetState(ModuleStates state, uint8_t idx)
 //--------------------------------------------------------------------------------------------------------------------------------
 char SD_BUFFER[SD_BUFFER_LENGTH] = {0};
 //--------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_FEEDBACK_MANAGER
+//--------------------------------------------------------------------------------------------------------------------------------
+FeedbacksManager::FeedbacksManager()
+{
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void FeedbacksManager::Setup()
+{
+  #ifdef USE_TEMP_SENSORS
+  waitingWindowsFeedbackTimer = 0;
+  #endif
+  
+  flags.inWaitingWindowsFeedbackMode = true;
+  flags.isAnyWindowsFeedbackReceived = false;
+  flags.isFirstCallOfWindowsFeedback = true;
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void FeedbacksManager::Update(uint16_t dt)
+{
+  #ifdef USE_TEMP_SENSORS
+    if(flags.inWaitingWindowsFeedbackMode)
+    {
+      waitingWindowsFeedbackTimer += dt;
+      if(waitingWindowsFeedbackTimer > FEEDBACK_MANAGER_WAIT_TIME)
+      {
+        // таймаут получения обратной связи
+        WindowFeedbackDone();
+      }
+    }
+  #endif // USE_TEMP_SENSORS
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void FeedbacksManager::WindowFeedbackDone()
+{
+  // эту функцию вызывают, когда пришла (или не пришла) информация по обратной связи от окон.
+  // Здесь мы просто сбрасываем таймер, и вызываем функцию закрытия окон, если ни один пакет
+  // по обратной связи канала окна не был обработан
+  
+    flags.inWaitingWindowsFeedbackMode = false;
+    
+    if(!flags.isAnyWindowsFeedbackReceived) // если не получили ни одного пакета 
+    {
+      if(flags.isFirstCallOfWindowsFeedback) // и первый раз вызвали эту функцию
+      {
+        // то надо принудительно закрыть окна при стартке
+        flags.isFirstCallOfWindowsFeedback = false;
+        //Serial.println(F("No feedback, close windows..."));
+        WindowModule->CloseAllWindows();
+      }
+    }
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void FeedbacksManager::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
+{
+  #ifdef USE_TEMP_SENSORS
+  
+    flags.isAnyWindowsFeedbackReceived = true; // говорим, что получили инфу по обратной связи по крайней мере для одного окна
+    
+    WindowModule->WindowFeedback(windowNumber,isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents);
+  #endif
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+bool FeedbacksManager::IsWaitingForFirstWindowsFeedback()
+{
+  #ifdef USE_TEMP_SENSORS
+    return flags.inWaitingWindowsFeedbackMode;
+  #else
+    return false;
+  #endif  
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+FeedbacksManager FeedbackManager;
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_FEEDBACK_MANAGER
+//--------------------------------------------------------------------------------------------------------------------------------
+

@@ -860,8 +860,8 @@ void WindowsChannelsMenuItem::draw(DrawContext* dc)
   static const __FlashStringHelper* captions[3] = 
   {
      LCD_WINDOW_LABEL
-    ,LCD_COMMAND_OPEN_LABEL
-    ,LCD_COMMAND_CLOSE_LABEL
+    ,LCD_OPEN_LABEL
+    ,LCD_CLOSE_LABEL
    
   };
 

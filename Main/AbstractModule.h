@@ -396,4 +396,40 @@ extern WorkStatus WORK_STATUS; // статус состояния
 //--------------------------------------------------------------------------------------------------------------------------------
 extern char SD_BUFFER[SD_BUFFER_LENGTH];
 //--------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_FEEDBACK_MANAGER
+//--------------------------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+    bool inWaitingWindowsFeedbackMode : 1;
+    bool isAnyWindowsFeedbackReceived : 1;
+    bool isFirstCallOfWindowsFeedback : 1;
+    byte pad : 5;
+      
+} FeedbacksManagerFlags;
+//--------------------------------------------------------------------------------------------------------------------------------
+class FeedbacksManager
+{
+  public:
+    FeedbacksManager();
+
+    void Update(uint16_t dt);
+    void Setup();
+
+    void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents);
+    void WindowFeedbackDone(); // вызывается, когда полностью пришла информация по обратной связи для окон
+    bool IsWaitingForFirstWindowsFeedback();
+
+  private:
+  #ifdef USE_TEMP_SENSORS
+    unsigned long waitingWindowsFeedbackTimer;
+  #endif
+
+  FeedbacksManagerFlags flags;
+};
+
+extern FeedbacksManager FeedbackManager;
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_FEEDBACK_MANAGER
+//--------------------------------------------------------------------------------------------------------------------------------
+
 #endif

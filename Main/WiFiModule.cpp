@@ -305,6 +305,9 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
             reportTopicString = new String();
 
             #ifdef MQTT_REPORT_AS_JSON
+
+              convertAnswerToJSON(PublishSingleton.Text,reportTopicString);
+            /*
               // тут мы должны сформировать объект JSON из ответа, для этого надо разбить ответ по разделителям, и для каждого параметра создать именованное поле
               // в анонимном JSON-объекте
               // прикинем, сколько нам памяти надо резервировать, чтобы вместиться
@@ -365,7 +368,7 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
 
                *reportTopicString += '}'; // закончили объект
 
-               //
+              */
             #else // ответ как есть, в виде RAW
               *reportTopicString = PublishSingleton.Text;
             #endif
@@ -455,6 +458,69 @@ void MQTTClient::connecting() // вызывается при начале сое
   #ifdef MQTT_DEBUG
     Serial.println(F("MQTTClient - connecting..."));
   #endif    
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void MQTTClient::convertAnswerToJSON(const String& answer, String* resultBuffer)
+{
+  // тут мы должны сформировать объект JSON из ответа, для этого надо разбить ответ по разделителям, и для каждого параметра создать именованное поле
+  // в анонимном JSON-объекте
+  // прикинем, сколько нам памяти надо резервировать, чтобы вместиться
+  int neededJsonLen = 3; // {} - под скобки и завершающий ноль
+  // считаем кол-во параметров ответа
+  int jsonParamsCount=1; // всегда есть один ответ
+  int answerLen = answer.length();
+  
+  for(int j=0;j<answerLen;j++)
+  {
+    if(answer[j] == '|') // разделитель
+      jsonParamsCount++;
+  }
+  // у нас есть количество параметров, под каждый параметр нужно минимум 6 символов ("p":""), плюс длина числа, которое будет как имя
+  // параметра, плюс длина самого параметра, плюс запятые между параметрами
+  int paramNameCharsCount = jsonParamsCount > 9 ? 2 : 1;
+
+   neededJsonLen += (6 + paramNameCharsCount)*jsonParamsCount + (jsonParamsCount-1) + answer.length();
+
+   // теперь можем резервировать память
+   resultBuffer->reserve(neededJsonLen);
+
+   // теперь формируем наш JSON-объект
+   *resultBuffer = '{'; // начали объект
+
+    if(answerLen > 0)
+    {
+       int currentParamNumber = 1;
+
+       *resultBuffer += F("\"p");
+       *resultBuffer += currentParamNumber;
+       *resultBuffer += F("\":\"");
+       
+       for(int j=0;j<answerLen;j++)
+       {
+         if(answer[j] == '|')
+         {
+           // достигли нового параметра, закрываем предыдущий и формируем новый
+           currentParamNumber++;
+           *resultBuffer += F("\",\"p");
+           *resultBuffer += currentParamNumber;
+           *resultBuffer += F("\":\"");
+         }
+         else
+         {
+            char ch = answer[j];
+            
+            if(ch == '"' || ch == '\\')
+              *resultBuffer += '\\'; // экранируем двойные кавычки и обратный слеш
+              
+            *resultBuffer += ch;
+         }
+       } // for
+
+       // закрываем последний параметр
+       *resultBuffer += '"';
+    } // answerLen > 0
+
+   *resultBuffer += '}'; // закончили объект  
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // проверяет - есть ли что к публикации? Если есть - публикует в переданные параметры
@@ -659,7 +725,7 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
         int sensorIndex = sensorIndexString.toInt();
 
         // в пятой строке - тип топика: показания с датчиков (0), или статус контроллера (1).
-        // в случае статуса контроллера во второй строке - тип статуса, третья и четвёртая - зависят от типа статуса
+        // в случае статуса контроллера во второй строке - команда, которую надо запросить у контроллера
         String topicType;
         FileUtils::readLine(f,topicType);
         
@@ -669,15 +735,59 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
 
         if(topicType == F("1")) // топик со статусом контроллера
         {
+
           
           #ifdef MQTT_DEBUG
-            Serial.println(F("Status topic found - NOT IMPLEMENTED!"));
+            Serial.println(F("Status topic found - process command..."));
           #endif
+          
+          
+           //Тут работаем с топиком статуса контроллера
+           String data; 
 
-           //TODO: Тут работаем с топиком статуса контроллера !!!!!
+            // тут тонкость - команда у нас с изменёнными параметрами, где все разделители заменены на символ @
+            // поэтому перед выполнением - меняем назад
+            moduleName.replace('@','|');
+
+            ModuleInterop.QueryCommand(ctGET, moduleName, true);
+
+            #ifdef MQTT_REPORT_AS_JSON
+
+              convertAnswerToJSON(PublishSingleton.Text,&data);
+               //
+            #else // ответ как есть, в виде RAW
+              data = PublishSingleton.Text;
+            #endif
+
+            flags.busy = true; // ставим флаг занятости
+    
+             // конструируем пакет публикации
+             constructPublishPacket(mqttBuffer,mqttBufferLength,topicName.c_str(), data.c_str()); 
+    
+             switchToNextTopic();
+            
+            return true; // нашли и отослали показания
+
+
+
+
+
+
+
+
+
+
+
+
+           
+
+
+           
+           /*
            
            switchToNextTopic();
            return false;
+           */
           
         } // if
         else // топик с показаниями датчика

@@ -34,8 +34,6 @@
 #define LCD_ON_LABEL F("ВКЛ")
 #define LCD_OFF_LABEL F("ВЫКЛ")
 #define LCD_WINDOW_LABEL F("ОКНО")
-#define LCD_COMMAND_OPEN_LABEL F("ОТКР")
-#define LCD_COMMAND_CLOSE_LABEL F("ЗАКР")
 #define LCD_TOPEN_CAPTION F("Тоткр")
 #define LCD_TCLOSE_CAPTION F("Тзакр")
 #define LCD_INTERVAL_CAPTION F("Моторы")

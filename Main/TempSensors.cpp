@@ -13,11 +13,20 @@ static TempSensorSettings TEMP_SENSORS[] = { TEMP_SENSORS_PINS };
 static uint8_t WINDOWS_RELAYS[] = { WINDOWS_RELAYS_PINS };
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------------
+void WindowState::ResetToMaxPosition()
+{
+  CurrentPosition = MainController->GetSettings()->GetOpenInterval();
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 {
+  #ifdef USE_FEEDBACK_MANAGER
+    CurrentPosition = 0;
+  #else
   // считаем, что как будто мы открыты, т.к. при старте контроллера надо принудительно закрыть окна
-  CurrentPosition = MainController->GetSettings()->GetOpenInterval();
-
+  ResetToMaxPosition();
+  #endif
+  
   // запоминаем, какие каналы модуля реле мы используем (в случае со сдвиговым регистром - это номера битов)
   RelayChannel1 = relayChannel1;
   RelayChannel2 = relayChannel2;
@@ -32,6 +41,8 @@ bool WindowState::ChangePosition(unsigned long newPos)
   if(CurrentPosition == newPos) // та же самая позиция запрошена, ничего не делаем
   {
   //  Serial.println(F("SAME POSITION!"));
+    // говорим, что мы сменили позицию
+    SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
     return false;
   }
 
@@ -300,9 +311,23 @@ void TempSensors::SetupWindows()
           WORK_STATUS.PinWrite(pin2,RELAY_OFF);        
      #endif
 
+    #ifdef USE_FEEDBACK_MANAGER
+      // используем менеджер обратной связи
+    #else
     // просим окна закрыться при старте контроллера
     Windows[i].ChangePosition(0);
+    #endif
+    
   } // for
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void TempSensors::CloseAllWindows()
+{
+  for(int i=0;i<SUPPORTED_WINDOWS;i++)
+  {
+     Windows[i].ResetToMaxPosition();
+     Windows[i].ChangePosition(0); // закрываем окно
+  }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::Setup()
@@ -488,6 +513,21 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
       commandRequested.toUpperCase();
       if(commandRequested == PROP_WINDOW) // надо записать состояние окна, от нас просят что-то сделать
       {
+
+        // тут проверяем, можем ли мы выполнить команду на смену позиции.
+        // если используется менеджер обратной связи - мы не можем ничего делать,
+        // пока менеджер ждёт первого пакета обратной связи
+        #ifdef USE_FEEDBACK_MANAGER
+          if(FeedbackManager.IsWaitingForFirstWindowsFeedback())
+          {
+            // ничего не делаем, поскольку всё ещё ждём информации по положению окон
+            // отвечаем на команду
+              MainController->Publish(this,command);
+            
+              return PublishSingleton.Flags.Status;
+          }
+        #endif
+        
         if(command.IsInternal() // если команда пришла от другого модуля
         && workMode == wmManual) // и мы в ручном режиме, то
         {
@@ -713,7 +753,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
     } // argsCnt > 1
   } // SET
   else
-  if(command.GetType() == ctGET) // запросили показание датчика
+  if(command.GetType() == ctGET) // запросили показания
   {
       uint8_t argsCnt = command.GetArgsCount();
        
@@ -982,7 +1022,15 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
                       if(wantAnswer)
                       {
                         PublishSingleton = PROP_WINDOW;
-                        PublishSingleton << PARAM_DELIMITER << commandRequested << PARAM_DELIMITER << sAdd;
+                        PublishSingleton << PARAM_DELIMITER << commandRequested << PARAM_DELIMITER << sAdd << PARAM_DELIMITER;
+
+                        // тут просчитываем положение окна в процентах от максимального
+                        unsigned long curWindowPosition = ws->GetCurrentPosition();
+                        unsigned long maxOpenPosition = MainController->GetSettings()->GetOpenInterval();
+
+                        unsigned long positionPercents = (curWindowPosition*100)/maxOpenPosition;
+
+                        PublishSingleton << positionPercents << '%';
                       }
                     } // else хороший индекс
                                     
