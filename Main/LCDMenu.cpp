@@ -99,7 +99,7 @@ void AbstractLCDMenuItem::OnButtonClicked(LCDMenu* menu)
     menu->wantRedraw(); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-IdlePageMenuItem::IdlePageMenuItem() : AbstractLCDMenuItem(MONITOR_ICON,("Монитор"))
+IdlePageMenuItem::IdlePageMenuItem() : AbstractLCDMenuItem(MONITOR_ICON,LCD_MONITOR_CAPTION)
 {
   rotationTimer = ROTATION_INTERVAL; // получаем данные с сенсора сразу в первом вызове update
   currentSensorIndex = 0; 
@@ -171,25 +171,7 @@ void IdlePageMenuItem::SelectNextSDSensor(LCDMenu* menu)
         // файл открыли, можно работать
       
     } // if
-/*
-    if(workDir)
-    {
-      if(workFile)
-        workFile.close();
-
-        workFile = workDir.openNextFile();
-
-        if(!workFile) {
-           // дошли до конца, надо выбрать следующую папку
-           workDir.close(); // закрываем текущую папку, чтобы перейти на новую папку
-           SelectNextSDSensor(menu);
-           return;
-        }
-
-        // файл открыли, можно работать
-      
-    } // if
-*/    
+   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void IdlePageMenuItem::OpenCurrentSDDirectory(LCDMenu* menu)
@@ -539,7 +521,7 @@ void IdlePageMenuItem::draw(DrawContext* dc)
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_TEMP_SENSORS
-WindowMenuItem::WindowMenuItem() : AbstractLCDMenuItem(WINDOW_ICON,("Окна"))
+WindowMenuItem::WindowMenuItem() : AbstractLCDMenuItem(WINDOW_ICON,LCD_WINDOWS_CAPTION)
 {
   
 }
@@ -632,9 +614,9 @@ void WindowMenuItem::draw(DrawContext* dc)
 
   static const __FlashStringHelper* captions[] = 
   {
-     F("откр")
-    ,F("закр")
-    ,F("авто")    
+     LCD_OPEN_LABEL
+    ,LCD_CLOSE_LABEL
+    ,LCD_AUTO_LABEL    
   };
 
  // рисуем три иконки невыбранных чекбоксов  - пока
@@ -690,7 +672,7 @@ void WindowMenuItem::draw(DrawContext* dc)
 //--------------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_WATERING_MODULE) && defined(WATER_CHANNELS_SCREEN_ENABLED)
 //--------------------------------------------------------------------------------------------------------------------------------------
-WateringChannelsMenuItem::WateringChannelsMenuItem() : AbstractLCDMenuItem(WATERING_CHANNELS_ICON,("Каналы полива"))
+WateringChannelsMenuItem::WateringChannelsMenuItem() : AbstractLCDMenuItem(WATERING_CHANNELS_ICON,LCD_WATERING_CAPTION)
 {
   
 }
@@ -716,9 +698,9 @@ void WateringChannelsMenuItem::draw(DrawContext* dc)
 
   static const __FlashStringHelper* captions[3] = 
   {
-     F("КАНАЛ")
-    ,F("ВКЛ")
-    ,F("ВЫКЛ")
+     LCD_CHANNEL_LABEL
+    ,LCD_ON_LABEL
+    ,LCD_OFF_LABEL
    
   };
 
@@ -851,7 +833,7 @@ void WateringChannelsMenuItem::update(uint16_t dt, LCDMenu* menu)
 //--------------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
 //--------------------------------------------------------------------------------------------------------------------------------------
-WindowsChannelsMenuItem::WindowsChannelsMenuItem() : AbstractLCDMenuItem(WINDOWS_CHANNELS_ICON,("Каналы окон"))
+WindowsChannelsMenuItem::WindowsChannelsMenuItem() : AbstractLCDMenuItem(WINDOWS_CHANNELS_ICON,LCD_WINDOWS_CHANNELS_CAPTION)
 {
   
 }
@@ -877,9 +859,9 @@ void WindowsChannelsMenuItem::draw(DrawContext* dc)
 
   static const __FlashStringHelper* captions[3] = 
   {
-     F("ОКНО")
-    ,F("ОТКР")
-    ,F("ЗАКР")
+     LCD_WINDOW_LABEL
+    ,LCD_COMMAND_OPEN_LABEL
+    ,LCD_COMMAND_CLOSE_LABEL
    
   };
 
@@ -1010,7 +992,7 @@ void WindowsChannelsMenuItem::update(uint16_t dt, LCDMenu* menu)
 #endif // WindowsChannelsMenuItem
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WATERING_MODULE
-WateringMenuItem::WateringMenuItem() : AbstractLCDMenuItem(WATERING_ICON,("Полив"))
+WateringMenuItem::WateringMenuItem() : AbstractLCDMenuItem(WATERING_ICON,LCD_ALLWATERING_CAPTION)
 {
   
 }
@@ -1034,9 +1016,9 @@ void WateringMenuItem::draw(DrawContext* dc)
 
   static const __FlashStringHelper* captions[] = 
   {
-     F("вкл")
-    ,F("выкл")
-    ,F("авто")    
+     LCD_ON_LABEL
+    ,LCD_OFF_LABEL
+    ,LCD_AUTO_LABEL
   };
 
  // рисуем три иконки невыбранных чекбоксов  - пока
@@ -1162,7 +1144,7 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LUMINOSITY_MODULE
-LuminosityMenuItem::LuminosityMenuItem() : AbstractLCDMenuItem(LUMINOSITY_ICON,("Досветка"))
+LuminosityMenuItem::LuminosityMenuItem() : AbstractLCDMenuItem(LUMINOSITY_ICON,LCD_LIGHT_CAPTION)
 {
   
 }
@@ -1186,9 +1168,9 @@ void LuminosityMenuItem::draw(DrawContext* dc)
 
   static const __FlashStringHelper* captions[] = 
   {
-     F("вкл")
-    ,F("выкл")
-    ,F("авто")    
+     LCD_ON_LABEL
+    ,LCD_OFF_LABEL
+    ,LCD_AUTO_LABEL   
   };
 
  // рисуем три иконки невыбранных чекбоксов  - пока
@@ -1311,7 +1293,7 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
 }
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------------
-SettingsMenuItem::SettingsMenuItem() : AbstractLCDMenuItem(SETTINGS_ICON,("Настройки"))
+SettingsMenuItem::SettingsMenuItem() : AbstractLCDMenuItem(SETTINGS_ICON,LCD_SETTINGS_CAPTION)
 {
   
 }
@@ -1341,9 +1323,9 @@ void SettingsMenuItem::draw(DrawContext* dc)
 
   static const __FlashStringHelper* captions[] = 
   {
-     F("Тоткр")
-    ,F("Тзакр")
-    ,F("Моторы")
+     LCD_TOPEN_CAPTION
+    ,LCD_TCLOSE_CAPTION
+    ,LCD_INTERVAL_CAPTION
    
   };
 

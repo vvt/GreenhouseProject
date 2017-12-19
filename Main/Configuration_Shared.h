@@ -15,6 +15,30 @@
 #define UNIT_LITRES F(" л") // литры (litres)
 #define UNIT_LUX F(" люкс") // люксы (lux)
 
+//--------------------------------------------------------------------------------------------------------------------------------
+// LCD settings
+// Настройки LCD-меню
+//--------------------------------------------------------------------------------------------------------------------------------
+#define LCD_MONITOR_CAPTION "Монитор"
+#define LCD_WINDOWS_CAPTION "Окна"
+#define LCD_WATERING_CAPTION "Каналы полива"
+#define LCD_WINDOWS_CHANNELS_CAPTION "Каналы окон"
+#define LCD_ALLWATERING_CAPTION "Полив"
+#define LCD_LIGHT_CAPTION "Досветка"
+#define LCD_SETTINGS_CAPTION "Настройки"
+
+#define LCD_OPEN_LABEL F("ОТКР")
+#define LCD_CLOSE_LABEL F("ЗАКР")
+#define LCD_AUTO_LABEL F("АВТО")
+#define LCD_CHANNEL_LABEL F("КАНАЛ")
+#define LCD_ON_LABEL F("ВКЛ")
+#define LCD_OFF_LABEL F("ВЫКЛ")
+#define LCD_WINDOW_LABEL F("ОКНО")
+#define LCD_COMMAND_OPEN_LABEL F("ОТКР")
+#define LCD_COMMAND_CLOSE_LABEL F("ЗАКР")
+#define LCD_TOPEN_CAPTION F("Тоткр")
+#define LCD_TCLOSE_CAPTION F("Тзакр")
+#define LCD_INTERVAL_CAPTION F("Моторы")
 
 //--------------------------------------------------------------------------------------------------------------------------------
 // Stat SMS settings
