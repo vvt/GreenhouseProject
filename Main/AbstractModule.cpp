@@ -1322,8 +1322,11 @@ void FeedbacksManager::WindowFeedbackDone()
       {
         // то надо принудительно закрыть окна при стартке
         flags.isFirstCallOfWindowsFeedback = false;
-        //Serial.println(F("No feedback, close windows..."));
-        WindowModule->CloseAllWindows();
+        
+        #ifdef USE_TEMP_SENSORS
+          //Serial.println(F("No feedback, close windows..."));
+          WindowModule->CloseAllWindows();
+        #endif
       }
     }
 }
@@ -1334,7 +1337,7 @@ void FeedbacksManager::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTr
   
     flags.isAnyWindowsFeedbackReceived = true; // говорим, что получили инфу по обратной связи по крайней мере для одного окна
     
-    WindowModule->WindowFeedback(windowNumber,isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents);
+    WindowModule->WindowFeedback(windowNumber,isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents, flags.inWaitingWindowsFeedbackMode);
   #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------

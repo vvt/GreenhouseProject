@@ -67,7 +67,7 @@ public:
   
   void Setup(uint8_t relayChannel1, uint8_t relayChannel2); // настраиваем перед пуском
 
-  void Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents);
+  void Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents,bool isFirstFeedback);
 
 
   WindowState() 
@@ -129,7 +129,7 @@ class TempSensors : public AbstractModule // модуль опроса темп�
     void CloseAllWindows();
 
     // получена информация обратной связи по состоянию окна
-    void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents);
+    void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback);
 
 };
 //--------------------------------------------------------------------------------------------------------------------------------------

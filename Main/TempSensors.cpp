@@ -87,7 +87,7 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
+void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback)
 {
   GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();
@@ -100,7 +100,7 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
       flags.OnMyWay = false;
       SwitchRelays(); // держим реле выключенными
       
-        // говорим, что мы сменили позицию
+        // говорим, что мы сменили позицию, модуль правил при этом очистит очередь обработанных правил, и сможет нами рулить
         SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);  
 
        // теперь смотрим, какой концевик сработал
@@ -121,9 +121,11 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
      }
   } // if(isCloseSwitchTriggered || isOpenSwitchTriggered)
 
-  if(hasPosition)
+  if(hasPosition && isFirstFeedback)
   {
-    //TODO: ВОТ ТУТ НАДО ОБНОВЛЯТЬ ПОЗИЦИЮ, ПОЛУЧЕННУЮ ОТ ОБРАТНЙО СВЯЗИ, НО ДЕЛАТЬ ЭТО С УЧЁТОМ ТОГО, ЧТО ОКНО МОЖЕТ ДВИГАТЬСЯ В ТЕКУЩИЙ МОМЕНТ!!!
+    // есть информация о позиции, и это первая информация с обратной связи - мы должны запомнить, в какой позиции находится окно
+    
+    //TODO: ВОТ ТУТ НАДО ОБНОВЛЯТЬ ПОЗИЦИЮ, ПОЛУЧЕННУЮ ОТ ОБРАТНОЙ СВЯЗИ, НО ДЕЛАТЬ ЭТО С УЧЁТОМ ТОГО, ЧТО ОКНО МОЖЕТ ДВИГАТЬСЯ В ТЕКУЩИЙ МОМЕНТ!!!
   }
   
 }
@@ -485,13 +487,13 @@ void TempSensors::Update(uint16_t dt)
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void TempSensors::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
+void TempSensors::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback)
 {
   #if SUPPORTED_WINDOWS > 0
     if(windowNumber >= SUPPORTED_WINDOWS)
       windowNumber = SUPPORTED_WINDOWS-1;
 
-      Windows[windowNumber].Feedback(isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents);
+      Windows[windowNumber].Feedback(isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents,isFirstFeedback);
   #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -1030,7 +1032,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
                         unsigned long positionPercents = (curWindowPosition*100)/maxOpenPosition;
 
-                        PublishSingleton << positionPercents << '%';
+                        PublishSingleton << positionPercents;// << '%';
                       }
                     } // else хороший индекс
                                     
