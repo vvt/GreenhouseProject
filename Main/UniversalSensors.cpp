@@ -102,6 +102,281 @@ void UniRS485Gate::Update(uint16_t dt)
 {
 
   static RS485Packet packet;
+
+  #if defined(USE_FEEDBACK_MANAGER) && defined(USE_TEMP_SENSORS) && SUPPORTED_WINDOWS > 0
+  
+    // тут работаем с модулями обратной связи
+    
+    static uint16_t feedbackCounter = 1000;
+    feedbackCounter += dt;
+    
+    if(feedbackCounter > FEEDBACK_MANAGER_UPDATE_INTERVAL)
+    {
+      feedbackCounter = 0;
+      // пора собирать информацию по обратной связи
+      byte currentWindowNumber = 0; // с каким окном сейчас работаем
+      bool anyFeedbackReceived = false;
+      
+        for(int i=0;i<4;i++)
+        {
+            memset(&packet,0,sizeof(RS485Packet));
+            
+            packet.header1 = 0xAB;
+            packet.header2 = 0xBA;
+            packet.tail1 = 0xDE;
+            packet.tail2 = 0xAD;
+    
+            packet.direction = RS485FromMaster;
+            packet.type = RS485WindowsPositionPacket;
+
+            // говорим, что мы хотим получить информацию с модуля определённого номера
+            WindowFeedbackPacket* wfPacket = (WindowFeedbackPacket*) &(packet.data);
+            wfPacket->moduleNumber = i;
+
+              #ifdef RS485_DEBUG
+      
+              // отладочная информация
+              Serial.print(F("Send query for feedback packet #"));
+              Serial.println(wfPacket->moduleNumber);
+                    
+              #endif
+
+            // считаем контрольную сумму
+            const byte* b = (const byte*) &packet;
+            packet.crc8 = crc8(b,sizeof(RS485Packet)-1);  
+
+           // посылаем пакет   
+           // пишем в шину RS-495 запрос об обратной связи
+            RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+    
+            // теперь ждём завершения передачи
+            waitTransmitComplete();
+
+            // начинаем принимать
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // переключаемся на приём
+            enableReceive();
+
+            // поскольку мы сразу же переключились на приём - можем дать поработать критичному ко времени коду
+            yield();
+
+            // и получаем наши байты
+            memset(&packet,0,sizeof(RS485Packet));
+            byte* writePtr = (byte*) &packet;
+            byte bytesReaded = 0; // кол-во прочитанных байт
+            
+            // запоминаем время начала чтения
+            unsigned long startReadingTime = micros();
+            // вычисляем таймаут как время для чтения десяти байт.
+            // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
+            const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
+
+            // начинаем читать данные
+            while(1)
+            {
+              if( micros() - startReadingTime > readTimeout)
+              {
+                
+                #ifdef RS485_DEBUG
+                  Serial.print(F("Feedback module #"));
+                  Serial.print(i);
+                  Serial.println(F(" not answering!"));
+                #endif
+                
+                break;
+              } // if
+    
+              if(RS_485_SERIAL.available())
+              {
+                startReadingTime = micros(); // сбрасываем таймаут
+                *writePtr++ = (byte) RS_485_SERIAL.read();
+                bytesReaded++;
+              } // if available
+
+              if(bytesReaded == sizeof(RS485Packet)) // прочитали весь пакет
+              {
+                #ifdef RS485_DEBUG
+                  Serial.println(F("Packet received from slave!"));
+                #endif
+                
+                break;
+              }
+          
+           } // while
+
+            // затем опять переключаемся на передачу
+            enableSend();
+
+        // теперь парсим пакет
+        if(bytesReaded == sizeof(RS485Packet))
+        {
+          // пакет получен полностью, парсим его
+          #ifdef RS485_DEBUG
+            Serial.println(F("Packet from feedback received, parse it..."));
+          #endif
+          
+          bool headOk = packet.header1 == 0xAB && packet.header2 == 0xBA;
+          bool tailOk = packet.tail1 == 0xDE && packet.tail2 == 0xAD;
+          
+          if(headOk && tailOk)
+          {
+            #ifdef RS485_DEBUG
+              Serial.println(F("Header and tail ok."));
+            #endif
+            
+            // вычисляем crc
+            byte crc = crc8((const byte*)&packet,sizeof(RS485Packet)-1);
+            if(crc == packet.crc8)
+            {
+              #ifdef RS485_DEBUG
+                Serial.println(F("Checksum ok."));
+              #endif
+              
+              // теперь проверяем, нам ли пакет
+              if(packet.direction == RS485FromSlave && packet.type == RS485WindowsPositionPacket)
+              {
+                #ifdef RS485_DEBUG
+                  Serial.println(F("Packet type ok"));
+                #endif
+
+                anyFeedbackReceived = true; // получили фидбак по крайней мере от одного модуля
+
+                // тут пришли данные, надо разбирать
+                WindowFeedbackPacket* wfPacket = (WindowFeedbackPacket*) &(packet.data);
+                int moduleSupportedWindows = wfPacket->windowsSupported;
+                // теперь разбираем, что там в пакете
+                byte* windowsStatus = wfPacket->windowsStatus;
+
+                // проходим по всем поддерживаемым модулем окнам
+                byte currentByteNumber = 0;
+                int8_t currentBitNumber = 7;
+                
+                for(int k=0;k<moduleSupportedWindows;k++)
+                {
+                  // на каждое окно у нас 10 бит информации
+                  // в старших семи битах - информация о позиции
+                  // в третьем бите - флаг наличия информации о позиции
+                  // второй бит - сработал ли концевик закрытия
+                  // первый бит - сработал ли концевик открытия
+                  byte position = 0;
+                  for(int z=0;z<7;z++)
+                  {
+                    byte b = bitRead(windowsStatus[currentByteNumber],currentBitNumber);
+                    position |= b;
+                    position <<= 1;
+
+                    currentBitNumber--;
+                    if(currentBitNumber < 0)
+                    {
+                      currentBitNumber = 7;
+                      currentByteNumber++;
+                    }
+                  } // for
+
+                    #ifdef RS485_DEBUG
+                      Serial.print(F("Position of window #"));
+                      Serial.print(currentWindowNumber);
+                      Serial.print(F(" is "));
+                      Serial.println(position);
+                    #endif
+
+                    // теперь читаем бит - есть ли позиция
+                    byte hasPosition = bitRead(windowsStatus[currentByteNumber],currentBitNumber);
+                    currentBitNumber--;
+                    if(currentBitNumber < 0)
+                    {
+                      currentBitNumber = 7;
+                      currentByteNumber++;
+                    }
+
+                    #ifdef RS485_DEBUG
+                      Serial.print(F("hasPosition of window #"));
+                      Serial.print(currentWindowNumber);
+                      Serial.print(F(" is "));
+                      Serial.println(hasPosition);
+                    #endif
+                                        
+                    // теперь читаем бит - сработал ли концевик закрытия
+                    byte isCloseSwitchTriggered = bitRead(windowsStatus[currentByteNumber],currentBitNumber);
+                    currentBitNumber--;
+                    if(currentBitNumber < 0)
+                    {
+                      currentBitNumber = 7;
+                      currentByteNumber++;
+                    }
+
+                    #ifdef RS485_DEBUG
+                      Serial.print(F("isCloseSensorTriggered of window #"));
+                      Serial.print(currentWindowNumber);
+                      Serial.print(F(" is "));
+                      Serial.println(isCloseSwitchTriggered);
+                    #endif
+
+                    // теперь читаем бит - сработал ли концевик открытия
+                    byte isOpenSwitchTriggered = bitRead(windowsStatus[currentByteNumber],currentBitNumber);
+                    currentBitNumber--;
+                    if(currentBitNumber < 0)
+                    {
+                      currentBitNumber = 7;
+                      currentByteNumber++;
+                    }
+
+                    #ifdef RS485_DEBUG
+                      Serial.print(F("isOpenSwitchTriggered of window #"));
+                      Serial.print(currentWindowNumber);
+                      Serial.print(F(" is "));
+                      Serial.println(isOpenSwitchTriggered);
+                    #endif
+
+                   // теперь просим менеджера сообщить окну информацию о позиции
+                   FeedbackManager.WindowFeedback(currentWindowNumber, isCloseSwitchTriggered, isOpenSwitchTriggered, hasPosition, position);
+
+                  currentWindowNumber++;
+                  if(currentWindowNumber >= SUPPORTED_WINDOWS) // всё, дошли до последнего окна
+                    break;
+                } // for
+
+
+              } // type ok
+              #ifdef RS485_DEBUG
+              else
+              {
+                Serial.println(F("Wrong packet type :("));
+              }
+              #endif
+            } // if(crc)
+            #ifdef RS485_DEBUG
+            else
+            {
+              Serial.println(F("Bad checksum :("));
+            }
+            #endif
+          }
+          #ifdef RS485_DEBUG
+          else
+          {
+            Serial.println(F("Head or tail of packet is invalid :("));
+          } // else
+          #endif
+        }
+        #ifdef RS485_DEBUG
+        else
+        {
+          Serial.println(F("Uncompleted feedback packet :("));
+        } // else
+        #endif
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+           yield(); // даём поработать модулям 
+        } // for по каждому модулю
+
+        if(anyFeedbackReceived)
+        {
+           // получили хотя бы один фидбак - надо проинформировать менеджера, что мы закончили текущий цикл
+           FeedbackManager.WindowFeedbackDone();
+        }
+    } // if можно проверять
+    
+  #endif // USE_FEEDBACK_MANAGER
   
   #ifdef USE_UNI_EXECUTION_MODULE
 

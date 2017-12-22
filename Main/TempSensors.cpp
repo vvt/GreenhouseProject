@@ -99,33 +99,51 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
       // двигаемся, надо останавливаться
       flags.OnMyWay = false;
       SwitchRelays(); // держим реле выключенными
-      
-        // говорим, что мы сменили позицию, модуль правил при этом очистит очередь обработанных правил, и сможет нами рулить
-        SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);  
-
-       // теперь смотрим, какой концевик сработал
-       if(isCloseSwitchTriggered)
-       {
-        // концевик на закрытие
-        CurrentPosition = 0;
-       }
-       
-       if(isOpenSwitchTriggered)
-       {
-        // концевик на открытие
-        CurrentPosition = interval; 
-       }
-       
-
-       flags.Direction = dirNOTHING; // уже никуда не движемся
+      flags.Direction = dirNOTHING; // уже никуда не движемся
+    } 
+    
+      // говорим, что мы сменили позицию, модуль правил при этом очистит очередь обработанных правил, и сможет нами рулить
+      SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);  
+  
+     // теперь смотрим, какой концевик сработал
+     if(isCloseSwitchTriggered)
+     {
+      // концевик на закрытие
+      CurrentPosition = 0;
      }
+     
+     if(isOpenSwitchTriggered)
+     {
+      // концевик на открытие
+      CurrentPosition = interval; 
+     }
+   
+   return;  // поскольку сработали концевики - мы установили позицию по ним, и переданную можно игнорировать
+
   } // if(isCloseSwitchTriggered || isOpenSwitchTriggered)
 
-  if(hasPosition && isFirstFeedback)
+  if(hasPosition && !IsBusy())
   {
-    // есть информация о позиции, и это первая информация с обратной связи - мы должны запомнить, в какой позиции находится окно
-    
-    //TODO: ВОТ ТУТ НАДО ОБНОВЛЯТЬ ПОЗИЦИЮ, ПОЛУЧЕННУЮ ОТ ОБРАТНОЙ СВЯЗИ, НО ДЕЛАТЬ ЭТО С УЧЁТОМ ТОГО, ЧТО ОКНО МОЖЕТ ДВИГАТЬСЯ В ТЕКУЩИЙ МОМЕНТ!!!
+    // есть информация о позиции, и это первая информация с обратной связи - мы должны запомнить, в какой позиции находится окно 
+    unsigned long requestedPosition = (interval*positionPercents)/100;
+    long currentDifference = 0;
+    if(CurrentPosition > requestedPosition)
+      currentDifference = CurrentPosition - requestedPosition;
+    else
+      currentDifference = requestedPosition - CurrentPosition;
+      
+    if(currentDifference > FEEDBACK_MANAGER_POSITION_HISTERESIS)
+    {
+      // разница позиций больше, чем гистерезис - обновляем позицию.
+      // само окно, понятное дело, никуда не движется, но мы должны
+      // исключить вариант, когда правила открывают окна на 50%,
+      // а модуль обратной связи выдаёт позицию в 49% - в таком
+      // случае надо исключить дёрганье моторов на короткие промежутки
+      // и через равные интервалы времени, равные промежутку опроса
+      // моделй обратной связи.
+      CurrentPosition = requestedPosition;
+      SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);
+    }
   }
   
 }

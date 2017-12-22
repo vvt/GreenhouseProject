@@ -348,7 +348,7 @@ class NextionUniClient : public AbstractUniClient
 #ifdef USE_RS485_GATE
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 enum {RS485FromMaster = 1, RS485FromSlave = 2};
-enum {RS485ControllerStatePacket = 1, RS485SensorDataPacket = 2};
+enum {RS485ControllerStatePacket = 1, RS485SensorDataPacket = 2, RS485WindowsPositionPacket = 3};
 //----------------------------------------------------------------------------------------------------------------
 typedef struct
 {
@@ -367,6 +367,15 @@ typedef struct
   byte crc8; // контрольная сумма пакета
   
 } RS485Packet; // пакет, гоняющийся по RS-485 туда/сюда (30 байт)
+//----------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  byte moduleNumber; // номер модуля, от 1 до 4-х
+  byte windowsSupported; // сколько окон поддерживает модуль (максимум - 16)
+  byte windowsStatus[20]; // массив состояний окон
+  byte reserved; // добитие до 23 байт
+  
+} WindowFeedbackPacket;
 //----------------------------------------------------------------------------------------------------------------
 typedef struct
 {
