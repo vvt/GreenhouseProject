@@ -117,7 +117,7 @@ void UniRS485Gate::Update(uint16_t dt)
       byte currentWindowNumber = 0; // с каким окном сейчас работаем
       bool anyFeedbackReceived = false;
       
-        for(int i=0;i<4;i++)
+        for(int i=0;i<16;i++) // у нас 16 адресов на шине
         {
             memset(&packet,0,sizeof(RS485Packet));
             

@@ -37,9 +37,20 @@ bool WindowState::ChangePosition(unsigned long newPos)
 {
  // Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
  // Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+   GlobalSettings* settings = MainController->GetSettings();
+  unsigned long interval = settings->GetOpenInterval();
   
-  if(CurrentPosition == newPos) // та же самая позиция запрошена, ничего не делаем
+  long currentDifference = 0;
+  if(CurrentPosition > newPos)
+    currentDifference = CurrentPosition - newPos;
+  else
+    currentDifference = newPos - CurrentPosition;
+
+  if(CurrentPosition == newPos || currentDifference < FEEDBACK_MANAGER_POSITION_HISTERESIS) 
   {
+    // та же самая позиция запрошена, или разница текущей позиции и запрошеной - в пределах гистерезиса.
+    // в этом случае мы ничего не делаем.
+    
   //  Serial.println(F("SAME POSITION!"));
     // говорим, что мы сменили позицию
     SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
