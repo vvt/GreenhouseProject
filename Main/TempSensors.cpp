@@ -88,7 +88,7 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback)
-{
+{  
   GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();
 
@@ -836,6 +836,7 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
               } // else
               
           } // if
+          
           else if(commandRequested == PROP_WINDOW) // статус окна
           {
             commandRequested = command.GetArg(1);
@@ -1060,6 +1061,21 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
           }
           
         } // if
+        else if(commandRequested == F("WINDOWPOS")) // запросили состояние открытости окон
+        {
+          PublishSingleton.Flags.Status = true;
+          PublishSingleton = commandRequested;
+          PublishSingleton << PARAM_DELIMITER << SUPPORTED_WINDOWS;
+
+          unsigned long maxOpenPosition = MainController->GetSettings()->GetOpenInterval();
+
+          for(int i=0;i<SUPPORTED_WINDOWS;i++)
+          {
+              unsigned long curWindowPosition = Windows[i].GetCurrentPosition();
+              unsigned long positionPercents = (curWindowPosition*100)/maxOpenPosition;
+              PublishSingleton << PARAM_DELIMITER << positionPercents;
+          } // for
+        }
         else
         if(commandRequested == WM_INTERVAL) // запросили интервал срабатывания форточек
         {
