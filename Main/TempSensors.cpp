@@ -122,7 +122,7 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
       // концевик на закрытие
       CurrentPosition = 0;
      }
-     
+     else
      if(isOpenSwitchTriggered)
      {
       // концевик на открытие

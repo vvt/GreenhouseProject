@@ -227,18 +227,7 @@ void SMSModule::Setup()
     WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
   #endif
 
-  #ifdef USE_SIM800_POWERKEY
-    // работаем с импульсом POWERKEY
-    WORK_STATUS.PinMode(SIM800_POWERKEY_PIN,OUTPUT);
-    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
-    
-    delay(SIM800_WAIT_POWERKEY_AFTER_POWER_ON); // ждём N миллисекунд, пока питание прочухается
 
-    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
-    delay(SIM800_POWERKEY_PULSE_DURATION);
-    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
-    
-  #endif // USE_SIM800_POWERKEY
   
   // запускаем наш сериал
   GSM_SERIAL.begin(GSM_BAUDRATE);
@@ -270,11 +259,11 @@ void SMSModule::Setup()
   
   rebootStartTime = 0;
 
-  flags.model = M590; // считаем, что у нас по умолчанию Neoway M590
+  flags.model = SIM800; // считаем, что у нас по умолчанию Sim800
  
   InitQueue(); // инициализируем очередь
 
-#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+  #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 
      iotWriter = NULL;
      iotDone = NULL;
@@ -282,11 +271,27 @@ void SMSModule::Setup()
      iotDataFooter = NULL;
      iotDataLength = 0;     
      IoTList.RegisterGate(this); // регистрируем себя как отсылателя данных в IoT
-#endif  
+  #endif  
 
     #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
       processedAlarmsClearTimer = millis();
     #endif
+
+
+  #ifdef USE_SIM800_POWERKEY
+    // работаем с импульсом POWERKEY
+    WORK_STATUS.PinMode(SIM800_POWERKEY_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+    
+    delay(SIM800_WAIT_POWERKEY_AFTER_POWER_ON); // ждём N миллисекунд, пока питание прочухается
+
+    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+    delay(SIM800_POWERKEY_PULSE_DURATION);
+    WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+
+    needToWaitTimer = GSM_WAIT_AFTER_REBOOT_TIME;
+    
+  #endif // USE_SIM800_POWERKEY    
 
    
   // настройка модуля тут
