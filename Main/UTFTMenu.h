@@ -14,12 +14,12 @@
 #include "UTFTRus.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #define TFT_BACK_COLOR 0xFF,0xFF,0xFF
-#define TFT_BUTTON_COLORS VGA_WHITE, VGA_GRAY, VGA_WHITE, VGA_SILVER, VGA_BLUE
+#define TFT_BUTTON_COLORS VGA_WHITE, VGA_GRAY, VGA_WHITE, /*VGA_SILVER*/VGA_RED, VGA_BLUE
 #define TFT_IDLE_SCREEN_BUTTON_WIDTH 128
 #define TFT_IDLE_SCREEN_BUTTON_HEIGHT 90
 #define TFT_IDLE_SCREEN_BUTTON_SPACING 10
 #define TFT_FONT_COLOR 0x4B, 0x4C, 0x4B //0x4A69
-#define TFT_CHANNELS_BUTTON_COLORS 0x3A8D, VGA_SILVER, VGA_GRAY, VGA_SILVER, 0xEF7D
+#define TFT_CHANNELS_BUTTON_COLORS 0x3A8D, VGA_SILVER, VGA_GRAY, /*VGA_SILVER*/VGA_RED, 0xEF7D
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #define INFO_BOX_WIDTH 240
 #define INFO_BOX_HEIGHT 80
