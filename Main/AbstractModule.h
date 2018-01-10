@@ -78,7 +78,7 @@ struct Temperature // структура показаний с датчика т
     if(from.Value == NO_TEMPERATURE_DATA) // no data from sensor
       return result;
       
-    int rawC = from.Value*100 * from.Fract;
+    int rawC = from.Value*100 + from.Fract;
     int rawF = (rawC*9)/5 + 3200;
 
     result.Value = rawF/100;
