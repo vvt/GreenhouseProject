@@ -92,7 +92,7 @@ void UniRS485Gate::waitTransmitComplete()
  #if (TARGET_BOARD == MEGA_BOARD) 
   while(!(RS_485_UCSR & _BV(RS_485_TXC) ));
  #elif (TARGET_BOARD == DUE_BOARD) 
-  while((RS_485_UCSR->US_CSR & RS_485_TXC) != RS_485_TXC);
+  while((RS_485_UCSR->US_CSR & RS_485_TXC) == 0);
  #else
   #error "Unknown target board!"
  #endif
