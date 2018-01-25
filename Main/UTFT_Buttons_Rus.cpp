@@ -250,7 +250,7 @@ void UTFT_Buttons_Rus::deleteAllButtons()
 	}
 }
 
-int UTFT_Buttons_Rus::checkButtons()
+int UTFT_Buttons_Rus::checkButtons(OnCheckButtonsFunc func)
 {
     if (_URTouch->dataAvailable() == true)
     {
@@ -279,6 +279,8 @@ int UTFT_Buttons_Rus::checkButtons()
 					_UTFT->drawRoundRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
           yield();
 			}
+     if(func)
+      func(result);
 		}
 
 		while (_URTouch->dataAvailable() == true) { yield(); };

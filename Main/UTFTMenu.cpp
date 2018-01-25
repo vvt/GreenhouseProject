@@ -8,6 +8,14 @@
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTMenu* tftMenuManager;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void BuzzerOn(int btn)
+{
+  if(btn != -1)
+  {
+    tftMenuManager->buzzer();
+  }
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void drawButtonsYield() // вызывается после отрисовки каждой кнопки
 {
   tftMenuManager->updateBuzzer();
@@ -200,14 +208,14 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
  
  if(screenButtons)
  {
-    int pressed_button = screenButtons->checkButtons();
-
+    int pressed_button = screenButtons->checkButtons(BuzzerOn);
+/*
     if(pressed_button != -1)
     {
       // есть клик на кнопку
       menuManager->buzzer(); // пискнули
     }
-    
+*/    
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -385,14 +393,14 @@ void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
  
  if(screenButtons)
  {
-    int pressed_button = screenButtons->checkButtons();
-
+    int pressed_button = screenButtons->checkButtons(BuzzerOn);
+/*
     if(pressed_button != -1)
     {
       // есть клик на кнопку
       menuManager->buzzer(); // пискнули
     }
-    
+*/    
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -561,14 +569,14 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
  
  if(screenButtons)
  {
-    int pressed_button = screenButtons->checkButtons();
-
+    int pressed_button = screenButtons->checkButtons(BuzzerOn);
+/*
     if(pressed_button != -1)
     {
       // есть клик на кнопку
       menuManager->buzzer(); // пискнули
     }
-    
+*/    
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -846,14 +854,14 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
  
  if(screenButtons)
  {
-    int pressed_button = screenButtons->checkButtons();
-
+    int pressed_button = screenButtons->checkButtons(BuzzerOn);
+/*
     if(pressed_button != -1)
     {
       // есть клик на кнопку
       menuManager->buzzer(); // пискнули
     }
-    
+*/    
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -1532,12 +1540,12 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
   #endif
 
   // Смотрим, какая кнопка нажата
-  int pressed_button = screenButtons->checkButtons();
+  int pressed_button = screenButtons->checkButtons(BuzzerOn);
 
 #ifdef USE_TEMP_SENSORS
   if(pressed_button == windowsButton)
   {
-    menuManager->buzzer(); // пискнули
+   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("WINDOW");
     return;
   }
@@ -1546,7 +1554,7 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 #ifdef USE_WATERING_MODULE
   if(pressed_button == waterButton)
   {
-    menuManager->buzzer(); // пискнули
+   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("WATER");
     return;
   }
@@ -1555,7 +1563,7 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 #ifdef USE_LUMINOSITY_MODULE
   if(pressed_button == lightButton)
   {
-    menuManager->buzzer(); // пискнули
+   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("LIGHT");
     return;
   }
@@ -1563,7 +1571,7 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 
   if(pressed_button == optionsButton)
   {
-    menuManager->buzzer(); // пискнули
+   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("OPTIONS");
     return;
   }

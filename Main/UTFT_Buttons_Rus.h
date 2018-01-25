@@ -53,6 +53,7 @@
 #define BUTTON_HAS_BACK_COLOR 0x0020
 #define BUTTON_HAS_FONT_COLOR 0x0040
 
+
 typedef struct
 {
   int16_t			pos_x, pos_y, width, height;
@@ -63,6 +64,7 @@ typedef struct
 } button_type;
 
 typedef void (*DrawButtonsUpdateFunc)(void);
+typedef void (*OnCheckButtonsFunc)(int button);
 
 class UTFT_Buttons_Rus
 {
@@ -79,7 +81,7 @@ class UTFT_Buttons_Rus
 		boolean	buttonEnabled(int buttonID);
 		void	deleteButton(int buttonID);
 		void	deleteAllButtons();
-		int		checkButtons();
+		int		checkButtons(OnCheckButtonsFunc func = NULL);
 		void	setTextFont(uint8_t* font);
 		void	setSymbolFont(uint8_t* font);
 		void	setButtonColors(word atxt, word iatxt, word brd, word brdhi, word back);

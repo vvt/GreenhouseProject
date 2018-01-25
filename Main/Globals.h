@@ -27,14 +27,16 @@
 // DIY mini-board (sensors trough universal modules, no nRF and so on), settings located in Configuration_MEGA_MiniBoard.h
 #define MEGA_MINI 2
 //--------------------------------------------------------------------------------------------------------------------------------
-
 // определяем, под какую плату сейчас компилируем
-// по умолчанию - Arduino Mega, подставить вместо MEGA_BOARD значение DUE_BOARD, если компилируем под Due.
-
-// what type of board we are using?
-// by default - Arduino Mega, if you are using Arduino Due, change MEGA_BOARD to DUE_BOARD.
-#define TARGET_BOARD MEGA_BOARD // DUE_BOARD
-
+// автовыбор платы
+//--------------------------------------------------------------------------------------------------------------------------------
+#if defined(__AVR_ATmega2560__)
+  #define TARGET_BOARD MEGA_BOARD
+#elif defined (__arm__) && defined (__SAM3X8E__) // Arduino Due compatible
+  #define TARGET_BOARD DUE_BOARD
+#else
+  #error "Unknown target board!"
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 
 // определяем подвариант платы
