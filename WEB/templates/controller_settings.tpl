@@ -138,13 +138,13 @@
     SSID роутера:<br/>
     <input type='text' id='router_id' maxlength='50' value='' style='width:100%;'/><br/>
     Пароль роутера:<br/>
-    <input type='text' id='router_pass' maxlength='50' value='' style='width:100%;'/><br/>
+    <input type='password' id='router_pass' maxlength='50' value='' style='width:100%;'/><br/>
     <input type='checkbox' id='connect_to_router' value='1'/>
     <label for='connect_to_router'>Коннектиться к роутеру</label><br/><br/>
     SSID модуля ESP:<br/>
     <input type='text' id='station_id' maxlength='50' value='' style='width:100%;'/><br/>
     Пароль модуля ESP:<br/>
-    <input type='text' id='station_pass' maxlength='50' value='' style='width:100%;'/><br/>
+    <input type='password' id='station_pass' maxlength='50' value='' style='width:100%;'/><br/>
     
   </form>
 </div>
