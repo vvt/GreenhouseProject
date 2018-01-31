@@ -3238,6 +3238,183 @@ bool  WiFiModule::ExecCommand(const Command& command, bool wantAnswer)
         } // else not busy
       } // IP_COMMAND
       else
+      if(t == F("PING"))
+      {
+        if(currentAction != wfaIdle) // не можем ответить на запрос немедленно
+          PublishSingleton = BUSY;
+        else
+        {
+        #ifdef WIFI_DEBUG
+         WIFI_DEBUG_WRITE(F("Request for PING info..."),currentAction);
+        #endif
+              
+        SendCommand(F("AT+PING=\"google.com\""));
+        // поскольку у нас serialEvent не основан на прерываниях, на самом-то деле (!),
+        // то мы должны получить ответ вот прямо вот здесь, и разобрать его.
+
+        String line; // тут принимаем данные до конца строки
+        String pingResult;        
+        bool  pingDone = false;
+        
+        char ch;
+        while(1)
+        { 
+          if(pingDone) // получили ответ на PING
+            break;
+            
+          while(WIFI_SERIAL.available())
+          {
+            ch = WIFI_SERIAL.read();
+        
+            if(ch == '\r')
+              continue;
+            
+            if(ch == '\n')
+            {
+              // получили строку, разбираем её
+                 if(IsKnownAnswer(line))
+                 {
+                    pingDone = true;
+                    pingResult = line; 
+                 }
+             line = "";
+            } // ch == '\n'
+            else
+              line += ch;
+        
+          if(pingDone) // получили ответ на PING
+              break;
+ 
+          } // while
+          
+        } // while(1)
+
+        #ifdef WIFI_DEBUG
+          WIFI_DEBUG_WRITE(F("Ping info requested."),currentAction);
+        #endif
+
+        PublishSingleton.Flags.Status = true;
+        PublishSingleton = t; 
+        PublishSingleton << PARAM_DELIMITER << pingResult;
+        } // else not busy                
+      } // ping
+      else
+      if(t == F("MAC"))
+      {
+        if(currentAction != wfaIdle) // не можем ответить на запрос немедленно
+          PublishSingleton = BUSY;
+        else
+        {
+        #ifdef WIFI_DEBUG
+         WIFI_DEBUG_WRITE(F("Request for MAC info..."),currentAction);
+        #endif
+              
+        SendCommand(F("AT+CIPSTAMAC?"));
+        // поскольку у нас serialEvent не основан на прерываниях, на самом-то деле (!),
+        // то мы должны получить ответ вот прямо вот здесь, и разобрать его.
+
+        String line; // тут принимаем данные до конца строки
+        String staMAC = F("-");
+        String apMAC = F("-");
+        
+        bool  apMACDone = false, staMACDone=false;
+        char ch;
+        while(1)
+        { 
+          if(staMACDone) // получили MAC-адрес станции
+            break;
+            
+          while(WIFI_SERIAL.available())
+          {
+            ch = WIFI_SERIAL.read();
+        
+            if(ch == '\r')
+              continue;
+            
+            if(ch == '\n')
+            {
+              // получили строку, разбираем её
+                 if(line.startsWith(F("+CIPSTAMAC:"))) // MAC станции
+                 {
+                    #ifdef WIFI_DEBUG
+                      WIFI_DEBUG_WRITE(F("Station MAC found, parse..."),currentAction);
+                    #endif
+            
+                   staMAC = line.substring(11);                      
+                  
+                 } // if(line.startsWith
+                 else
+                 if(IsKnownAnswer(line))
+                 {
+                    staMACDone = true;
+                 }
+             line = "";
+            } // ch == '\n'
+            else
+              line += ch;
+        
+          if(staMACDone) // получили MAC станции
+              break;
+ 
+          } // while
+          
+        } // while(1)
+
+        // теперь получаем MAC точки доступа
+        SendCommand(F("AT+CIPAPMAC?"));
+        
+        while(1)
+        { 
+          if(apMACDone) // получили MAC-адрес точки доступа
+            break;
+            
+          while(WIFI_SERIAL.available())
+          {
+            ch = WIFI_SERIAL.read();
+        
+            if(ch == '\r')
+              continue;
+            
+            if(ch == '\n')
+            {
+              // получили строку, разбираем её
+                 if(line.startsWith(F("+CIPAPMAC:"))) // MAC нашей точки доступа
+                 {
+                    #ifdef WIFI_DEBUG
+                      WIFI_DEBUG_WRITE(F("softAP MAC found, parse..."),currentAction);
+                    #endif
+            
+                   apMAC = line.substring(10);                      
+                  
+                 } // if(line.startsWith
+                 else
+                 if(IsKnownAnswer(line))
+                 {
+                    apMACDone = true;
+                 }
+             line = "";
+            } // ch == '\n'
+            else
+              line += ch;
+        
+          if(apMACDone) // получили MAC точки доступа
+              break;
+ 
+          } // while
+          
+        } // while(1)
+
+
+        #ifdef WIFI_DEBUG
+          WIFI_DEBUG_WRITE(F("MAC info requested."),currentAction);
+        #endif
+
+        PublishSingleton.Flags.Status = true;
+        PublishSingleton = t; 
+        PublishSingleton << PARAM_DELIMITER << staMAC << PARAM_DELIMITER << apMAC;
+        } // else not busy        
+      } // получить MAC-адрес
+      else
       if(t == WIFI_SETTINGS_COMMAND)
       {
          // получить настройки Wi-Fi

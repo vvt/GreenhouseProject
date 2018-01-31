@@ -348,7 +348,7 @@ void setup()
 #endif
 
   Serial.begin(SERIAL_BAUD_RATE); // запускаем Serial на нужной скорости
-  
+
   // инициализируем память (EEPROM не надо, а вот I2C - надо)
   MemInit();  
 
