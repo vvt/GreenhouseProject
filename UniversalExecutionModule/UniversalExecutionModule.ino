@@ -29,41 +29,51 @@
 RS-485 работает через аппаратный UART (RX0 и TX0 ардуины)!
 Перед прошивкой выдёргивать контакты модуля RS-485 из пинов аппаратного UART!
 
+ВНИМАНИЕ!
+
+Пин 2 - не занимать, через него работает регистрация на центральном контроллере!
+
 */
-//----------------------------------------------------------------------------------------------------------------
-// ВНИМАНИЕ! Пин номер 2 - не занимать, через него работает 1-Wire!
-//----------------------------------------------------------------------------------------------------------------
-
-
-
 //----------------------------------------------------------------------------------------------------------------
 // НАСТРОЙКИ ОБРАТНОЙ СВЯЗИ
 //----------------------------------------------------------------------------------------------------------------
 #define USE_FEEDBACK // закомментировать, если не нужен функционал обратной связи (4 канала положения окон + 
 // состояние концевиков открытия и закрытия каждого окна)
 //----------------------------------------------------------------------------------------------------------------
-#define WINDOWS_SERVED 4 // Сколько окон обслуживается (максимум - 4)
+#define WINDOWS_SERVED 4 // Сколько окон обслуживается (максимум - 4, минимум - 1)
 //----------------------------------------------------------------------------------------------------------------
 #define FEEDBACK_UPDATE_INTERVAL 1000 // интервал между обновлениями статусов окон. Каждое окно обновляет свой статус
 // через этот интервал, таким образом полный цикл обновления равняется FEEDBACK_UPDATE_INTERVAL*WINDOWS_SERVED.
 // мы не можем читать информацию прямо в процессе обработки входящего по RS485 паката, поэтому делаем слепок
 // состояния через определённые промежутки времени.
 //----------------------------------------------------------------------------------------------------------------
-// настройки MCP23017
+// если эта настройка раскомментирована - управление обратной связью будет доступно только для одного компаса,
+// т.е. будет поддерживаться только  одно окно. В этом случае компас HMC5883 подсоединяется напрямую к шине I2C
+// (пины A4 и A5), плюс используются ещё два пина для отслеживания концевиков. Адресация модуля при этой настройке 
+// доступна только через конфигуратор.
+#define FEEDBACK_DIRECT_MODE
 //----------------------------------------------------------------------------------------------------------------
-#define COUNT_OF_MCP23017_EXTENDERS 2 // сколько расширителей портов MCP23017 используется
+// номер пина, с которого считается положение концевика закрытия в режиме FEEDBACK_DIRECT_MODE
+#define CLOSE_SWITCH_PIN 8
+// номер пина, с которого считается положение концевика открытия в режиме FEEDBACK_DIRECT_MODE
+#define OPEN_SWITCH_PIN 9
+// ВНИМАНИЕ: в конфигурации с включённым nRF и включённым RS-485 при прямом управлении обратной связью - не 
+// хватает пинов, т.к. заняты следующие: 0,1,2,3,4,5,6,7,9,10,11.12,13,A0,А1,А2,А3,А4,А5, оставляя под концевики
+// только один пин, вместо двух!!! Поэтому - придётся чем-то жертвовать при прямом управлении компасом и концевиками.
 //----------------------------------------------------------------------------------------------------------------
-// адреса расширителей MCP23017, через запятую, кол-вом COUNT_OF_MCP23017_EXTENDERS
+// настройки MCP23017, актуально при закомментированной настройке FEEDBACK_DIRECT_MODE
+//----------------------------------------------------------------------------------------------------------------
+#define COUNT_OF_MCP23017_EXTENDERS 2 // сколько расширителей портов MCP23017 используется (актуально при закомментированной настройке FEEDBACK_DIRECT_MODE)
+//----------------------------------------------------------------------------------------------------------------
+// адреса расширителей MCP23017, через запятую, кол-вом COUNT_OF_MCP23017_EXTENDERS (актуально при закомментированной настройке FEEDBACK_DIRECT_MODE)
 // 0 - первый адрес 0x20, 1 - второй адрес 0x21 и т.п.
 #define MCP23017_ADDRESSES 4,5
 //----------------------------------------------------------------------------------------------------------------
-
-
-//----------------------------------------------------------------------------------------------------------------
-// настройки адресации модуля обратной связи в системе
+// настройки адресации модуля обратной связи в системе, актуально при закомментированной настройке FEEDBACK_DIRECT_MODE
 //----------------------------------------------------------------------------------------------------------------
 /*
- адресация осуществляется путём чтения определённых каналов микросхему MCP23017 или путём регистрации на контроллере.
+ адресация осуществляется путём чтения определённых каналов микросхему MCP23017 (актуально при закомментированной настройке FEEDBACK_DIRECT_MODE) 
+ или путём регистрации на контроллере.
  Если используется адресация через MCP23017 - каждый их этих каналов заведён на переключатель, всего каналов - 4.
  Таким образом, кол-во адресов - 16, т.е. можно использовать максимально 16 модулей.
  */
@@ -79,7 +89,8 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 #define ADDRESS_CHANNEL4 4 // номер канала микросхемы MCP23017 для четвёртого бита адреса
 
 //----------------------------------------------------------------------------------------------------------------
-// настройки привязок управления каналами активности инклинометров на шине I2C 
+// настройки привязок управления (актуально при закомментированной настройке FEEDBACK_DIRECT_MODE) 
+// каналами активности инклинометров на шине I2C 
 // (управление каналами I2C осуществляется через микросхему PCA9516A)
 // используемые инклинометры - HMC5883
 // ВНИМАНИЕ! кол-во записей - равно WINDOWS_SERVED !!!
@@ -91,7 +102,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 // каналы управления линиями инклинометров - 5,6,7,8
 #define MCP23017_INCLINOMETER_SETTINGS {0,5}, {0,6}, {0,7}, {0,8} 
 //----------------------------------------------------------------------------------------------------------------
-// настройки привязок концевиков крайних положений
+// настройки привязок концевиков крайних положений (актуально при закомментированной настройке FEEDBACK_DIRECT_MODE)
 // концевики крайних положений обслуживаются через MCP23017, их количество равно WINDOWS_SERVED,
 // для каждого окна - два концевика на открытие и закрытие.
 // записи - через запятую, каждая запись имеет формат { MCP_NUMBER, MCP_CHANNEL_OPEN_SWITCH, MCP_CHANNEL_CLOSE_SWITCH }, где
@@ -134,7 +145,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //#define USE_NRF // закомментировать, если не надо работать через nRF.
 /*
  nRF для своей работы занимает следующие пины: 9,10,11,12,13. 
- Следите за тем, чтобы номера пинов не пересекались в слотах, или с RS-485.
+ Следите за тем, чтобы номера пинов не пересекались в слотах, или с RS-485, или ещё где.
  */
 #define NRF_CE_PIN 9 // номер пина CE для модуля nRF
 #define NRF_CSN_PIN 10 // номер пина CSN для модуля nRF
@@ -156,7 +167,7 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 // нужны для трансляции типа слота в конкретный пин, на которому будет управление нагрузкой
 //----------------------------------------------------------------------------------------------------------------
 /* 
-Пины для платы исполнительного модуля
+Пины для платы исполнительного модуля Сергея HANTER333
 
  D6
  A0
@@ -233,6 +244,13 @@ SlotSettings SLOTS[8] =
 //----------------------------------------------------------------------------------------------------------------
 // ДАЛЕЕ ИДУТ СЛУЖЕБНЫЕ НАСТРОЙКИ И КОД - МЕНЯТЬ С ПОЛНЫМ ПОНИМАНИЕМ ТОГО, ЧТО ХОДИМ СДЕЛАТЬ !!!
 //----------------------------------------------------------------------------------------------------------------
+#ifdef FEEDBACK_DIRECT_MODE
+  #undef ADDRESS_THROUGH_MCP
+  #undef WINDOWS_SERVED
+  #define WINDOWS_SERVED 1
+  #pragma message "Switch to ONE window served due to FEEDBACK_DIRECT_MODE..."
+#endif
+//----------------------------------------------------------------------------------------------------------------
 t_scratchpad scratchpadS, scratchpadToSend;
 volatile char* scratchpad = (char *)&scratchpadS; //что бы обратиться к scratchpad как к линейному массиву
 volatile bool scratchpadReceivedFromMaster = false; // флаг, что мы получили данные с мастера
@@ -260,9 +278,6 @@ RS485Packet rs485Packet; // пакет, в который мы принимае�
 volatile byte* rsPacketPtr = (byte*) &rs485Packet;
 volatile byte  rs485WritePtr = 0; // указатель записи в пакет
 //----------------------------------------------------------------------------------------------------------------
-
-
-//----------------------------------------------------------------------------------------------------------------
 #ifdef USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
 #include "MCP23017.h"
@@ -270,8 +285,8 @@ volatile byte  rs485WritePtr = 0; // указатель записи в паке
 #include <EEPROM.h>
 //----------------------------------------------------------------------------------------------------------------
 #define RECORD_HEADER1 0xDE
-#define RECORD_HEADER2 0xAE
-#define RECORD_HEADER3 0x15
+#define RECORD_HEADER2 0xAF
+#define RECORD_HEADER3 0x0D
 #define NO_FEEDBACK_VALUE -31111
 //----------------------------------------------------------------------------------------------------------------
 int GetFeedbackStoreAddress(uint8_t inclinometerNumber)
@@ -289,7 +304,7 @@ bool CheckFeedbackHeaders(uint8_t inclinometerNumber)
  
   uint8_t h1 = EEPROM.read(addr); addr++;
   uint8_t h2 = EEPROM.read(addr); addr++;
-  uint8_t h3 = EEPROM.read(addr); addr++;
+  uint8_t h3 = EEPROM.read(addr);
 
   return (h1 == RECORD_HEADER1 && h2 == RECORD_HEADER2 && h3 == RECORD_HEADER3);
 }
@@ -306,6 +321,19 @@ void WriteFeedbackHeader(uint8_t inclinometerNumber)
 //----------------------------------------------------------------------------------------------------------------
 void SaveFeedbackBorder(uint8_t inclinometerNumber, int value, bool isStartInterval)
 {
+
+#ifdef _DEBUG
+  Serial.print(F("SaveFeedbackBorder, window #"));
+  Serial.print(inclinometerNumber);
+  Serial.print(F("; value="));
+  Serial.print(value);
+  Serial.print(F("; first value? "));
+  if(isStartInterval)
+    Serial.println(F("yes"));
+  else
+    Serial.println(F("no"));
+#endif
+  
   WriteFeedbackHeader(inclinometerNumber);
   
   int addr =  GetFeedbackStoreAddress(inclinometerNumber);
@@ -329,7 +357,12 @@ void ReadFeedbackBorders(uint8_t inclinometerNumber, int& from, int& to)
   to = NO_FEEDBACK_VALUE;
 
   if(!CheckFeedbackHeaders(inclinometerNumber))
+  {
+    #ifdef _DEBUG
+      Serial.println(F("NO BORDERS SAVED!!!"));
+    #endif
     return;
+  }
 
   int addr =  GetFeedbackStoreAddress(inclinometerNumber);
   addr += 3; // skip header
@@ -338,23 +371,27 @@ void ReadFeedbackBorders(uint8_t inclinometerNumber, int& from, int& to)
 
   for(size_t i=0;i<sizeof(int);i++)
   {
-    *b = EEPROM.read(addr);
+    *b++ = EEPROM.read(addr);
     addr++;
+    
   }
 
   b = (byte*) &to;
 
   for(size_t i=0;i<sizeof(int);i++)
   {
-    *b = EEPROM.read(addr);
+    *b++ = EEPROM.read(addr);
     addr++;
   }
     
 }
 //----------------------------------------------------------------------------------------------------------------
+WindowStatus windowStatuses[WINDOWS_SERVED];
+//----------------------------------------------------------------------------------------------------------------
+#ifndef FEEDBACK_DIRECT_MODE
+//----------------------------------------------------------------------------------------------------------------
 Adafruit_MCP23017* mcpExtenders[COUNT_OF_MCP23017_EXTENDERS] = {NULL};
 byte mcpAddresses[COUNT_OF_MCP23017_EXTENDERS] = {MCP23017_ADDRESSES};
-WindowStatus windowStatuses[WINDOWS_SERVED];
 //----------------------------------------------------------------------------------------------------------------
 void InitMCP23017()
 {
@@ -374,6 +411,8 @@ void InitMCP23017()
   
 }
 //----------------------------------------------------------------------------------------------------------------
+#endif // FEEDBACK_DIRECT_MODE
+//----------------------------------------------------------------------------------------------------------------
 byte moduleAddress = 0;
 //----------------------------------------------------------------------------------------------------------------
 void ReadModuleAddress()
@@ -383,6 +422,10 @@ void ReadModuleAddress()
   #endif
 
  #ifdef ADDRESS_THROUGH_MCP // адресуемся переключателями на плате
+
+  #ifdef _DEBUG
+    Serial.println(F("Read address from MCP..."));
+  #endif
 
     Adafruit_MCP23017* mcp = mcpExtenders[ADDRESS_MCP_NUMBER];
   
@@ -401,6 +444,9 @@ void ReadModuleAddress()
     moduleAddress = bit1 | (bit2 << 1) | (bit3 << 2) | (bit4 << 3);
 
  #else
+  #ifdef _DEBUG
+    Serial.println(F("Read address from EEPROM..."));
+  #endif 
   // адресуемся чтением с конфига
   // старшие 4 бита байта config - это наш адрес
   moduleAddress = scratchpadS.config & 0xF0;
@@ -414,10 +460,15 @@ void ReadModuleAddress()
   #endif    
 }
 //----------------------------------------------------------------------------------------------------------------
+#ifdef FEEDBACK_DIRECT_MODE
+  HMC5883* compass = NULL;
+#else
 InclinometerSettings inclinometers[WINDOWS_SERVED] = {MCP23017_INCLINOMETER_SETTINGS};
 FeedbackEndstop endstops[WINDOWS_SERVED] = { MCP23017_SWITCH_SETTINGS };
 HMC5883* compasses[WINDOWS_SERVED] = {NULL};
+#endif
 //----------------------------------------------------------------------------------------------------------------
+#ifndef FEEDBACK_DIRECT_MODE
 void TurnInclinometerOff(InclinometerSettings& is)
 {
  mcpExtenders[is.mcpNumber]->digitalWrite(is.mcpChannel,INCLINOMETER_CHANNEL_OFF); 
@@ -436,6 +487,8 @@ void TurnInclinometersOff()
       TurnInclinometerOff(is);
   }
 }
+//----------------------------------------------------------------------------------------------------------------
+#endif // FEEDBACK_DIRECT_MODE
 //----------------------------------------------------------------------------------------------------------------
 void GetWindowsStatus(byte windowNumber, byte& isCloseSwitchTriggered, byte& isOpenSwitchTriggered, byte& hasPosition, byte& position)
 {
@@ -463,6 +516,12 @@ void GetWindowsStatus(byte windowNumber, byte& isCloseSwitchTriggered, byte& isO
 //----------------------------------------------------------------------------------------------------------------
 void UpdateWindowStatus(byte windowNumber)
 {
+  #ifndef FEEDBACK_DIRECT_MODE
+
+    #ifdef _DEBUG
+      Serial.print(F("UpdateWindowStatus - MCP MODE, window #"));
+      Serial.println(windowNumber);
+    #endif
   
   TurnInclinometersOff();
   InclinometerSettings inclinometer = inclinometers[windowNumber];
@@ -481,6 +540,32 @@ void UpdateWindowStatus(byte windowNumber)
   // читаем с инклинометра
   int x,y,z;
   compasses[windowNumber]->read(&x,&y,&z);
+
+  #else
+
+    #ifdef _DEBUG
+      Serial.print(F("UpdateWindowStatus - DIRECT MODE, window #"));
+      Serial.println(windowNumber);
+    #endif
+  
+    windowStatuses[windowNumber].isCloseSwitchTriggered = digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
+    windowStatuses[windowNumber].isOpenSwitchTriggered = digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
+
+    int x,y,z;
+    compass->read(&x,&y,&z);
+  #endif
+
+    #ifdef _DEBUG
+      if(windowStatuses[windowNumber].isCloseSwitchTriggered)
+        Serial.println(F("Close switch triggered!"));
+        
+      if(windowStatuses[windowNumber].isOpenSwitchTriggered)
+        Serial.println(F("Open switch triggered!"));
+
+        
+      Serial.print(F("UpdateWindowStatus, Z is: "));
+      Serial.println(z);
+    #endif 
   
   // если сработал один из концевиков - сохраняем значение оси Z с компаса
   // первым у нас идёт концевик закрытия, т.к. мы меряем от закрытия (0%)
@@ -498,6 +583,13 @@ void UpdateWindowStatus(byte windowNumber)
    // читаем значения интервалов
    int fromInterval, toInterval;
    ReadFeedbackBorders(windowNumber,fromInterval,toInterval);
+
+    #ifdef _DEBUG
+      Serial.print(F("UpdateWindowStatus, borders are: FROM="));
+      Serial.print(fromInterval);
+      Serial.print(F("; TO="));
+      Serial.println(toInterval);
+    #endif 
    
    bool hasPosition = (fromInterval != NO_FEEDBACK_VALUE && toInterval != NO_FEEDBACK_VALUE);
 
@@ -568,8 +660,24 @@ void UpdateWindowStatus(byte windowNumber)
 
     // сохраняем текущую позицию окна
     windowStatuses[windowNumber].position = zPercents;
+
+    #ifdef _DEBUG
+      Serial.print(F("UpdateWindowStatus? window #"));
+      Serial.print(windowNumber);
+      Serial.print(F("; position is: "));
+      Serial.print(zPercents);
+      Serial.println("%");
+    #endif    
     
   } // if(hasPosition)
+  #ifdef _DEBUG
+  else
+  {
+      Serial.print(F("UpdateWindowStatus? window #"));
+      Serial.print(windowNumber);
+      Serial.println(F(" has no feedback position!"));
+  }
+  #endif // _DEBUG   
 
 
   
@@ -689,6 +797,9 @@ void RS485Receive()
   #ifdef USE_DIRECT_RS485_DE_PIN
     digitalWrite(DIRECT_RS485_PIN,LOW);
   #else
+    #ifdef FEEDBACK_DIRECT_MODE
+      #error "NO MCP AVAILABLE THROUGH DIRECT MODE, CAN'T COMPILE!"
+    #endif    
     mcpExtenders[RS485_MCP23017_NUMBER]->digitalWrite(RS485_MCP23017_CNANNEL,LOW);
   #endif
   
@@ -703,6 +814,9 @@ void RS485Send()
   #ifdef USE_DIRECT_RS485_DE_PIN
     digitalWrite(DIRECT_RS485_PIN,HIGH);
   #else
+    #ifdef FEEDBACK_DIRECT_MODE
+      #error "NO MCP AVAILABLE THROUGH DIRECT MODE, CAN'T COMPILE!"
+    #endif    
     mcpExtenders[RS485_MCP23017_NUMBER]->digitalWrite(RS485_MCP23017_CNANNEL,HIGH);
   #endif
   
@@ -723,12 +837,19 @@ void InitEndstops()
     Serial.println(F("Init endstops...."));
   #endif  
 
+  #ifdef FEEDBACK_DIRECT_MODE
+      pinMode(OPEN_SWITCH_PIN,INPUT);
+      pinMode(CLOSE_SWITCH_PIN,INPUT);
+  #else
+
     for(byte i=0;i<WINDOWS_SERVED;i++)
     {
       FeedbackEndstop es = endstops[i];
       mcpExtenders[es.mcpNumber]->pinMode(es.openSwitchChannel,INPUT);
       mcpExtenders[es.mcpNumber]->pinMode(es.closeSwitchChannel,INPUT);
     } // for
+
+  #endif
   
   #ifdef _DEBUG
     Serial.println(F("Endstops inited."));
@@ -741,6 +862,19 @@ void InitInclinometers()
     Serial.println(F("Init inclinometers...."));
   #endif  
 
+    #ifdef FEEDBACK_DIRECT_MODE
+    
+      compass = new HMC5883();
+      compass->init();
+      // проверяем, есть ли сохранённые данные? Если нет - инициализируем значениями "нет данных"
+      if(!CheckFeedbackHeaders(0))
+      {
+        SaveFeedbackBorder(0,NO_FEEDBACK_VALUE,true);
+        SaveFeedbackBorder(0,NO_FEEDBACK_VALUE,false);
+      }
+      
+    #else
+    
     for(byte i=0;i<WINDOWS_SERVED;i++)
     {
       InclinometerSettings is = inclinometers[i];
@@ -768,6 +902,8 @@ void InitInclinometers()
       
       TurnInclinometerOff(is);
     } // for
+
+    #endif
       
   
   #ifdef _DEBUG
@@ -998,12 +1134,12 @@ void ReadROM()
     scratchpadS.packet_type = uniExecutionClient; // говорим, что это тип пакета - исполнительный модуль
     scratchpadS.packet_subtype = 0;
 
-    // говорим, что никакой калибровки не поддерживаем
+    // говорим, что никакой адресации не поддерживаем
     scratchpadS.config &= ~2; // второй бит убираем по-любому
 
 
     #ifdef USE_FEEDBACK
-      #ifndef ADDRESS_THROUGH_MCP
+      #if  !defined(ADDRESS_THROUGH_MCP) || defined(FEEDBACK_DIRECT_MODE)
         // адресуемся из конфига, ставим второй бит
         scratchpadS.config |= 2;
       #endif
@@ -1177,6 +1313,11 @@ void InitRS485()
   #ifdef USE_DIRECT_RS485_DE_PIN
     pinMode(DIRECT_RS485_PIN,OUTPUT);
   #else
+  
+    #ifdef FEEDBACK_DIRECT_MODE
+      #error "NO MCP AVAILABLE THROUGH DIRECT MODE, CAN'T COMPILE!"
+    #endif  
+    
     mcpExtenders[RS485_MCP23017_NUMBER]->pinMode(RS485_MCP23017_CNANNEL,OUTPUT);
   #endif
   
@@ -1250,19 +1391,13 @@ void setup()
  #endif
   
   #ifdef USE_FEEDBACK
+
+    #ifndef FEEDBACK_DIRECT_MODE
     InitMCP23017(); // инициализируем расширители
+    #endif
     InitEndstops(); // инициализируем концевики
     InitInclinometers(); // инициализируем инклинометры
     ReadModuleAddress(); // читаем наш адрес
-
-    #ifdef _DEBUG
-      // тут тестовое заполнение пакета данными
-      WindowFeedbackPacket* packet = (WindowFeedbackPacket*) &(rs485Packet.data);
-      packet->moduleNumber = moduleAddress; 
-  
-      ProcessFeedbackPacket();
-    #endif
-
   
   #endif
   
