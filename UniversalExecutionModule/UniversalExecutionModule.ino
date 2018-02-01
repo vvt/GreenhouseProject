@@ -16,6 +16,7 @@
 
 Также поддерживается возможность использования обратной связи по положению
 окон и срабатывания концевиков, для этой возможности раскомментируйте USE_FEEDBACK.
+Обратная связь поддерживается только по RS-485!
 
 ВНИМАНИЕ!
 
@@ -79,7 +80,8 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 
 //----------------------------------------------------------------------------------------------------------------
 // настройки привязок управления каналами активности инклинометров на шине I2C 
-// ( управление каналами I2C осуществляется через микросхему PCA9516A)
+// (управление каналами I2C осуществляется через микросхему PCA9516A)
+// используемые инклинометры - HMC5883
 // ВНИМАНИЕ! кол-во записей - равно WINDOWS_SERVED !!!
 // записи - через запятую, одна запись имеет формат { MCP_NUMBER, CHANNEL_NUMBER }, где
 // MCP_NUMBER - номер микросхемы по порядку (0 - первая микросхема, 1 - вторая и т.п.),
@@ -142,7 +144,8 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //----------------------------------------------------------------------------------------------------------------
 // настройки
 //----------------------------------------------------------------------------------------------------------------
-#define ROM_ADDRESS (void*) 0 // по какому адресу у нас настройки?
+#define ROM_ADDRESS 0 // по какому адресу у нас настройки скратчпада?
+#define INCLINOMETERS_ADDRESS 100 // по какому адресу у нас настройки инклинометров
 //----------------------------------------------------------------------------------------------------------------
 // настройки инициализации, привязка слотов к пинам и первоначальному состоянию
 //----------------------------------------------------------------------------------------------------------------
@@ -263,6 +266,91 @@ volatile byte  rs485WritePtr = 0; // указатель записи в паке
 #ifdef USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
 #include "MCP23017.h"
+#include "HMC5883.h"
+#include <EEPROM.h>
+//----------------------------------------------------------------------------------------------------------------
+#define RECORD_HEADER1 0xDE
+#define RECORD_HEADER2 0xAE
+#define RECORD_HEADER3 0x15
+#define NO_FEEDBACK_VALUE -31111
+//----------------------------------------------------------------------------------------------------------------
+int GetFeedbackStoreAddress(uint8_t inclinometerNumber)
+{
+  int addr = INCLINOMETERS_ADDRESS;
+  int recordSize = 3 + sizeof(int)*2;
+  addr += recordSize*inclinometerNumber;
+
+  return addr;
+}
+//----------------------------------------------------------------------------------------------------------------
+bool CheckFeedbackHeaders(uint8_t inclinometerNumber)
+{
+  int addr =  GetFeedbackStoreAddress(inclinometerNumber);
+ 
+  uint8_t h1 = EEPROM.read(addr); addr++;
+  uint8_t h2 = EEPROM.read(addr); addr++;
+  uint8_t h3 = EEPROM.read(addr); addr++;
+
+  return (h1 == RECORD_HEADER1 && h2 == RECORD_HEADER2 && h3 == RECORD_HEADER3);
+}
+//----------------------------------------------------------------------------------------------------------------
+void WriteFeedbackHeader(uint8_t inclinometerNumber)
+{
+  int addr =  GetFeedbackStoreAddress(inclinometerNumber);
+  
+  EEPROM.update(addr,RECORD_HEADER1); addr++;
+  EEPROM.update(addr,RECORD_HEADER2); addr++;
+  EEPROM.update(addr,RECORD_HEADER3); addr++;
+  
+}
+//----------------------------------------------------------------------------------------------------------------
+void SaveFeedbackBorder(uint8_t inclinometerNumber, int value, bool isStartInterval)
+{
+  WriteFeedbackHeader(inclinometerNumber);
+  
+  int addr =  GetFeedbackStoreAddress(inclinometerNumber);
+  addr += 3; // skip header
+  
+  if(!isStartInterval)
+    addr += sizeof(int); // skip first interval
+
+  byte* b = (byte*) &value;
+  for(size_t i=0;i<sizeof(int);i++)
+  {
+    EEPROM.update(addr,*b);
+    addr++;
+    b++;
+  }
+}
+//----------------------------------------------------------------------------------------------------------------
+void ReadFeedbackBorders(uint8_t inclinometerNumber, int& from, int& to)
+{
+  from = NO_FEEDBACK_VALUE;
+  to = NO_FEEDBACK_VALUE;
+
+  if(!CheckFeedbackHeaders(inclinometerNumber))
+    return;
+
+  int addr =  GetFeedbackStoreAddress(inclinometerNumber);
+  addr += 3; // skip header
+
+  byte* b = (byte*) &from;
+
+  for(size_t i=0;i<sizeof(int);i++)
+  {
+    *b = EEPROM.read(addr);
+    addr++;
+  }
+
+  b = (byte*) &to;
+
+  for(size_t i=0;i<sizeof(int);i++)
+  {
+    *b = EEPROM.read(addr);
+    addr++;
+  }
+    
+}
 //----------------------------------------------------------------------------------------------------------------
 Adafruit_MCP23017* mcpExtenders[COUNT_OF_MCP23017_EXTENDERS] = {NULL};
 byte mcpAddresses[COUNT_OF_MCP23017_EXTENDERS] = {MCP23017_ADDRESSES};
@@ -328,6 +416,7 @@ void ReadModuleAddress()
 //----------------------------------------------------------------------------------------------------------------
 InclinometerSettings inclinometers[WINDOWS_SERVED] = {MCP23017_INCLINOMETER_SETTINGS};
 FeedbackEndstop endstops[WINDOWS_SERVED] = { MCP23017_SWITCH_SETTINGS };
+HMC5883* compasses[WINDOWS_SERVED] = {NULL};
 //----------------------------------------------------------------------------------------------------------------
 void TurnInclinometerOff(InclinometerSettings& is)
 {
@@ -380,11 +469,7 @@ void UpdateWindowStatus(byte windowNumber)
 
   // включаем инклинометр на шине I2C
   TurnInclinometerOn(inclinometer);
-    
-  //TODO: Тут актуальное чтение позиций окон!!!
-  windowStatuses[windowNumber].hasPosition = 1;
-  windowStatuses[windowNumber].position = (windowNumber+1)*5; // пока тупо, чисто для теста
-  
+      
   // теперь читаем позицию концевиков
   FeedbackEndstop endstop = endstops[windowNumber];
   
@@ -392,6 +477,103 @@ void UpdateWindowStatus(byte windowNumber)
   
   windowStatuses[windowNumber].isCloseSwitchTriggered = mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
   windowStatuses[windowNumber].isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
+
+  // читаем с инклинометра
+  int x,y,z;
+  compasses[windowNumber]->read(&x,&y,&z);
+  
+  // если сработал один из концевиков - сохраняем значение оси Z с компаса
+  // первым у нас идёт концевик закрытия, т.к. мы меряем от закрытия (0%)
+  if(windowStatuses[windowNumber].isCloseSwitchTriggered)
+  {
+    SaveFeedbackBorder(windowNumber,z,true);
+  }
+
+  // если сработал концевик открытия - также сохраняем значение в EEPROM
+  if(windowStatuses[windowNumber].isOpenSwitchTriggered)
+  {
+    SaveFeedbackBorder(windowNumber,z,false);
+  }
+
+   // читаем значения интервалов
+   int fromInterval, toInterval;
+   ReadFeedbackBorders(windowNumber,fromInterval,toInterval);
+   
+   bool hasPosition = (fromInterval != NO_FEEDBACK_VALUE && toInterval != NO_FEEDBACK_VALUE);
+
+   if(hasPosition)
+    hasPosition = (fromInterval != toInterval);
+
+  windowStatuses[windowNumber].hasPosition = hasPosition;
+  windowStatuses[windowNumber].position = 0;
+
+
+  if(hasPosition)
+  {
+    // у нас есть интервалы, можем анализировать. сначала вычисляем общий интервал по формуле interval = |to - from|
+    int fullInterval = abs(toInterval - fromInterval);
+    
+    // для начала - приведём Z в интервал
+    if(fromInterval < toInterval) // [-100, 100]
+    {
+      if(z < fromInterval)
+        z = fromInterval;
+
+      if(z > toInterval)
+        z = toInterval;
+    }
+    else // [100, -100]
+    {
+      if( z > fromInterval)
+        z = fromInterval;
+
+      if(z < toInterval)
+        z = toInterval;
+        
+    }
+
+    // теперь у нас z - в интервале, и мы можем посчитать, на какой точке интервала, в процентах,
+    // находится текущее значение Z
+
+    // приводим интервал в положительную сторону
+    int zBegin = fromInterval + abs(fromInterval);
+    int zEnd = toInterval + abs(fromInterval);
+    z = z + abs(fromInterval);
+
+    // нормализуем интервал, чтобы направление вектора было вправо
+    int maxVal = max(zBegin,zEnd);
+    int minVal = min(zBegin,zEnd);
+    zBegin = minVal;
+    zEnd = maxVal;
+
+    // мы получили вектор, смотрящий вправо, и теперь можем получить значение z в процентах
+    // между началом и концом вектора
+    int zPercents = (z*100)/fullInterval;
+
+    // но для случая fromInterval > toInterval у нас процентовка отсчитывается от 100%,
+    // поэтому меняем процентовку
+    if(fromInterval > toInterval)
+      zPercents = 100 - zPercents;
+    
+   // вычислили процентовку, приводим её к дискрету в 5%, чтобы убрать дребезг датчика
+   int discreteStep = 5;
+   int halfStep = discreteStep/2;
+
+   int value = zPercents/discreteStep;
+   int fract = zPercents%discreteStep;
+   if(fract > halfStep)
+    value++;
+
+    zPercents = value*discreteStep; // привели к дискретности в 5%
+
+    // сохраняем текущую позицию окна
+    windowStatuses[windowNumber].position = zPercents;
+    
+  } // if(hasPosition)
+
+
+  
+
    
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -572,10 +754,17 @@ void InitInclinometers()
       
       TurnInclinometerOn(is);
 
-      //TODO: Тут инициализация инклинометра!!!!!
-        #ifdef _DEBUG
-          Serial.println(F("Init inclinometer - NOT IMPLEMENTED!!!"));
-        #endif  
+      //Тут инициализация инклинометра
+      compasses[i] = new HMC5883();
+      compasses[i]->init();
+
+      // проверяем, есть ли сохранённые данные? Если нет - инициализируем значениями "нет данных"
+      if(!CheckFeedbackHeaders(i))
+      {
+        SaveFeedbackBorder(i,NO_FEEDBACK_VALUE,true);
+        SaveFeedbackBorder(i,NO_FEEDBACK_VALUE,false);
+      }
+
       
       TurnInclinometerOff(is);
     } // for
@@ -800,7 +989,7 @@ void ProcessNRF()
 void ReadROM()
 {
     memset((void*)&scratchpadS,0,sizeof(scratchpadS));
-    eeprom_read_block((void*)&scratchpadS, ROM_ADDRESS, 29);
+    eeprom_read_block((void*)&scratchpadS, (void*) ROM_ADDRESS, 29);
 
     // пишем номер канала по умолчанию
     if(scratchpadS.rf_id == 0xFF || scratchpadS.rf_id == 0)
@@ -824,7 +1013,7 @@ void ReadROM()
 //----------------------------------------------------------------------------------------------------------------
 void WriteROM()
 {
-    eeprom_write_block( (void*)scratchpad,ROM_ADDRESS,29);
+    eeprom_write_block( (void*)scratchpad,(void*) ROM_ADDRESS,29);
     memcpy(&scratchpadToSend,&scratchpadS,sizeof(scratchpadS));
 
     #ifdef USE_NRF
