@@ -602,9 +602,6 @@ void UpdateWindowStatus(byte windowNumber)
 
   if(hasPosition)
   {
-    // у нас есть интервалы, можем анализировать. сначала вычисляем общий интервал по формуле interval = |to - from|
-    int fullInterval = abs(toInterval - fromInterval);
-    
     // для начала - приведём Z в интервал
     if(fromInterval < toInterval) // [-100, 100]
     {
@@ -638,9 +635,15 @@ void UpdateWindowStatus(byte windowNumber)
     zBegin = minVal;
     zEnd = maxVal;
 
+    // приводим к началу точки отсчёта - нулю
+    zEnd -= zBegin;
+    z -= zBegin;
+
     // мы получили вектор, смотрящий вправо, и теперь можем получить значение z в процентах
     // между началом и концом вектора
-    int zPercents = (z*100)/fullInterval;
+    unsigned long z100 = z;
+    z100 *= 100;  
+    int zPercents = z100/zEnd;
 
     // но для случая fromInterval > toInterval у нас процентовка отсчитывается от 100%,
     // поэтому меняем процентовку
@@ -651,18 +654,34 @@ void UpdateWindowStatus(byte windowNumber)
    int discreteStep = 5;
    int halfStep = discreteStep/2;
 
-   int value = zPercents/discreteStep;
-   int fract = zPercents%discreteStep;
-   if(fract > halfStep)
-    value++;
+   if(zPercents <= halfStep)
+   {
+     // близко к нулю
+     zPercents = 0;
+   }
+   else
+   if(zPercents >= (100 - halfStep))
+   {
+      // близко к 100
+      zPercents = 100;      
+   }
+   else
+   {
+     // приводим к дискретности в 5%
 
-    zPercents = value*discreteStep; // привели к дискретности в 5%
+     int value = zPercents/discreteStep;
+     int fract = zPercents%discreteStep;
+     if(fract > halfStep)
+      value++;
+  
+      zPercents = value*discreteStep; // привели к дискретности в 5%
+   }
 
     // сохраняем текущую позицию окна
     windowStatuses[windowNumber].position = zPercents;
 
     #ifdef _DEBUG
-      Serial.print(F("UpdateWindowStatus? window #"));
+      Serial.print(F("UpdateWindowStatus, window #"));
       Serial.print(windowNumber);
       Serial.print(F("; position is: "));
       Serial.print(zPercents);
