@@ -100,6 +100,8 @@ void PDUMessageEncoder::UTF8ToUCS2(const String& s, unsigned int& bytesProcessed
     
   } // while
 
+  *output += '\0';
+
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 String PDUMessageEncoder::EncodePhoneNumber(const char* nm)
