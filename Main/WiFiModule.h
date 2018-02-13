@@ -68,6 +68,7 @@ class MQTTClient
     MQTTClientFlags flags;
 
     String* reportTopicString;
+    String reportModuleName;
 
     void switchToNextTopic();
 

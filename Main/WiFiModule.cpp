@@ -301,13 +301,35 @@ void MQTTClient::process(MQTTBuffer& packet) // process incoming packet
             // тут получаем ответ от контроллера, и выставляем флаг, что нам надо опубликовать топик ответа
             flags.wantToSendReportTopic = true;
             delete reportTopicString;
+
+            // проверяем статус выполнения команды
+            String execStatus;
+            if(PublishSingleton.Flags.Status)
+              execStatus = OK_ANSWER;
+            else
+              execStatus = ERR_ANSWER;
+
+            // поскольку у нас все команды адресуются к модулям - первое значение до | будет именем модуля.
+            // это значение надо получить, чтобы склеить с ответом.
+            
+            int idx = topic.indexOf(PARAM_DELIMITER);
+            if(idx == -1)
+              reportModuleName = topic;
+            else
+              reportModuleName = topic.substring(0,idx);
+            
+            if(PublishSingleton.Text.length())
+            {
+              execStatus += "|";
+              execStatus += PublishSingleton.Text;
+            }
                         
             reportTopicString = new String();
 
             #ifdef MQTT_REPORT_AS_JSON
-              convertAnswerToJSON(PublishSingleton.Text,reportTopicString);
+              convertAnswerToJSON(execStatus,reportTopicString);
             #else // ответ как есть, в виде RAW
-              *reportTopicString = PublishSingleton.Text;
+              *reportTopicString = execStatus;
             #endif
             
           } // if(isSetCommand || isGetCommand)
@@ -601,6 +623,12 @@ bool MQTTClient::wantToSay(String& mqttBuffer,int& mqttBufferLength) // пров
             mqttClientId = DEFAULT_MQTT_CLIENT;
 
           mqttClientId += REPORT_TOPIC_NAME;
+          if(reportModuleName.length())
+          {
+            mqttClientId += "/";
+            mqttClientId += reportModuleName;
+            reportModuleName = "";
+          }
 
            // конструируем пакет публикации о статусе отработки команды
            constructPublishPacket(mqttBuffer,mqttBufferLength,mqttClientId.c_str(), reportTopicString->c_str());
