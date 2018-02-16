@@ -1474,6 +1474,11 @@ void TFTIdleScreen::setup(TFTMenu* menuManager)
   // теперь добавляем боксы для датчиков
   #if TFT_SENSOR_BOXES_COUNT > 0
 
+   for(int i=0;i<TFT_SENSOR_BOXES_COUNT;i++)
+   {
+    sensors[i] = NULL;
+   }
+
   
   int startLeft = (screenWidth - (SENSOR_BOXES_PER_LINE*SENSOR_BOX_WIDTH + (SENSOR_BOXES_PER_LINE-1)*SENSOR_BOX_V_SPACING))/2;
   curInfoBoxLeft = startLeft;
