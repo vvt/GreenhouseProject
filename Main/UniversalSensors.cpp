@@ -98,10 +98,294 @@ void UniRS485Gate::waitTransmitComplete()
  #endif
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::executeCommands(const RS485Packet& packet)
+{
+  CommandsToExecutePacket* cePacket = (CommandsToExecutePacket*) &(packet.data);
+  for(int i=0;i<7;i++)
+  {
+      switch(cePacket->commands[i].whichCommand)
+      {
+          case emCommandNone:
+          break;
+
+          case emCommandOpenWindows:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: Open windows!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|OPEN"),false);          
+          }
+          break;
+          
+          case emCommandCloseWindows:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: Close windows!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|CLOSE"),false);          
+          }
+          break;
+
+          case emCommandOpenWindow:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: open window!"));        
+              #endif
+              String cmd = F("STATE|WINDOW|");
+              cmd += cePacket->commands[i].param1;
+              cmd += F("|OPEN");
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
+          }
+          break;          
+
+          case emCommandCloseWindow:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: close window!"));        
+              #endif
+              String cmd = F("STATE|WINDOW|");
+              cmd += cePacket->commands[i].param1;
+              cmd += F("|CLOSE");
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
+          }
+          break;
+
+          case emCommandWaterOn:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: Water on!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("WATER|ON"),false);          
+          }
+          break;
+
+          case emCommandWaterOff:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: Water off!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("WATER|OFF"),false);          
+          }
+          break;
+
+          case emCommandWaterChannelOn:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: water channel on!"));        
+              #endif
+              String cmd = F("WATER|ON|");
+              cmd += cePacket->commands[i].param1;
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
+          }
+          break;
+
+          case emCommandWaterChannelOff:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: water channel off!"));        
+              #endif
+              String cmd = F("WATER|OFF|");
+              cmd += cePacket->commands[i].param1;
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
+          }
+          break;
+
+          case emCommandLightOn:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: Light on!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("LIGHT|ON"),false);          
+          }
+          break; 
+
+          case emCommandLigntOff:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: Light off!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("LIGHT|OFF"),false);          
+          }
+          break;
+
+          case emCommandPinOn:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: pin on!"));        
+              #endif
+              String cmd = F("PIN|");
+              cmd += cePacket->commands[i].param1;
+              cmd += F("|ON");
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
+          }
+          break;            
+          
+          case emCommandPinOff:
+          {
+              #ifdef RS485_DEBUG
+                Serial.println(F("RS485: pin off!"));        
+              #endif
+              String cmd = F("PIN|");
+              cmd += cePacket->commands[i].param1;
+              cmd += F("|OFF");
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
+          }
+          break;            
+                  
+      } // switch
+    
+  } // for
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::Update(uint16_t dt)
 {
 
   static RS485Packet packet;
+
+  ///////////////////////////////////////////////////////////////////////
+  // Опрашиваем модули управления
+  ///////////////////////////////////////////////////////////////////////
+  static uint16_t executionModuleTimer = 0;
+  executionModuleTimer += dt;
+  
+  if(executionModuleTimer > 2000)
+  {
+      // пора опрашивать модули управления
+    
+      executionModuleTimer = 0;
+      
+      enableSend();
+      
+      #ifdef RS485_DEBUG
+        Serial.println(F("Request information from control modules..."));        
+      #endif
+
+      memset(&packet,0,sizeof(RS485Packet));
+      packet.header1 = 0xAB;
+      packet.header2 = 0xBA;
+      packet.tail1 = 0xDE;
+      packet.tail2 = 0xAD;
+
+      packet.direction = RS485FromMaster;
+      packet.type = RS485RequestCommandsPacket;
+
+      CommandsToExecutePacket* cePacket = (CommandsToExecutePacket*) &(packet.data);
+      cePacket->moduleID = 0;
+
+      const byte* b = (const byte*) &packet;
+      packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
+
+      RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+    
+      // теперь ждём завершения передачи
+      waitTransmitComplete();
+
+      // начинаем принимать
+      enableReceive();
+
+      yield();
+
+            memset(&packet,0,sizeof(RS485Packet));
+            byte* writePtr = (byte*) &packet;
+            byte bytesReaded = 0; // кол-во прочитанных байт
+            
+            // запоминаем время начала чтения
+            unsigned long startReadingTime = micros();
+            // вычисляем таймаут как время для чтения десяти байт.
+            // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
+            const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
+
+            // начинаем читать данные
+            while(1)
+            {
+              if( micros() - startReadingTime > readTimeout)
+              {
+                
+                #ifdef RS485_DEBUG
+                  Serial.print(F("Control module #"));
+                  Serial.print(0);
+                  Serial.println(F(" not answering!"));
+                #endif
+                
+                break;
+              } // if
+    
+              if(RS_485_SERIAL.available())
+              {
+                startReadingTime = micros(); // сбрасываем таймаут
+                *writePtr++ = (byte) RS_485_SERIAL.read();
+                bytesReaded++;
+              } // if available
+
+              if(bytesReaded == sizeof(RS485Packet)) // прочитали весь пакет
+              {
+                #ifdef RS485_DEBUG
+                  Serial.println(F("Packet received from control module!"));
+                #endif
+                
+                break;
+              }
+          
+           } // while
+
+            // затем опять переключаемся на передачу
+            enableSend();
+
+        // теперь парсим пакет
+        if(bytesReaded == sizeof(RS485Packet))
+        {
+          bool headOk = packet.header1 == 0xAB && packet.header2 == 0xBA;
+          bool tailOk = packet.tail1 == 0xDE && packet.tail2 == 0xAD;
+          
+          if(headOk && tailOk)
+          {
+            #ifdef RS485_DEBUG
+              Serial.println(F("Header and tail ok."));
+            #endif
+         
+            // вычисляем crc
+            byte crc = crc8((const byte*)&packet,sizeof(RS485Packet)-1);
+            if(crc == packet.crc8)
+            {
+              #ifdef RS485_DEBUG
+                Serial.println(F("Checksum ok."));
+              #endif
+              
+              // теперь проверяем, нам ли пакет
+              if(packet.direction == RS485FromSlave && packet.type == RS485RequestCommandsPacket)
+              {
+                #ifdef RS485_DEBUG
+                  Serial.println(F("Packet type ok, start analyze commands..."));
+                #endif
+
+                  executeCommands(packet);
+
+                  // и посылаем квитанцию
+                  packet.direction = RS485FromMaster;
+                  packet.type = RS485CommandsToExecuteReceipt;
+                  packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
+
+                  RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+    
+                   // теперь ждём завершения передачи
+                  waitTransmitComplete();
+
+                #ifdef RS485_DEBUG
+                  Serial.println(F("Commands from control module executed."));
+                #endif                  
+
+              }
+            } // if crc ok
+            
+          } // if(headOk && tailOk)
+                
+        } // if(bytesReaded == sizeof(RS485Packet))
+      
+    
+  } // if
+  ///////////////////////////////////////////////////////////////////////
+  // Конец опроса модулей управления
+  ///////////////////////////////////////////////////////////////////////
 
   #if defined(USE_FEEDBACK_MANAGER) && defined(USE_TEMP_SENSORS) && SUPPORTED_WINDOWS > 0
   
