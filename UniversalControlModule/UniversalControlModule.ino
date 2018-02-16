@@ -2,6 +2,7 @@
 #include <avr/interrupt.h>
 #include "Common.h"
 #include "PushButton.h"
+#include "CorePinScenario.h"
 //----------------------------------------------------------------------------------------------------------------
 /*
 Прошивка для модуля, предназначена для выноса
@@ -80,6 +81,12 @@ BUTTON commands[7] = {
   
 };
 //----------------------------------------------------------------------------------------------------------------
+// Настройки информационного диода. Диод мигает после того, как подучено подтверждение от контроллера о выполнении команды.
+//----------------------------------------------------------------------------------------------------------------
+#define USE_INFO_DIODE // закомментировать, если не надо использовать информационный диод
+#define INFO_DIODE_PIN 6 // номер пина информационного диода
+#define INFO_DIODE_ON_LEVEL HIGH // уровень включения диода
+//----------------------------------------------------------------------------------------------------------------
 // Дальше лазить - неосмотрительно :)
 //----------------------------------------------------------------------------------------------------------------
 // ||
@@ -131,6 +138,11 @@ volatile byte* rsPacketPtr = (byte*) &rs485Packet;
 volatile byte  rs485WritePtr = 0; // указатель записи в пакет
 PushButton* buttons[7] = {0};
 CommandToExecute currentState[7] = {0,0,0};
+#ifdef USE_INFO_DIODE
+  CorePinScenario blinker;
+  unsigned long blinkerTimer = 0;
+  bool anyCommandExistsToExecute = false;
+#endif
 //----------------------------------------------------------------------------------------------------------------
 void RS485Receive()
 {
@@ -219,6 +231,19 @@ void ProcessReceiptPacket(const RS485Packet& packet)
   
     // тут пока просто обнуляем текущее состояние для отсыла, без анализа на ID модуля
     memset(currentState,0,sizeof(currentState));  
+
+  // сообщаем пользователю, что команда отработана контроллером
+  #ifdef USE_INFO_DIODE
+
+     if(anyCommandExistsToExecute)
+     {
+      anyCommandExistsToExecute = false;
+      blinkerTimer = millis();
+      blinker.reset();
+      blinker.enable();
+     }
+      
+  #endif    
 }
 //----------------------------------------------------------------------------------------------------------------
 void ProcessRS485Packet()
@@ -373,6 +398,8 @@ void setupButtons()
 //----------------------------------------------------------------------------------------------------------------
 void updateButtons()
 {
+
+            
   for(int i=0;i<7;i++)
   {
     if(!buttons[i])
@@ -388,12 +415,18 @@ void updateButtons()
         Serial.println(F(" clicked, save command!"));
       #endif
 
+      #ifdef USE_INFO_DIODE
+        anyCommandExistsToExecute = true;
+      #endif
+
       currentState[i].whichCommand = commands[i].whichCommand;
       currentState[i].param1 = commands[i].param1;
       currentState[i].param2 = commands[i].param2;    
         
     } // if
   } // for
+
+
 }
 //----------------------------------------------------------------------------------------------------------------
 void setup()
@@ -409,7 +442,18 @@ void setup()
   
 
   InitRS485(); // настраиваем RS-485 на приём
-  
+
+  #ifdef USE_INFO_DIODE
+  blinker.add({INFO_DIODE_PIN,INFO_DIODE_ON_LEVEL,100});
+  blinker.add({INFO_DIODE_PIN,!INFO_DIODE_ON_LEVEL,100});
+  blinker.add({INFO_DIODE_PIN,INFO_DIODE_ON_LEVEL,100});
+  blinker.add({INFO_DIODE_PIN,!INFO_DIODE_ON_LEVEL,100});
+  blinker.add({INFO_DIODE_PIN,INFO_DIODE_ON_LEVEL,500});
+  blinker.add({INFO_DIODE_PIN,!INFO_DIODE_ON_LEVEL,1000});
+  blinker.disable();
+  pinMode(INFO_DIODE_PIN,OUTPUT);
+  digitalWrite(INFO_DIODE_PIN,!INFO_DIODE_ON_LEVEL);
+  #endif
   
   
 }
@@ -419,5 +463,18 @@ void loop()
     ProcessIncomingRS485Packets(); // обрабатываем входящие пакеты по RS-485
 
     updateButtons();
+
+    #ifdef USE_INFO_DIODE
+      if(blinker.enabled())
+      {
+        blinker.update();
+        unsigned long now = millis();
+        if(now - blinkerTimer > 1900)
+        {
+          blinker.disable();
+          digitalWrite(INFO_DIODE_PIN,!INFO_DIODE_ON_LEVEL);
+        }
+      }
+    #endif
 }
 //----------------------------------------------------------------------------------------------------------------
