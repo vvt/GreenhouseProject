@@ -294,7 +294,10 @@ typedef struct
   
 } WindowMoveStatus;
 //----------------------------------------------------------------------------------------------------------------
-WindowMoveStatus windowMoveStatus[WINDOWS_SERVED];
+ // у нас 8 слотов, каждый слот может быть привязан к каналу окна, однако - для обратной связи мы используем
+ // только 4 окна максимум, т.е. 8 концевиков. Поэтому приходящую от контроллера информацию по состоянию
+ // каналов окон мы всегда можем транслировать на номер окна, к которому привязаны концевики
+WindowMoveStatus moveStatus[WINDOWS_SERVED];
 //----------------------------------------------------------------------------------------------------------------
 #include "MCP23017.h"
 #include "HMC5883.h"
@@ -536,6 +539,52 @@ void GetWindowsStatus(byte windowNumber, byte& isCloseSwitchTriggered, byte& isO
 
 }
 //----------------------------------------------------------------------------------------------------------------
+void TurnWindowMotorOff(byte window)
+{
+     for(byte i=0;i<8;i++)
+     {
+        UniSlotData* slotData = &(scratchpadS.slots[i]);
+        byte slotType = slotData->slotType;
+        if(slotType == slotWindowLeftChannel || slotType == slotWindowRightChannel)
+        {
+          // у нас есть номер окна, к которому привязан слот. Однако - этот номер окна
+          // не означает номер канала в нашем представлении. В нашем представлении
+          // номер канала - это i/2, т.к. у нас максимум 4 окна на концевиках,
+          // следовательно, мы в любом случае получим номер канала, которому
+          // надо выключить мотор, просто поделив номер слота на 2.
+          byte actualWindowNumber = i/2;
+          if(actualWindowNumber == window && actualWindowNumber < WINDOWS_SERVED)
+          {
+            SLOTS[i].State = RELAY_OFF;
+            digitalWrite(SLOTS[i].Pin, RELAY_OFF);
+          }
+        }
+     }
+}
+//----------------------------------------------------------------------------------------------------------------
+bool IsActualEndstopsTriggered(byte windowNumber)
+{
+  #ifndef FEEDBACK_DIRECT_MODE
+
+  FeedbackEndstop endstop = endstops[windowNumber];
+  
+  Adafruit_MCP23017* mcp = mcpExtenders[endstop.mcpNumber];
+  
+   bool isCloseSwitchTriggered = mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
+   bool isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
+
+   return isCloseSwitchTriggered || isOpenSwitchTriggered;
+  
+  #else
+    UNUSED(windowNumber);
+    bool isCloseSwitchTriggered = digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
+    bool isOpenSwitchTriggered = digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
+    
+   return isCloseSwitchTriggered || isOpenSwitchTriggered;
+  
+  #endif
+}
+//----------------------------------------------------------------------------------------------------------------
 void UpdateWindowStatus(byte windowNumber)
 {
   #ifndef FEEDBACK_DIRECT_MODE
@@ -561,12 +610,14 @@ void UpdateWindowStatus(byte windowNumber)
   windowStatuses[windowNumber].isCloseSwitchTriggered = mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
   windowStatuses[windowNumber].isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
 
+
   if(windowMoveStatus[windowNumber].onIgnoreMode)
   {
-    // в режиме игнорирования положений концевиков
+    // в режиме игнорирования положений концевиков, нам не надо сообщать контроллеру, что концевик сработал, пока мотор не проработает минимальное время
     windowStatuses[windowNumber].isCloseSwitchTriggered = false;
     windowStatuses[windowNumber].isOpenSwitchTriggered = false;
   }
+  
 
   // читаем с инклинометра
   #ifdef USE_INCLINOMETERS
@@ -584,9 +635,10 @@ void UpdateWindowStatus(byte windowNumber)
     windowStatuses[windowNumber].isCloseSwitchTriggered = digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
     windowStatuses[windowNumber].isOpenSwitchTriggered = digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
 
-  if(windowMoveStatus[windowNumber].onIgnoreMode)
+
+  if(moveStatus[windowNumber].onIgnoreMode)
   {
-    // в режиме игнорирования положений концевиков
+    // в режиме игнорирования положений концевиков, нам не надо сообщать контроллеру, что концевик сработал, пока мотор не проработает минимальное время
     windowStatuses[windowNumber].isCloseSwitchTriggered = false;
     windowStatuses[windowNumber].isOpenSwitchTriggered = false;
   }
@@ -750,10 +802,11 @@ void UpdateWindowStatus(byte windowNumber)
 
  #endif // USE_INCLINOMETERS
 
-
-  
-
-   
+// тут проверяем - если мы не в режиме игнорирования положений концевиков и актуально сработал
+// один из них - надо останавливать мотор
+  if(!moveStatus[windowNumber].onIgnoreMode && IsActualEndstopsTriggered(windowNumber))
+    TurnWindowMotorOff(windowNumber);
+    
 }
 //----------------------------------------------------------------------------------------------------------------
 void FillRS485PacketWithData(WindowFeedbackPacket* packet) // заполняем пакет обратной связи данными для RS485
@@ -924,9 +977,9 @@ void InitEndstops()
 
   for(byte i=0;i<WINDOWS_SERVED;i++)
   {
-    windowMoveStatus[i].inMove = false;
-    windowMoveStatus[i].onIgnoreMode = false;
-    windowMoveStatus[i].ignoreTimer = 0;
+    moveStatus[i].inMove = false;
+    moveStatus[i].onIgnoreMode = false;
+    moveStatus[i].ignoreTimer = 0;
   }
   
   #ifdef _DEBUG
@@ -1008,7 +1061,7 @@ void UpdateFromControllerState(ControllerState* state)
   
   for(byte i=0;i<WINDOWS_SERVED;i++)
   {
-    currentWindowMoveStatus[i] = windowMoveStatus[i].inMove;
+    currentWindowMoveStatus[i] = moveStatus[i].inMove;
     controllerWindowMoveStatus[i] = false;
   }
 
@@ -1022,7 +1075,8 @@ void UpdateFromControllerState(ControllerState* state)
     {
       // это слот для окна
       byte windowNumber = slotData->slotLinkedData;
-      if(windowNumber < WINDOWS_SERVED)
+      byte actualWindowNumber = i/2;
+      if(actualWindowNumber < WINDOWS_SERVED)
       {
         byte bitNum = windowNumber*2;
         
@@ -1030,7 +1084,7 @@ void UpdateFromControllerState(ControllerState* state)
           bitNum++;
 
           if(state->WindowsState & (1 << bitNum))
-            controllerWindowMoveStatus[windowNumber] = true; // окно движется, т.к. один из каналов выставлен в 1
+            controllerWindowMoveStatus[actualWindowNumber] = true; // окно движется, т.к. один из каналов выставлен в 1
       }
     }
   } // for
@@ -1043,20 +1097,20 @@ void UpdateFromControllerState(ControllerState* state)
     bool moveNow = controllerWindowMoveStatus[i];
 
     // сохраняем - двигается окно или нет
-    windowMoveStatus[i].inMove = moveNow;
+    moveStatus[i].inMove = moveNow;
 
     if(!movePast && !moveNow)
     {
       // не двигалось раньше и не двигается сейчас, не надо игнорировать положение концевиков
-      windowMoveStatus[i].onIgnoreMode = false;
+      moveStatus[i].onIgnoreMode = false;
     }
     else
     {
       if(!movePast && moveNow)
       {
         // не двигалось раньше, но двигается сейчас - надо игнорировать положение концевиков N времени
-        windowMoveStatus[i].onIgnoreMode = true;
-        windowMoveStatus[i].ignoreTimer = millis();
+        moveStatus[i].onIgnoreMode = true;
+        moveStatus[i].ignoreTimer = millis();
       }
     }
     
@@ -1083,6 +1137,7 @@ void UpdateFromControllerState(ControllerState* state)
             {
               // состояние левого канала окна, в slotLinkedData - номер окна
               byte windowNumber = slotData->slotLinkedData;
+              
               if(windowNumber < 16)
               {
                 // окна у нас нумеруются от 0 до 15, всего 16 окон.
@@ -1091,7 +1146,23 @@ void UpdateFromControllerState(ControllerState* state)
                 // умножить на 2.
                 byte bitNum = windowNumber*2;           
                 if(state->WindowsState & (1 << bitNum))
-                  slotStatus = RELAY_ON; // выставляем в слоте значение 1
+                {
+                  #ifdef USE_FEEDBACK
+                    byte actualWindowNumber = i/2;
+                    // мы должны выставлять RELAY_ON только тогда, когда мы не в режиме игнорирования концевиков и когда ни один из них не сработал
+                    if(actualWindowNumber < WINDOWS_SERVED)
+                    {
+                      if(!moveStatus[actualWindowNumber].onIgnoreMode && !IsActualEndstopsTriggered(actualWindowNumber))                    
+                        slotStatus = RELAY_ON;                      
+                    }
+                    else
+                    {
+                      slotStatus = RELAY_ON; // выставляем в слоте значение 1
+                    }
+                  #else
+                    slotStatus = RELAY_ON; // выставляем в слоте значение 1
+                  #endif
+                }
               }
             }
             break;
@@ -1100,6 +1171,7 @@ void UpdateFromControllerState(ControllerState* state)
             {
               // состояние левого канала окна, в slotLinkedData - номер окна
               byte windowNumber = slotData->slotLinkedData;
+              //byte actualWindowNumber = i/2;
               if(windowNumber < 16)
               {
                 // окна у нас нумеруются от 0 до 15, всего 16 окон.
@@ -1112,7 +1184,23 @@ void UpdateFromControllerState(ControllerState* state)
                 bitNum++;
                            
                 if(state->WindowsState & (1 << bitNum))
-                  slotStatus = RELAY_ON; // выставляем в слоте значение 1
+                {
+                  #ifdef USE_FEEDBACK
+                    byte actualWindowNumber = i/2;
+                    // мы должны выставлять RELAY_ON только тогда, когда мы не в режиме игнорирования концевиков и когда ни один из них не сработал
+                    if(actualWindowNumber < WINDOWS_SERVED)
+                    {
+                      if(!moveStatus[actualWindowNumber].onIgnoreMode && !IsActualEndstopsTriggered(actualWindowNumber))                    
+                        slotStatus = RELAY_ON;                      
+                    }
+                    else
+                    {
+                      slotStatus = RELAY_ON; // выставляем в слоте значение 1
+                    }
+                  #else
+                    slotStatus = RELAY_ON; // выставляем в слоте значение 1
+                  #endif
+                }
               }
             }
             break;
@@ -1488,6 +1576,8 @@ void UpdateSlots1Wire()
  #ifdef _DEBUG
   Serial.println(F("Update slots from 1-Wire..."));
  #endif
+
+ //TODO: По 1-Wire состояние концевиков игнорируется !!!
   
   for(byte i=0;i<8;i++)
   {
@@ -1719,11 +1809,11 @@ void loop()
 
     for(byte i=0;i<WINDOWS_SERVED;i++)
     {
-      if(windowMoveStatus[i].onIgnoreMode)
+      if(moveStatus[i].onIgnoreMode)
       {
-        if(millis() - windowMoveStatus[i].ignoreTimer > ENDSTOPS_IGNORE_TIME)
+        if(millis() - moveStatus[i].ignoreTimer > ENDSTOPS_IGNORE_TIME)
         {
-          windowMoveStatus[i].onIgnoreMode = false;
+          moveStatus[i].onIgnoreMode = false;
         }
       }
     }
