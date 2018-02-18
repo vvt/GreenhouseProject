@@ -40,6 +40,12 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 #define USE_FEEDBACK // закомментировать, если не нужен функционал обратной связи (4 канала положения окон + 
 // состояние концевиков открытия и закрытия каждого окна)
 //----------------------------------------------------------------------------------------------------------------
+//#define USE_INCLINOMETERS // закомментировать, если не надо использовать инклинометры (в этом случае будут использоваться
+// только концевики)
+//----------------------------------------------------------------------------------------------------------------
+#define ENDSTOPS_IGNORE_TIME 1000 // время, в миллисекундах, в течение которого мы игнорируем состояние концевиков,
+// если окно движется в какую-либо сторону (нужно для отодвигания окна от концевика)
+//----------------------------------------------------------------------------------------------------------------
 #define WINDOWS_SERVED 4 // Сколько окон обслуживается (максимум - 4, минимум - 1)
 //----------------------------------------------------------------------------------------------------------------
 #define FEEDBACK_UPDATE_INTERVAL 1000 // интервал между обновлениями статусов окон. Каждое окно обновляет свой статус
@@ -128,8 +134,8 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 #define INCLINOMETER_CHANNEL_OFF LOW // уровень, нужный для выключения канала I2C инклинометров, не участвующих в опросе позиции конкретного окна
 #define INCLINOMETER_CHANNEL_ON HIGH // уровень, нужный для включения канала I2C инклинометров, не участвующих в опросе позиции конкретного окна
 
-#define OPEN_SWITCH_TRIGGERED_LEVEL HIGH // уровень, при котором концевик открытия считается сработавшим
-#define CLOSE_SWITCH_TRIGGERED_LEVEL HIGH // уровень, при котором концевик закрытия считается сработавшим
+#define OPEN_SWITCH_TRIGGERED_LEVEL LOW // уровень, при котором концевик открытия считается сработавшим
+#define CLOSE_SWITCH_TRIGGERED_LEVEL LOW // уровень, при котором концевик закрытия считается сработавшим
 //----------------------------------------------------------------------------------------------------------------
 // КОНЕЦ НАСТРОЕК ОБРАТНОЙ СВЯЗИ
 //----------------------------------------------------------------------------------------------------------------
@@ -183,10 +189,10 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //----------------------------------------------------------------------------------------------------------------
 SlotSettings SLOTS[8] = 
 {
-  {3,   RELAY_OFF} // пин номер такой-то, начальное состояние RELAY_OFF
- ,{5,   RELAY_OFF} // и т.д. 0 вместо номера пина - нет поддержки привязки канала к пину
- ,{6,   RELAY_OFF}
- ,{7,   RELAY_OFF}
+  {6,   RELAY_OFF} // пин номер такой-то, начальное состояние RELAY_OFF
+ ,{7,   RELAY_OFF} // и т.д. 0 вместо номера пина - нет поддержки привязки канала к пину
+ ,{3,   RELAY_OFF}
+ ,{5,   RELAY_OFF}
  ,{A0,  RELAY_OFF}
  ,{A1,  RELAY_OFF}
  ,{A2,  RELAY_OFF}
@@ -279,6 +285,16 @@ volatile byte* rsPacketPtr = (byte*) &rs485Packet;
 volatile byte  rs485WritePtr = 0; // указатель записи в пакет
 //----------------------------------------------------------------------------------------------------------------
 #ifdef USE_FEEDBACK
+//----------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  bool inMove;
+  bool onIgnoreMode;
+  unsigned long ignoreTimer;
+  
+} WindowMoveStatus;
+//----------------------------------------------------------------------------------------------------------------
+WindowMoveStatus windowMoveStatus[WINDOWS_SERVED];
 //----------------------------------------------------------------------------------------------------------------
 #include "MCP23017.h"
 #include "HMC5883.h"
@@ -461,14 +477,19 @@ void ReadModuleAddress()
 }
 //----------------------------------------------------------------------------------------------------------------
 #ifdef FEEDBACK_DIRECT_MODE
-  HMC5883* compass = NULL;
+  #ifdef USE_INCLINOMETERS
+    HMC5883* compass = NULL;
+  #endif
 #else
+#ifdef USE_INCLINOMETERS
 InclinometerSettings inclinometers[WINDOWS_SERVED] = {MCP23017_INCLINOMETER_SETTINGS};
-FeedbackEndstop endstops[WINDOWS_SERVED] = { MCP23017_SWITCH_SETTINGS };
 HMC5883* compasses[WINDOWS_SERVED] = {NULL};
+#endif
+FeedbackEndstop endstops[WINDOWS_SERVED] = { MCP23017_SWITCH_SETTINGS };
 #endif
 //----------------------------------------------------------------------------------------------------------------
 #ifndef FEEDBACK_DIRECT_MODE
+#ifdef USE_INCLINOMETERS
 void TurnInclinometerOff(InclinometerSettings& is)
 {
  mcpExtenders[is.mcpNumber]->digitalWrite(is.mcpChannel,INCLINOMETER_CHANNEL_OFF); 
@@ -487,8 +508,9 @@ void TurnInclinometersOff()
       TurnInclinometerOff(is);
   }
 }
+#endif // USE_INCLINOMETERS
 //----------------------------------------------------------------------------------------------------------------
-#endif // FEEDBACK_DIRECT_MODE
+#endif // !FEEDBACK_DIRECT_MODE
 //----------------------------------------------------------------------------------------------------------------
 void GetWindowsStatus(byte windowNumber, byte& isCloseSwitchTriggered, byte& isOpenSwitchTriggered, byte& hasPosition, byte& position)
 {
@@ -522,12 +544,14 @@ void UpdateWindowStatus(byte windowNumber)
       Serial.print(F("UpdateWindowStatus - MCP MODE, window #"));
       Serial.println(windowNumber);
     #endif
-  
+    
+  #ifdef USE_INCLINOMETERS
   TurnInclinometersOff();
   InclinometerSettings inclinometer = inclinometers[windowNumber];
 
   // включаем инклинометр на шине I2C
   TurnInclinometerOn(inclinometer);
+  #endif
       
   // теперь читаем позицию концевиков
   FeedbackEndstop endstop = endstops[windowNumber];
@@ -535,13 +559,22 @@ void UpdateWindowStatus(byte windowNumber)
   Adafruit_MCP23017* mcp = mcpExtenders[endstop.mcpNumber];
   
   windowStatuses[windowNumber].isCloseSwitchTriggered = mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
-  windowStatuses[windowNumber].isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
+  windowStatuses[windowNumber].isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
+
+  if(windowMoveStatus[windowNumber].onIgnoreMode)
+  {
+    // в режиме игнорирования положений концевиков
+    windowStatuses[windowNumber].isCloseSwitchTriggered = false;
+    windowStatuses[windowNumber].isOpenSwitchTriggered = false;
+  }
 
   // читаем с инклинометра
+  #ifdef USE_INCLINOMETERS
   int x,y,z;
   compasses[windowNumber]->read(&x,&y,&z);
+  #endif
 
-  #else
+  #else // direct mode
 
     #ifdef _DEBUG
       Serial.print(F("UpdateWindowStatus - DIRECT MODE, window #"));
@@ -551,9 +584,19 @@ void UpdateWindowStatus(byte windowNumber)
     windowStatuses[windowNumber].isCloseSwitchTriggered = digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
     windowStatuses[windowNumber].isOpenSwitchTriggered = digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
 
+  if(windowMoveStatus[windowNumber].onIgnoreMode)
+  {
+    // в режиме игнорирования положений концевиков
+    windowStatuses[windowNumber].isCloseSwitchTriggered = false;
+    windowStatuses[windowNumber].isOpenSwitchTriggered = false;
+  }
+
+    #ifdef USE_INCLINOMETERS
     int x,y,z;
     compass->read(&x,&y,&z);
-  #endif
+    #endif
+    
+  #endif // direct mode
 
     #ifdef _DEBUG
       if(windowStatuses[windowNumber].isCloseSwitchTriggered)
@@ -562,11 +605,14 @@ void UpdateWindowStatus(byte windowNumber)
       if(windowStatuses[windowNumber].isOpenSwitchTriggered)
         Serial.println(F("Open switch triggered!"));
 
-        
+      #ifdef USE_INCLINOMETERS  
       Serial.print(F("UpdateWindowStatus, Z is: "));
       Serial.println(z);
+      #endif
+      
     #endif 
-  
+
+  #ifdef USE_INCLINOMETERS
   // если сработал один из концевиков - сохраняем значение оси Z с компаса
   // первым у нас идёт концевик закрытия, т.к. мы меряем от закрытия (0%)
   if(windowStatuses[windowNumber].isCloseSwitchTriggered)
@@ -692,11 +738,17 @@ void UpdateWindowStatus(byte windowNumber)
   #ifdef _DEBUG
   else
   {
-      Serial.print(F("UpdateWindowStatus? window #"));
+      Serial.print(F("UpdateWindowStatus, window #"));
       Serial.print(windowNumber);
       Serial.println(F(" has no feedback position!"));
   }
-  #endif // _DEBUG   
+  #endif // _DEBUG  
+
+ #else
+ 
+    windowStatuses[windowNumber].hasPosition = false;
+
+ #endif // USE_INCLINOMETERS
 
 
   
@@ -869,6 +921,13 @@ void InitEndstops()
     } // for
 
   #endif
+
+  for(byte i=0;i<WINDOWS_SERVED;i++)
+  {
+    windowMoveStatus[i].inMove = false;
+    windowMoveStatus[i].onIgnoreMode = false;
+    windowMoveStatus[i].ignoreTimer = 0;
+  }
   
   #ifdef _DEBUG
     Serial.println(F("Endstops inited."));
@@ -877,6 +936,8 @@ void InitEndstops()
 //----------------------------------------------------------------------------------------------------------------
 void InitInclinometers()
 {
+#ifdef USE_INCLINOMETERS
+  
   #ifdef _DEBUG
     Serial.println(F("Init inclinometers...."));
   #endif  
@@ -927,13 +988,83 @@ void InitInclinometers()
   
   #ifdef _DEBUG
     Serial.println(F("Inclinometers inited."));
-  #endif    
+  #endif
+
+  #endif // USE_INCLINOMETERS    
 }
 //----------------------------------------------------------------------------------------------------------------
 #endif // USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
 void UpdateFromControllerState(ControllerState* state)
 {
+
+#ifdef USE_FEEDBACK
+
+  // тут ситуация такая - если какое-то окно движется, и при этом не двигалось раньше - 
+  // то мы должны игнорировать положение концевиков определённое время.
+  // если окно не двигается - игнорировать положение концевиков не надо.
+  bool currentWindowMoveStatus[WINDOWS_SERVED];
+  bool controllerWindowMoveStatus[WINDOWS_SERVED];
+  
+  for(byte i=0;i<WINDOWS_SERVED;i++)
+  {
+    currentWindowMoveStatus[i] = windowMoveStatus[i].inMove;
+    controllerWindowMoveStatus[i] = false;
+  }
+
+  // получили текущее состояние - двигается окно или нет.
+  // теперь проходим по всем слотам - и смотрим, есть ли движение окна
+  for(byte i=0;i<8;i++)
+  {
+    UniSlotData* slotData = &(scratchpadS.slots[i]);
+
+    if(slotData->slotType == slotWindowLeftChannel || slotData->slotType == slotWindowRightChannel)
+    {
+      // это слот для окна
+      byte windowNumber = slotData->slotLinkedData;
+      if(windowNumber < WINDOWS_SERVED)
+      {
+        byte bitNum = windowNumber*2;
+        
+        if(slotData->slotType == slotWindowRightChannel)
+          bitNum++;
+
+          if(state->WindowsState & (1 << bitNum))
+            controllerWindowMoveStatus[windowNumber] = true; // окно движется, т.к. один из каналов выставлен в 1
+      }
+    }
+  } // for
+
+  // проходим по всем статусам окон, и если оно не двигалось раньше, но двигается теперь - выставляем таймер задержки.
+  // если не двигалось раньше и не двигается теперь - сбрасываем таймер задержки
+  for(byte i=0;i<WINDOWS_SERVED;i++)
+  {
+    bool movePast = currentWindowMoveStatus[i];
+    bool moveNow = controllerWindowMoveStatus[i];
+
+    // сохраняем - двигается окно или нет
+    windowMoveStatus[i].inMove = moveNow;
+
+    if(!movePast && !moveNow)
+    {
+      // не двигалось раньше и не двигается сейчас, не надо игнорировать положение концевиков
+      windowMoveStatus[i].onIgnoreMode = false;
+    }
+    else
+    {
+      if(!movePast && moveNow)
+      {
+        // не двигалось раньше, но двигается сейчас - надо игнорировать положение концевиков N времени
+        windowMoveStatus[i].onIgnoreMode = true;
+        windowMoveStatus[i].ignoreTimer = millis();
+      }
+    }
+    
+  } // for
+  
+
+#endif // USE_FEEDBACK
+  
      // у нас есть слепок состояния контроллера, надо искать в слотах привязки
      for(byte i=0;i<8;i++)
      {
@@ -1415,7 +1546,9 @@ void setup()
     InitMCP23017(); // инициализируем расширители
     #endif
     InitEndstops(); // инициализируем концевики
+    #ifdef USE_INCLINOMETERS
     InitInclinometers(); // инициализируем инклинометры
+    #endif
     ReadModuleAddress(); // читаем наш адрес
   
   #endif
@@ -1583,6 +1716,18 @@ void loop()
         
       } // if
     }  // else
+
+    for(byte i=0;i<WINDOWS_SERVED;i++)
+    {
+      if(windowMoveStatus[i].onIgnoreMode)
+      {
+        if(millis() - windowMoveStatus[i].ignoreTimer > ENDSTOPS_IGNORE_TIME)
+        {
+          windowMoveStatus[i].onIgnoreMode = false;
+        }
+      }
+    }
+    
   #endif // USE_FEEDBACK
 
 
