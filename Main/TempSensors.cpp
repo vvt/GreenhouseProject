@@ -667,7 +667,8 @@ bool  TempSensors::ExecCommand(const Command& command, bool wantAnswer)
 
           // какую команду запросили, такую и возвращаем, всё равно в результате выполнения
           // все запрошенные окна встанут в одну позицию
-          PublishSingleton = (bOpen ? STATE_OPENING : STATE_CLOSING);
+          PublishSingleton = token;
+          PublishSingleton << PARAM_DELIMITER << (bOpen ? STATE_OPENING : STATE_CLOSING);
                 
 
         } // else command from user

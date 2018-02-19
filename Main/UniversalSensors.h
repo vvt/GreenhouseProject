@@ -440,9 +440,12 @@ class UniRS485Gate // класс для работы универсальных 
     void Update(uint16_t dt);
 
   private:
+  
 #ifdef USE_UNI_EXECUTION_MODULE
     unsigned long updateTimer;
 #endif    
+
+    void sendControllerStatePacket();
 
     void waitTransmitComplete();
     void enableSend();

@@ -43,9 +43,6 @@ RS-485 работает через аппаратный UART (RX0 и TX0 ард�
 //#define USE_INCLINOMETERS // закомментировать, если не надо использовать инклинометры (в этом случае будут использоваться
 // только концевики)
 //----------------------------------------------------------------------------------------------------------------
-#define ENDSTOPS_IGNORE_TIME 1000 // время, в миллисекундах, в течение которого мы игнорируем состояние концевиков,
-// если окно движется в какую-либо сторону (нужно для отодвигания окна от концевика)
-//----------------------------------------------------------------------------------------------------------------
 #define WINDOWS_SERVED 4 // Сколько окон обслуживается (максимум - 4, минимум - 1)
 //----------------------------------------------------------------------------------------------------------------
 #define FEEDBACK_UPDATE_INTERVAL 1000 // интервал между обновлениями статусов окон. Каждое окно обновляет свой статус
@@ -286,11 +283,18 @@ volatile byte  rs485WritePtr = 0; // указатель записи в паке
 //----------------------------------------------------------------------------------------------------------------
 #ifdef USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
+typedef enum
+{
+  dirNothing,
+  dirOpen,
+  dirClose
+  
+} Direction;
+//----------------------------------------------------------------------------------------------------------------
 typedef struct
 {
-  bool inMove;
-  bool onIgnoreMode;
-  unsigned long ignoreTimer;
+ // Direction lastDirection;
+  Direction currentDirection;
   
 } WindowMoveStatus;
 //----------------------------------------------------------------------------------------------------------------
@@ -562,27 +566,32 @@ void TurnWindowMotorOff(byte window)
      }
 }
 //----------------------------------------------------------------------------------------------------------------
-bool IsActualEndstopsTriggered(byte windowNumber)
+bool EndstopTriggered(byte windowNumber,bool isCloseEndstop)
 {
-  #ifndef FEEDBACK_DIRECT_MODE
+
+  if(windowNumber >= WINDOWS_SERVED)
+    return false;
+  
+   #ifndef FEEDBACK_DIRECT_MODE
 
   FeedbackEndstop endstop = endstops[windowNumber];
   
   Adafruit_MCP23017* mcp = mcpExtenders[endstop.mcpNumber];
-  
-   bool isCloseSwitchTriggered = mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
-   bool isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
 
-   return isCloseSwitchTriggered || isOpenSwitchTriggered;
+  if(isCloseEndstop)
+    return mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL;
+  else
+    return mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL;
   
   #else
     UNUSED(windowNumber);
-    bool isCloseSwitchTriggered = digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
-    bool isOpenSwitchTriggered = digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
-    
-   return isCloseSwitchTriggered || isOpenSwitchTriggered;
-  
-  #endif
+
+    if(isCloseEndstop)
+      return digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL;
+    else
+      return digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL;
+        
+  #endif 
 }
 //----------------------------------------------------------------------------------------------------------------
 void UpdateWindowStatus(byte windowNumber)
@@ -603,20 +612,44 @@ void UpdateWindowStatus(byte windowNumber)
   #endif
       
   // теперь читаем позицию концевиков
-  FeedbackEndstop endstop = endstops[windowNumber];
   
-  Adafruit_MCP23017* mcp = mcpExtenders[endstop.mcpNumber];
-  
-  windowStatuses[windowNumber].isCloseSwitchTriggered = mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
-  windowStatuses[windowNumber].isOpenSwitchTriggered = mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
+  windowStatuses[windowNumber].isCloseSwitchTriggered = EndstopTriggered(windowNumber,true) ? 1 : 0;
+  windowStatuses[windowNumber].isOpenSwitchTriggered = EndstopTriggered(windowNumber,false) ? 1 : 0;
 
-
-  if(windowMoveStatus[windowNumber].onIgnoreMode)
+  switch(moveStatus[windowNumber].currentDirection)
   {
-    // в режиме игнорирования положений концевиков, нам не надо сообщать контроллеру, что концевик сработал, пока мотор не проработает минимальное время
-    windowStatuses[windowNumber].isCloseSwitchTriggered = false;
-    windowStatuses[windowNumber].isOpenSwitchTriggered = false;
-  }
+     case dirNothing:
+     {
+     }
+     break;
+
+     case dirClose: // закрываемся
+     {
+        // пока закрываемся - надо игнорировать концевик открытия
+        windowStatuses[windowNumber].isOpenSwitchTriggered = false;
+        
+        if(windowStatuses[windowNumber].isCloseSwitchTriggered)
+        {
+           // moveStatus[windowNumber].lastDirection = moveStatus[windowNumber].currentDirection;
+            moveStatus[windowNumber].currentDirection = dirNothing;
+        }
+     }
+     break;
+
+     case dirOpen: // открываемся
+     {
+        // пока открываемся - надо игнорировать концевик закрытия
+        windowStatuses[windowNumber].isCloseSwitchTriggered = false; 
+             
+        if(windowStatuses[windowNumber].isOpenSwitchTriggered)
+        {
+           // moveStatus[windowNumber].lastDirection = moveStatus[windowNumber].currentDirection;
+            moveStatus[windowNumber].currentDirection = dirNothing;
+        }
+     }
+     break;
+    
+  } // switch
   
 
   // читаем с инклинометра
@@ -632,16 +665,44 @@ void UpdateWindowStatus(byte windowNumber)
       Serial.println(windowNumber);
     #endif
   
-    windowStatuses[windowNumber].isCloseSwitchTriggered = digitalRead(CLOSE_SWITCH_PIN) == CLOSE_SWITCH_TRIGGERED_LEVEL ? 1 : 0;
-    windowStatuses[windowNumber].isOpenSwitchTriggered = digitalRead(OPEN_SWITCH_PIN) == OPEN_SWITCH_TRIGGERED_LEVEL ? 1 : 0; 
+    windowStatuses[windowNumber].isCloseSwitchTriggered = EndstopTriggered(windowNumber,true) ? 1 : 0;
+    windowStatuses[windowNumber].isOpenSwitchTriggered = EndstopTriggered(windowNumber,false) ? 1 : 0; 
 
-
-  if(moveStatus[windowNumber].onIgnoreMode)
+  
+  switch(moveStatus[windowNumber].currentDirection)
   {
-    // в режиме игнорирования положений концевиков, нам не надо сообщать контроллеру, что концевик сработал, пока мотор не проработает минимальное время
-    windowStatuses[windowNumber].isCloseSwitchTriggered = false;
-    windowStatuses[windowNumber].isOpenSwitchTriggered = false;
-  }
+     case dirNothing:
+     {
+     }
+     break;
+
+     case dirClose: // закрываемся
+     {
+        // пока закрываемся - надо игнорировать концевик открытия
+        windowStatuses[windowNumber].isOpenSwitchTriggered = false;
+        
+        if(windowStatuses[windowNumber].isCloseSwitchTriggered)
+        {
+            //moveStatus[windowNumber].lastDirection = moveStatus[windowNumber].currentDirection;
+            moveStatus[windowNumber].currentDirection = dirNothing;
+        }
+     }
+     break;
+
+     case dirOpen: // открываемся
+     {
+        // пока открываемся - надо игнорировать концевик закрытия
+        windowStatuses[windowNumber].isCloseSwitchTriggered = false; 
+             
+        if(windowStatuses[windowNumber].isOpenSwitchTriggered)
+        {
+            //moveStatus[windowNumber].lastDirection = moveStatus[windowNumber].currentDirection;
+            moveStatus[windowNumber].currentDirection = dirNothing;
+        }
+     }
+     break;
+    
+  } // switch  
 
     #ifdef USE_INCLINOMETERS
     int x,y,z;
@@ -801,12 +862,7 @@ void UpdateWindowStatus(byte windowNumber)
     windowStatuses[windowNumber].hasPosition = false;
 
  #endif // USE_INCLINOMETERS
-
-// тут проверяем - если мы не в режиме игнорирования положений концевиков и актуально сработал
-// один из них - надо останавливать мотор
-  if(!moveStatus[windowNumber].onIgnoreMode && IsActualEndstopsTriggered(windowNumber))
-    TurnWindowMotorOff(windowNumber);
-    
+   
 }
 //----------------------------------------------------------------------------------------------------------------
 void FillRS485PacketWithData(WindowFeedbackPacket* packet) // заполняем пакет обратной связи данными для RS485
@@ -977,9 +1033,8 @@ void InitEndstops()
 
   for(byte i=0;i<WINDOWS_SERVED;i++)
   {
-    moveStatus[i].inMove = false;
-    moveStatus[i].onIgnoreMode = false;
-    moveStatus[i].ignoreTimer = 0;
+   // moveStatus[i].lastDirection = dirNothing;
+    moveStatus[i].currentDirection = dirNothing;
   }
   
   #ifdef _DEBUG
@@ -1050,76 +1105,12 @@ void InitInclinometers()
 //----------------------------------------------------------------------------------------------------------------
 void UpdateFromControllerState(ControllerState* state)
 {
-
-#ifdef USE_FEEDBACK
-
-  // тут ситуация такая - если какое-то окно движется, и при этом не двигалось раньше - 
-  // то мы должны игнорировать положение концевиков определённое время.
-  // если окно не двигается - игнорировать положение концевиков не надо.
-  bool currentWindowMoveStatus[WINDOWS_SERVED];
-  bool controllerWindowMoveStatus[WINDOWS_SERVED];
-  
-  for(byte i=0;i<WINDOWS_SERVED;i++)
-  {
-    currentWindowMoveStatus[i] = moveStatus[i].inMove;
-    controllerWindowMoveStatus[i] = false;
-  }
-
-  // получили текущее состояние - двигается окно или нет.
-  // теперь проходим по всем слотам - и смотрим, есть ли движение окна
-  for(byte i=0;i<8;i++)
-  {
-    UniSlotData* slotData = &(scratchpadS.slots[i]);
-
-    if(slotData->slotType == slotWindowLeftChannel || slotData->slotType == slotWindowRightChannel)
-    {
-      // это слот для окна
-      byte windowNumber = slotData->slotLinkedData;
-      byte actualWindowNumber = i/2;
-      if(actualWindowNumber < WINDOWS_SERVED)
-      {
-        byte bitNum = windowNumber*2;
-        
-        if(slotData->slotType == slotWindowRightChannel)
-          bitNum++;
-
-          if(state->WindowsState & (1 << bitNum))
-            controllerWindowMoveStatus[actualWindowNumber] = true; // окно движется, т.к. один из каналов выставлен в 1
-      }
-    }
-  } // for
-
-  // проходим по всем статусам окон, и если оно не двигалось раньше, но двигается теперь - выставляем таймер задержки.
-  // если не двигалось раньше и не двигается теперь - сбрасываем таймер задержки
-  for(byte i=0;i<WINDOWS_SERVED;i++)
-  {
-    bool movePast = currentWindowMoveStatus[i];
-    bool moveNow = controllerWindowMoveStatus[i];
-
-    // сохраняем - двигается окно или нет
-    moveStatus[i].inMove = moveNow;
-
-    if(!movePast && !moveNow)
-    {
-      // не двигалось раньше и не двигается сейчас, не надо игнорировать положение концевиков
-      moveStatus[i].onIgnoreMode = false;
-    }
-    else
-    {
-      if(!movePast && moveNow)
-      {
-        // не двигалось раньше, но двигается сейчас - надо игнорировать положение концевиков N времени
-        moveStatus[i].onIgnoreMode = true;
-        moveStatus[i].ignoreTimer = millis();
-      }
-    }
-    
-  } // for
-  
-
-#endif // USE_FEEDBACK
   
      // у нас есть слепок состояния контроллера, надо искать в слотах привязки
+     // при этом интересная ситуация - если мы используем обратную связь
+     // и получили слепок состояния контроллера - то нам надо обновить
+     // текущее состояние окон, если хотя бы одно окно пришло в движение
+     
      for(byte i=0;i<8;i++)
      {
         UniSlotData* slotData = &(scratchpadS.slots[i]);
@@ -1149,16 +1140,22 @@ void UpdateFromControllerState(ControllerState* state)
                 {
                   #ifdef USE_FEEDBACK
                     byte actualWindowNumber = i/2;
-                    // мы должны выставлять RELAY_ON только тогда, когда мы не в режиме игнорирования концевиков и когда ни один из них не сработал
+
                     if(actualWindowNumber < WINDOWS_SERVED)
                     {
-                      if(!moveStatus[actualWindowNumber].onIgnoreMode && !IsActualEndstopsTriggered(actualWindowNumber))                    
-                        slotStatus = RELAY_ON;                      
+
+                    // если здесь выставлена 1 - окно попросили открыться. Выставляем RELAY_ON только тогда, когда не сработал концевик открытия.
+                    //moveStatus[actualWindowNumber].lastDirection = moveStatus[actualWindowNumber].currentDirection;
+                    moveStatus[actualWindowNumber].currentDirection = dirOpen;
+                    // поскольку открываемся - игнорируем концевик закрытия
+                    windowStatuses[actualWindowNumber].isCloseSwitchTriggered = false;
+
+                    if(!EndstopTriggered(actualWindowNumber,false))
+                      slotStatus = RELAY_ON;
                     }
                     else
-                    {
-                      slotStatus = RELAY_ON; // выставляем в слоте значение 1
-                    }
+                      slotStatus = RELAY_ON;
+                      
                   #else
                     slotStatus = RELAY_ON; // выставляем в слоте значение 1
                   #endif
@@ -1187,16 +1184,23 @@ void UpdateFromControllerState(ControllerState* state)
                 {
                   #ifdef USE_FEEDBACK
                     byte actualWindowNumber = i/2;
-                    // мы должны выставлять RELAY_ON только тогда, когда мы не в режиме игнорирования концевиков и когда ни один из них не сработал
+
                     if(actualWindowNumber < WINDOWS_SERVED)
                     {
-                      if(!moveStatus[actualWindowNumber].onIgnoreMode && !IsActualEndstopsTriggered(actualWindowNumber))                    
-                        slotStatus = RELAY_ON;                      
+
+                    // если здесь выставлена 1 - окно попросили закрыться. Выставляем RELAY_ON только тогда, когда не сработал концевик закрытия.
+                    //moveStatus[actualWindowNumber].lastDirection = moveStatus[actualWindowNumber].currentDirection;
+                    moveStatus[actualWindowNumber].currentDirection = dirClose;
+                    // поскольку закрываемся - игнорируем концевик открытия
+                    windowStatuses[actualWindowNumber].isOpenSwitchTriggered = false;
+
+                    
+                    if(!EndstopTriggered(actualWindowNumber,true))
+                      slotStatus = RELAY_ON;
                     }
                     else
-                    {
-                      slotStatus = RELAY_ON; // выставляем в слоте значение 1
-                    }
+                      slotStatus = RELAY_ON;
+                    
                   #else
                     slotStatus = RELAY_ON; // выставляем в слоте значение 1
                   #endif
@@ -1809,13 +1813,36 @@ void loop()
 
     for(byte i=0;i<WINDOWS_SERVED;i++)
     {
-      if(moveStatus[i].onIgnoreMode)
+
+      switch(moveStatus[i].currentDirection)
       {
-        if(millis() - moveStatus[i].ignoreTimer > ENDSTOPS_IGNORE_TIME)
+        case dirNothing:
+        break;
+        
+        case dirClose:
         {
-          moveStatus[i].onIgnoreMode = false;
+          if(EndstopTriggered(i,true))
+          {
+            //moveStatus[i].lastDirection = moveStatus[i].currentDirection;
+            moveStatus[i].currentDirection = dirNothing;
+            TurnWindowMotorOff(i);
+          }
         }
-      }
+        break;
+        
+        case dirOpen:
+        {
+          if(EndstopTriggered(i,false))
+          {
+            //moveStatus[i].lastDirection = moveStatus[i].currentDirection;
+            moveStatus[i].currentDirection = dirNothing;
+            TurnWindowMotorOff(i);
+          }
+          
+        }
+        break;
+        
+      } // switch
     }
     
   #endif // USE_FEEDBACK

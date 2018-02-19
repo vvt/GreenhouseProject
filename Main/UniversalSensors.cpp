@@ -237,6 +237,38 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
   } // for
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::sendControllerStatePacket()
+{
+    enableSend();
+    
+    RS485Packet packet;
+    memset(&packet,0,sizeof(RS485Packet));
+    
+    packet.header1 = 0xAB;
+    packet.header2 = 0xBA;
+    packet.tail1 = 0xDE;
+    packet.tail2 = 0xAD;
+
+    packet.direction = RS485FromMaster;
+    packet.type = RS485ControllerStatePacket;
+
+    void* dest = packet.data;
+    ControllerState curState = WORK_STATUS.GetState();
+    void* src = &curState;
+    memcpy(dest,src,sizeof(ControllerState));
+
+    const byte* b = (const byte*) &packet;
+    packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
+
+    // пишем в шину RS-495 слепок состояния контроллера
+    RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+
+    // теперь ждём завершения передачи
+    waitTransmitComplete();
+
+     enableReceive();
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::Update(uint16_t dt)
 {
 
@@ -386,6 +418,7 @@ void UniRS485Gate::Update(uint16_t dt)
   ///////////////////////////////////////////////////////////////////////
   // Конец опроса модулей управления
   ///////////////////////////////////////////////////////////////////////
+  bool controllerStateWasSentOnThisIteration = false;
 
   #if defined(USE_FEEDBACK_MANAGER) && defined(USE_TEMP_SENSORS) && SUPPORTED_WINDOWS > 0
   
@@ -396,6 +429,17 @@ void UniRS485Gate::Update(uint16_t dt)
     
     if(feedbackCounter > FEEDBACK_MANAGER_UPDATE_INTERVAL)
     {
+      // здесь нам надо сперва послать пакет с состоянием контроллера, по-любому!
+      // это связано с тем, что может быть рассинхрон по времени опроса состояний, например:
+      // попросили закрыть окно, при этом концевик открытия у модуля - сработал.
+      // мы при выполнении команды выставляем статус, что окно открывается.
+      // и если в этот момент, ДО отсыла состояния контроллера, мы сперва получим от модуля обратную связь,
+      // то в ней будет состояние "Окно открыто". Следовательно, внутреннее состояние контроллера изменится,
+      // и запрошенной команды к модулю - не уйдёт. Поэтому ВСЕГДА перед опросом модулей обратной связи
+      // мы должны посылать им актуальное состояние контроллера!
+       sendControllerStatePacket();
+       controllerStateWasSentOnThisIteration = true;
+      
       feedbackCounter = 0;
       // пора собирать информацию по обратной связи
       byte currentWindowNumber = 0; // с каким окном сейчас работаем
@@ -429,6 +473,8 @@ void UniRS485Gate::Update(uint16_t dt)
             const byte* b = (const byte*) &packet;
             packet.crc8 = crc8(b,sizeof(RS485Packet)-1);  
 
+            enableSend();
+            
            // посылаем пакет   
            // пишем в шину RS-495 запрос об обратной связи
             RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
@@ -672,29 +718,9 @@ void UniRS485Gate::Update(uint16_t dt)
       updateTimer = 0;
 
       // тут посылаем слепок состояния контроллера
-        memset(&packet,0,sizeof(RS485Packet));
-        
-        packet.header1 = 0xAB;
-        packet.header2 = 0xBA;
-        packet.tail1 = 0xDE;
-        packet.tail2 = 0xAD;
+       if(!controllerStateWasSentOnThisIteration)
+        sendControllerStatePacket();
 
-        packet.direction = RS485FromMaster;
-        packet.type = RS485ControllerStatePacket;
-
-        void* dest = packet.data;
-        ControllerState curState = WORK_STATUS.GetState();
-        void* src = &curState;
-        memcpy(dest,src,sizeof(ControllerState));
-
-        const byte* b = (const byte*) &packet;
-        packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
-
-        // пишем в шину RS-495 слепок состояния контроллера
-        RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
-
-        // теперь ждём завершения передачи
-        waitTransmitComplete();
         
     }
   #endif // USE_UNI_EXECUTION_MODULE
@@ -866,6 +892,7 @@ void UniRS485Gate::Update(uint16_t dt)
 
         #endif
 
+        enableSend();
         // пакет готов к отправке, отправляем его
         RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
         waitTransmitComplete(); // ждём окончания посыла
