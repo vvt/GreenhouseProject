@@ -345,17 +345,17 @@ void WriteFeedbackHeader(uint8_t inclinometerNumber)
 void SaveFeedbackBorder(uint8_t inclinometerNumber, int value, bool isStartInterval)
 {
 
-#ifdef _DEBUG
-  Serial.print(F("SaveFeedbackBorder, window #"));
-  Serial.print(inclinometerNumber);
-  Serial.print(F("; value="));
-  Serial.print(value);
-  Serial.print(F("; first value? "));
-  if(isStartInterval)
-    Serial.println(F("yes"));
-  else
-    Serial.println(F("no"));
-#endif
+  #ifdef _DEBUG
+    Serial.print(F("SaveFeedbackBorder, window #"));
+    Serial.print(inclinometerNumber);
+    Serial.print(F("; value="));
+    Serial.print(value);
+    Serial.print(F("; first value? "));
+    if(isStartInterval)
+      Serial.println(F("yes"));
+    else
+      Serial.println(F("no"));
+  #endif
   
   WriteFeedbackHeader(inclinometerNumber);
   
@@ -446,9 +446,9 @@ void ReadModuleAddress()
 
  #ifdef ADDRESS_THROUGH_MCP // адресуемся переключателями на плате
 
-  #ifdef _DEBUG
-    Serial.println(F("Read address from MCP..."));
-  #endif
+    #ifdef _DEBUG
+      Serial.println(F("Read address from MCP..."));
+    #endif
 
     Adafruit_MCP23017* mcp = mcpExtenders[ADDRESS_MCP_NUMBER];
   
@@ -483,41 +483,41 @@ void ReadModuleAddress()
   #endif    
 }
 //----------------------------------------------------------------------------------------------------------------
-#ifdef FEEDBACK_DIRECT_MODE
-  #ifdef USE_INCLINOMETERS
-    HMC5883* compass = NULL;
+  #ifdef FEEDBACK_DIRECT_MODE
+    #ifdef USE_INCLINOMETERS
+      HMC5883* compass = NULL;
+    #endif
+  #else
+    #ifdef USE_INCLINOMETERS
+    InclinometerSettings inclinometers[WINDOWS_SERVED] = {MCP23017_INCLINOMETER_SETTINGS};
+    HMC5883* compasses[WINDOWS_SERVED] = {NULL};
+    #endif
+    FeedbackEndstop endstops[WINDOWS_SERVED] = { MCP23017_SWITCH_SETTINGS };
   #endif
-#else
-#ifdef USE_INCLINOMETERS
-InclinometerSettings inclinometers[WINDOWS_SERVED] = {MCP23017_INCLINOMETER_SETTINGS};
-HMC5883* compasses[WINDOWS_SERVED] = {NULL};
-#endif
-FeedbackEndstop endstops[WINDOWS_SERVED] = { MCP23017_SWITCH_SETTINGS };
-#endif
 //----------------------------------------------------------------------------------------------------------------
-#ifndef FEEDBACK_DIRECT_MODE
-#ifdef USE_INCLINOMETERS
-void TurnInclinometerOff(InclinometerSettings& is)
-{
- mcpExtenders[is.mcpNumber]->digitalWrite(is.mcpChannel,INCLINOMETER_CHANNEL_OFF); 
-}
-//----------------------------------------------------------------------------------------------------------------
-void TurnInclinometerOn(InclinometerSettings& is)
-{
-  mcpExtenders[is.mcpNumber]->digitalWrite(is.mcpChannel,INCLINOMETER_CHANNEL_ON); 
-}
-//----------------------------------------------------------------------------------------------------------------
-void TurnInclinometersOff()
-{
-  for(byte i=0;i<WINDOWS_SERVED;i++)
-  {
-      InclinometerSettings is = inclinometers[i];
-      TurnInclinometerOff(is);
-  }
-}
-#endif // USE_INCLINOMETERS
-//----------------------------------------------------------------------------------------------------------------
-#endif // !FEEDBACK_DIRECT_MODE
+  #ifndef FEEDBACK_DIRECT_MODE
+    #ifdef USE_INCLINOMETERS
+      void TurnInclinometerOff(InclinometerSettings& is)
+      {
+       mcpExtenders[is.mcpNumber]->digitalWrite(is.mcpChannel,INCLINOMETER_CHANNEL_OFF); 
+      }
+      //----------------------------------------------------------------------------------------------------------------
+      void TurnInclinometerOn(InclinometerSettings& is)
+      {
+        mcpExtenders[is.mcpNumber]->digitalWrite(is.mcpChannel,INCLINOMETER_CHANNEL_ON); 
+      }
+      //----------------------------------------------------------------------------------------------------------------
+      void TurnInclinometersOff()
+      {
+        for(byte i=0;i<WINDOWS_SERVED;i++)
+        {
+            InclinometerSettings is = inclinometers[i];
+            TurnInclinometerOff(is);
+        }
+      }
+    #endif // USE_INCLINOMETERS
+    //----------------------------------------------------------------------------------------------------------------
+  #endif // !FEEDBACK_DIRECT_MODE
 //----------------------------------------------------------------------------------------------------------------
 void GetWindowsStatus(byte windowNumber, byte& isCloseSwitchTriggered, byte& isOpenSwitchTriggered, byte& hasPosition, byte& position)
 {
@@ -528,18 +528,18 @@ void GetWindowsStatus(byte windowNumber, byte& isCloseSwitchTriggered, byte& isO
   position = ws->position;
   
  
-#ifdef _DEBUG
-  Serial.print(F("Window #"));
-  Serial.print(windowNumber);
-  Serial.print(F(" status: hasPosition="));
-  Serial.print(hasPosition);
-  Serial.print(F("; position="));
-  Serial.print(position);
-  Serial.print(F("; close switch="));
-  Serial.print(isCloseSwitchTriggered);
-  Serial.print(F("; open switch="));
-  Serial.println(isOpenSwitchTriggered);
-#endif
+  #ifdef _DEBUG
+    Serial.print(F("Window #"));
+    Serial.print(windowNumber);
+    Serial.print(F(" status: hasPosition="));
+    Serial.print(hasPosition);
+    Serial.print(F("; position="));
+    Serial.print(position);
+    Serial.print(F("; close switch="));
+    Serial.print(isCloseSwitchTriggered);
+    Serial.print(F("; open switch="));
+    Serial.println(isOpenSwitchTriggered);
+  #endif
 
 }
 //----------------------------------------------------------------------------------------------------------------
@@ -574,15 +574,15 @@ bool EndstopTriggered(byte windowNumber,bool isCloseEndstop)
   
    #ifndef FEEDBACK_DIRECT_MODE
 
-  FeedbackEndstop endstop = endstops[windowNumber];
-  
-  Adafruit_MCP23017* mcp = mcpExtenders[endstop.mcpNumber];
-
-  if(isCloseEndstop)
-    return mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL;
-  else
-    return mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL;
-  
+      FeedbackEndstop endstop = endstops[windowNumber];
+      
+      Adafruit_MCP23017* mcp = mcpExtenders[endstop.mcpNumber];
+    
+      if(isCloseEndstop)
+        return mcp->digitalRead(endstop.closeSwitchChannel) == CLOSE_SWITCH_TRIGGERED_LEVEL;
+      else
+        return mcp->digitalRead(endstop.openSwitchChannel) == OPEN_SWITCH_TRIGGERED_LEVEL;
+      
   #else
     UNUSED(windowNumber);
 
@@ -603,13 +603,13 @@ void UpdateWindowStatus(byte windowNumber)
       Serial.println(windowNumber);
     #endif
     
-  #ifdef USE_INCLINOMETERS
-  TurnInclinometersOff();
-  InclinometerSettings inclinometer = inclinometers[windowNumber];
-
-  // включаем инклинометр на шине I2C
-  TurnInclinometerOn(inclinometer);
-  #endif
+    #ifdef USE_INCLINOMETERS
+      TurnInclinometersOff();
+      InclinometerSettings inclinometer = inclinometers[windowNumber];
+    
+      // включаем инклинометр на шине I2C
+      TurnInclinometerOn(inclinometer);
+    #endif
       
   // теперь читаем позицию концевиков
   
@@ -953,6 +953,7 @@ void ProcessFeedbackPacket()
      rs485Packet.crc8 = OneWireSlave::crc8((const byte*) &rs485Packet,sizeof(RS485Packet)-1 );
 
      #ifndef _DEBUG // в дебаг-режиме ничего не отсылаем
+     
         // теперь переключаемся на передачу
         RS485Send();
         
@@ -970,6 +971,8 @@ void ProcessFeedbackPacket()
    
       
 }
+//----------------------------------------------------------------------------------------------------------------
+#endif // USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
 void RS485Receive()
 {
@@ -1010,6 +1013,8 @@ void RS485waitTransmitComplete()
   // ждём завершения передачи по UART
   while(!(UCSR0A & _BV(TXC0) ));
 }
+//----------------------------------------------------------------------------------------------------------------
+#ifdef USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
 void InitEndstops()
 {
@@ -1677,7 +1682,9 @@ void setup()
   OWSlave.setReceiveCallback(&owReceive);
   OWSlave.begin(owROM, oneWireData.getPinNumber());    
 
-  
+  #ifdef _DEBUG
+    Serial.println(F("Setup done."));
+  #endif
 }
 //----------------------------------------------------------------------------------------------------------------
 void owSendDone(bool error) {
