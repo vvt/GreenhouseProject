@@ -35,9 +35,10 @@ void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool WindowState::ChangePosition(unsigned long newPos)
 {
- // Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
- // Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
-   GlobalSettings* settings = MainController->GetSettings();
+//  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
+//  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+  
+  GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();
   
   long currentDifference = 0;
@@ -51,7 +52,7 @@ bool WindowState::ChangePosition(unsigned long newPos)
     // та же самая позиция запрошена, или разница текущей позиции и запрошеной - в пределах гистерезиса.
     // в этом случае мы ничего не делаем.
     
-  //  Serial.println(F("SAME POSITION!"));
+ //   Serial.println(F("SAME POSITION!"));
     // говорим, что мы сменили позицию
     SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
     return false;
@@ -67,7 +68,7 @@ bool WindowState::ChangePosition(unsigned long newPos)
        TimerInterval = newPos - CurrentPosition;
        flags.Direction = dir;
 
-   //    Serial.println("OPEN FROM POSITION " + String(CurrentPosition) + " TO " + String(newPos));
+ //      Serial.println("OPEN FROM POSITION " + String(CurrentPosition) + " TO " + String(newPos));
   }
   else
   if(dir == dirCLOSE)
@@ -75,7 +76,7 @@ bool WindowState::ChangePosition(unsigned long newPos)
         TimerInterval = CurrentPosition - newPos;
         flags.Direction = dir;
 
-    //    Serial.println("CLOSE FROM POSITION " + String(CurrentPosition) + " TO " + String(newPos));
+ //       Serial.println("CLOSE FROM POSITION " + String(CurrentPosition) + " TO " + String(newPos));
 
   }
 

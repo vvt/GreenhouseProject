@@ -5,7 +5,11 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 #define WIFI_DEBUG_WRITE(s,ca) { Serial.print(String(F("[CA] ")) + String((ca)) + String(F(": ")));  Serial.println((s)); }
 #define CHECK_QUEUE_TAIL(v) { if(!actionsQueue.size()) {Serial.println(F("[QUEUE IS EMPTY!]"));} else { if(actionsQueue[actionsQueue.size()-1]!=(v)){Serial.print(F("NOT RIGHT TAIL, WAITING: ")); Serial.print((v)); Serial.print(F(", ACTUAL: "));Serial.println(actionsQueue[actionsQueue.size()-1]); } } }
-#define CIPSEND_COMMAND F("AT+CIPSENDBUF=") // F("AT+CIPSEND=")
+#if ESP_AT_VECTION == 20
+#define CIPSEND_COMMAND F("AT+CIPSEND=")
+#else
+#define CIPSEND_COMMAND F("AT+CIPSENDBUF=")
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WIFI_MODULE_AS_MQTT_CLIENT
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -1420,6 +1424,16 @@ void WiFiModule::ProcessAnswerLine(String& line)
         // никуда не подсоединены, пытаемся переподключиться, как только придёт OK
         flags.wantReconnect = true;
       }
+      #if ESP_AT_VECTION == 20 // прошивка версии 0.20
+      else
+      {
+        // на случай, когда ESP не выдаёт WIFI CONNECTED в порт - проверяем статус коннекта тут,
+        // как признак, что строчка содержит ID нашей сети, проще говоря - не равна No AP
+        if(line.startsWith(F("+CWJAP")))
+          flags.isConnected = true;
+        
+      }      
+      #endif // #if ESP_AT_VECTION == 20
       
     }
     break;    
@@ -1523,6 +1537,25 @@ void WiFiModule::ProcessAnswerLine(String& line)
         #endif
        actionsQueue.pop(); // убираем последнюю обработанную команду     
        currentAction = wfaIdle;
+
+       #if ESP_AT_VECTION == 20
+       // сразу после коннекта к роутеру проверяем - подсоединились ли.
+       // Эти пляски нужны потому, что некоторые AT-прошивки не выдают WIFI CONNECTED в порт,
+       // поэтому мы должны быть уверены, что мы соединены. НО! данную команду надо обрабатывать
+       // не сразу, а спустя N времени, т.к. в случае с неблокирующей командой подсоединения к роутеру
+       // статус WIFI CONNECTED приходит позже, чем приходит OK ответа на подсоединение.
+       // Имеем ситуацию: в одной прошивке по факту прихода OK мы уже подсоединены к роутеру,
+       // в другой AT-прошивке - этот статус ничего не значит, кроме правильности посланной команды,
+       // и нам надо дождаться WIFI CONNECTED в порту. Вот этот колхоз нам и надо разрулить :)
+
+       // помещаем команду в очередь
+       actionsQueue.push_back(wfaCheckModemHang);
+
+       // и дадим секунд 10 на раздупливание коннекта к роутеру
+       needToWaitTimer = 10000;
+              
+       #endif // #if ESP_AT_VECTION == 20
+       
       }
       
     }
