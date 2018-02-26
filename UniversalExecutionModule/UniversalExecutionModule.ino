@@ -247,11 +247,13 @@ SlotSettings SLOTS[8] =
 //----------------------------------------------------------------------------------------------------------------
 // ДАЛЕЕ ИДУТ СЛУЖЕБНЫЕ НАСТРОЙКИ И КОД - МЕНЯТЬ С ПОЛНЫМ ПОНИМАНИЕМ ТОГО, ЧТО ХОДИМ СДЕЛАТЬ !!!
 //----------------------------------------------------------------------------------------------------------------
-#ifdef FEEDBACK_DIRECT_MODE
-  #undef ADDRESS_THROUGH_MCP
-  #undef WINDOWS_SERVED
-  #define WINDOWS_SERVED 1
-  #pragma message "Switch to ONE window served due to FEEDBACK_DIRECT_MODE..."
+#ifdef USE_FEEDBACK
+  #ifdef FEEDBACK_DIRECT_MODE
+    #undef ADDRESS_THROUGH_MCP
+    #undef WINDOWS_SERVED
+    #define WINDOWS_SERVED 1
+    #pragma message "Switch to ONE window served due to FEEDBACK_DIRECT_MODE..."
+  #endif
 #endif
 //----------------------------------------------------------------------------------------------------------------
 t_scratchpad scratchpadS, scratchpadToSend;
@@ -972,10 +974,9 @@ void ProcessFeedbackPacket()
       
 }
 //----------------------------------------------------------------------------------------------------------------
-#endif // USE_FEEDBACK
-//----------------------------------------------------------------------------------------------------------------
 void RS485Receive()
 {
+  
   // переводим контроллер RS-485 на приём
   #ifdef USE_DIRECT_RS485_DE_PIN
     digitalWrite(DIRECT_RS485_PIN,LOW);
@@ -988,7 +989,8 @@ void RS485Receive()
   
   #ifdef _DEBUG
     Serial.println(F("Switch RS485 to receive."));
-  #endif  
+  #endif
+  
 }
 //----------------------------------------------------------------------------------------------------------------
 void RS485Send()
@@ -1005,7 +1007,8 @@ void RS485Send()
   
   #ifdef _DEBUG
     Serial.println(F("Switch RS485 to send."));
-  #endif  
+  #endif
+
 }
 //----------------------------------------------------------------------------------------------------------------
 void RS485waitTransmitComplete()
@@ -1013,8 +1016,6 @@ void RS485waitTransmitComplete()
   // ждём завершения передачи по UART
   while(!(UCSR0A & _BV(TXC0) ));
 }
-//----------------------------------------------------------------------------------------------------------------
-#ifdef USE_FEEDBACK
 //----------------------------------------------------------------------------------------------------------------
 void InitEndstops()
 {
