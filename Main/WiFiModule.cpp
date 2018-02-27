@@ -1237,6 +1237,10 @@ void WiFiModule::ProcessAnswerLine(String& line)
  #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
     currentAction != wfaActualSendIoTData &&  // если мы не в процессе отсыла данных в IoT
 #endif
+
+ #if defined(USE_HTTP_MODULE) && defined(USE_WIFI_MODULE_AS_HTTP_PROVIDER)
+    currentAction != wfaActualSendHTTPData && 
+#endif
    
     line.startsWith(F("+IPD")))
   {
@@ -2093,6 +2097,7 @@ void WiFiModule::ProcessQuery(const String& command)
   }
   
   ptr++; // за двоеточие
+
 
   // тут пришла команда, разбираем её
   ProcessCommand(connectedClientID.toInt(),dataLen.toInt(),ptr);

@@ -272,9 +272,152 @@ void WIFI_EVENT_FUNC()
   char ch;
   while(WIFI_SERIAL.available())
   {
+
+    if(wiFiReceiveBuff->startsWith(F("+IPD")))
+    {
+      // в буфере лежит начало ответа ESP на приход данных для клиента
+      // в эту ветку попадаем, когда уже собрано начало +IPD
+      if(wiFiReceiveBuff->indexOf(":") == -1)
+      {
+        // ещё нет начала данных, просто вычитываем в буфер
+        ch = WIFI_SERIAL.read();
+        *wiFiReceiveBuff += ch;
+        
+      } // if
+      else
+      {
+        // начало данных уже есть на этот момент, т.е. в буфере лежит как минимум "+IPD,<id>,<len>:"
+        // получаем ID плиента, и если он равен 2 - это MQTT - УЖАСНЫЙ КОСТЫЛЬ!!!
+          int idx = wiFiReceiveBuff->indexOf(F(",")); // ищем первую запятую после +IPD
+          const char* ptr = wiFiReceiveBuff->c_str();
+          ptr += idx+1;
+          // перешли за запятую, парсим ID клиента
+          String connectedClientID;
+          while(*ptr != ',')
+          {
+            connectedClientID += (char) *ptr;
+            ptr++;
+          }
+          if(connectedClientID.toInt() == MAX_WIFI_CLIENTS-2)
+          {
+            // это MQTT, читаем все данные сразу
+            ptr++; // за запятую
+            String dataLen;
+            while(*ptr != ':')
+            {
+              dataLen += (char) *ptr;
+              ptr++; // перешли на начало данных
+            }
+
+            int dataLenInt = dataLen.toInt();
+            
+            #ifdef MQTT_DEBUG
+              Serial.print(F("MQTT PACKET DETECTED, LENGTH="));
+              Serial.println(dataLen);
+            #endif
+
+            // теперь вычитываем все данные MQTT-пакета
+            int readed = 0;
+            while(readed < dataLenInt)
+            {
+              if(!WIFI_SERIAL.available())
+                continue;
+                
+              ch = WIFI_SERIAL.read();
+              *wiFiReceiveBuff += ch;
+              readed++;               
+              
+            } // while(1)
+
+            // в буфере теперь у нас полный MQTT-пакет
+            wifiModule.ProcessAnswerLine(*wiFiReceiveBuff);            
+            delete wiFiReceiveBuff;
+            wiFiReceiveBuff = new String();            
+            
+          } // MQTT client
+          else
+          {
+            // это другие пакеты, не MQTT, читаем до \n, игнорируя \r
+            while(1)
+            {
+              if(!WIFI_SERIAL.available())
+                continue;
+
+                ch = WIFI_SERIAL.read();
+                
+                if(ch == '\n')
+                {
+                    *wiFiReceiveBuff += ch;
+                    wifiModule.ProcessAnswerLine(*wiFiReceiveBuff);
+            
+                    delete wiFiReceiveBuff;
+                    wiFiReceiveBuff = new String();
+                    break;                 
+                }
+                else
+                {
+                  *wiFiReceiveBuff += ch;
+
+                  if(wiFiReceiveBuff->length() > 500) // буфер слишком длинный
+                  {
+                    delete wiFiReceiveBuff;
+                    wiFiReceiveBuff = new String();
+                    break;
+                  }
+                }
+                
+              
+            } // while(1)
+          } // else not MQTT client
+        
+      } // else IPD data info collected
+      
+    } // if(wiFiReceiveBuff->startsWith(F("+IPD")))
+    else // в буфере всё что угодно, кроме +IPD, просто вычитываем
+    {          
+          ch = WIFI_SERIAL.read();
+          
+          if(ch == '\r') // можно игнорировать, не страшно
+            continue;
+          else if(ch == '\n') // поймали перевод строки
+          {     
+              wifiModule.ProcessAnswerLine(*wiFiReceiveBuff);
+      
+              delete wiFiReceiveBuff;
+              wiFiReceiveBuff = new String();
+          }
+          else
+          {
+            // любые другие символы, отличные от \r и \n
+                 
+              if(wifiModule.WaitForDataWelcome && ch == '>') // ждут команду >
+              {
+                delete wiFiReceiveBuff;
+                wiFiReceiveBuff = new String();
+
+                wifiModule.WaitForDataWelcome = false;
+                String s = F(">");
+                wifiModule.ProcessAnswerLine(s);
+              }
+              else
+              {
+                *wiFiReceiveBuff += ch;
+                
+                if(wiFiReceiveBuff->length() > 500) // буфер слишком длинный
+                {
+                  delete wiFiReceiveBuff;
+                  wiFiReceiveBuff = new String();
+                }
+              }
+          } // else            
+      
+    } // not IPD
+    
+    
+   /*
+    * 
     ch = WIFI_SERIAL.read();
 
-   
     if(ch == '\r')
       continue;
     
@@ -285,7 +428,7 @@ void WIFI_EVENT_FUNC()
           // Не убираем переводы строки, когда пришёл пакет с данными, поскольку \r\n может придти прямо в пакете данных.
           // Т.к. у нас \r\n служит признаком окончания команды - значит, мы должны учитывать эти символы в пакете,
           // и не можем самовольно их отбрасывать.
-          *wiFiReceiveBuff += NEWLINE; 
+          *wiFiReceiveBuff += '\n'; 
         }
           
         wifiModule.ProcessAnswerLine(*wiFiReceiveBuff);
@@ -294,7 +437,9 @@ void WIFI_EVENT_FUNC()
         wiFiReceiveBuff = new String();
     }
     else
-    {     
+    {
+      // любые другие символы, отличные от \r и \n
+           
         if(wifiModule.WaitForDataWelcome && ch == '>') // ждут команду >
         {
           wifiModule.WaitForDataWelcome = false;
@@ -312,7 +457,7 @@ void WIFI_EVENT_FUNC()
           }
         }
     }
-  
+  */
     
   } // while
    
