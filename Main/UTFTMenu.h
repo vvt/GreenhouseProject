@@ -342,6 +342,7 @@ private:
 
   void lcdOn();
   void lcdOff();
+  void switchBacklight(uint8_t level);
 
   
 };

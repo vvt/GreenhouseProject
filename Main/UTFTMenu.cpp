@@ -1677,7 +1677,8 @@ TFTMenu::TFTMenu()
 void TFTMenu::setup()
 {
   tftMenuManager = this;
-  
+
+  lcdOn(); // включаем подсветку
   
   tftDC = new UTFT(TFT_MODEL,TFT_RS_PIN,TFT_WR_PIN,TFT_CS_PIN,TFT_RST_PIN);
   tftTouch = new URTouch(TFT_TOUCH_CLK_PIN,TFT_TOUCH_CS_PIN,TFT_TOUCH_DIN_PIN,TFT_TOUCH_DOUT_PIN,TFT_TOUCH_IRQ_PIN);
@@ -1747,9 +1748,7 @@ void TFTMenu::setup()
 
 
   #ifdef USE_BUZZER_ON_TOUCH
-  
-    //TODO: Тут инициализация пищалки, проверить !!!
-    
+      
       #if BUZZER_DRIVE_MODE == DRIVE_DIRECT
       
         WORK_STATUS.PinMode(BUZZER_DRIVE_PIN,OUTPUT);
@@ -1779,19 +1778,56 @@ void TFTMenu::setup()
     buzzer(); 
     
   #endif // USE_BUZZER_ON_TOUCH
+
+  
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTMenu::switchBacklight(uint8_t level)
+{
+ #ifdef USE_TFT_BACKLIGHT_MANAGE
+      
+      #if TFT_BACKLIGHT_DRIVE_MODE == DRIVE_DIRECT
+      
+        WORK_STATUS.PinMode(TFT_BACKLIGHT_DRIVE_PIN,OUTPUT);
+        WORK_STATUS.PinWrite(TFT_BACKLIGHT_DRIVE_PIN,level);
+        
+      #elif TFT_BACKLIGHT_DRIVE_MODE == DRIVE_MCP23S17
+      
+        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+        
+          WORK_STATUS.MCP_SPI_PinMode(TFT_BACKLIGHT_MCP23S17_ADDRESS,TFT_BACKLIGHT_DRIVE_PIN,OUTPUT);
+          WORK_STATUS.MCP_SPI_PinWrite(TFT_BACKLIGHT_MCP23S17_ADDRESS,TFT_BACKLIGHT_DRIVE_PIN,level);
+          
+        #endif
+        
+      #elif TFT_BACKLIGHT_DRIVE_MODE == DRIVE_MCP23017
+      
+        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+        
+          WORK_STATUS.MCP_I2C_PinMode(TFT_BACKLIGHT_MCP23017_ADDRESS,TFT_BACKLIGHT_DRIVE_PIN,OUTPUT);
+          WORK_STATUS.MCP_I2C_PinWrite(TFT_BACKLIGHT_MCP23017_ADDRESS,TFT_BACKLIGHT_DRIVE_PIN,level);
+          
+        #endif
+        
+      #endif
+
+    
+  #endif // USE_TFT_BACKLIGHT_MANAGE  
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::lcdOn()
 {
-  //TODO: Включение дисплея!!!
-//  tftDC->LCD_Write_COM(0x11); // not working
+  #ifdef USE_TFT_BACKLIGHT_MANAGE
+    switchBacklight(TFT_BACKLIGHT_ON);
+  #endif
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::lcdOff()
 {
-  //TODO: Выключение дисплея!!!
-//  tftDC->LCD_Write_COM(0x10); // not working
+  #ifdef USE_TFT_BACKLIGHT_MANAGE
+    switchBacklight(TFT_BACKLIGHT_OFF);
+  #endif
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::update(uint16_t dt)
@@ -1901,12 +1937,10 @@ void TFTMenu::buzzer()
   
     flags.buzzerActive = true;
     buzzerTimer = millis();
-    
-    //TODO: тут включаем пищалку, проверить !!!
-      
+          
       #if BUZZER_DRIVE_MODE == DRIVE_DIRECT
       
-        WORK_STATUS.PinWrite(BUZZER_DRIVE_PIN,BUZZER_OFF);
+        WORK_STATUS.PinWrite(BUZZER_DRIVE_PIN,BUZZER_ON);
         
       #elif BUZZER_DRIVE_MODE == DRIVE_MCP23S17
       

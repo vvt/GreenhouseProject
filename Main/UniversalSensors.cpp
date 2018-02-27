@@ -713,7 +713,7 @@ void UniRS485Gate::Update(uint16_t dt)
   // посылаем в шину данные для исполнительных модулей
   
     updateTimer += dt;
-    if(updateTimer > RS495_STATE_PUSH_FREQUENCY)
+    if(updateTimer > RS485_STATE_PUSH_FREQUENCY)
     {
       updateTimer = 0;
 
