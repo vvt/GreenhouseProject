@@ -35,6 +35,7 @@ For home use only, any commercial use is strictly prohibited. If you want to use
 <h1>Project structure</h1>
 <ul>
 <li><b>Main</b> folder - firmware for the microcontroller;</li>
+<li><b>ESP_BIN</b> folder - firmware for the ESP8266;</li>
 <li><b>SOFT</b> folder - configuration software, can be connected to microcontroller by using the COM-port;</li>
 <li><b>Libraries</b> folder - libraries, used in project, need to be installed in Arduino IDE before compiling the firmware;</li>
 <li><b>SD</b> folder - these files should be placed on SD card;</li>

@@ -20,12 +20,12 @@ void CompositeCommandsModule::Clear()
         CompositeCommand* cCom = cc->Commands[j];
         delete cCom;
       }
-      cc->Commands.Clear();
+      cc->Commands.clear();
 
       delete cc;
   }
   
-  commands.Clear();
+  commands.clear();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CompositeCommandsModule::LoadCommands()

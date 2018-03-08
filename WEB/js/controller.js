@@ -321,10 +321,24 @@ var Controller = function(id, name, address, silent)
 // смотрит, нет ли в очереди такой же команды?
 Controller.prototype.inQueue = function(prepareFunc,doneFunc)
 {
+  var objPassed = prepareFunc(this);
+  
   for(var i=0;i<this._queue.length;i++)
   {
-    if(this._queue[i].prepareFunc == prepareFunc && this._queue[i].doneFunc == doneFunc)
-      return true;
+    var objInQueue = this._queue[i].prepareFunc(this);
+    
+    if(objPassed.url == objInQueue.url)
+    {
+        if(objPassed.data.query != undefined && objInQueue.data.query != undefined)
+        {
+          if(objPassed.data.query == objInQueue.data.query)
+          {
+//            console.log("SAME QUERY FOUND: " + objPassed.url + "; query=" + objInQueue.data.query);
+            return true;
+          }
+        }
+    }
+
   }
 return false;
 }
@@ -394,7 +408,7 @@ Controller.prototype.updateStatus = function()
   this.addToQueue(
     function(obj)
     {
-      return { method: "GET", url: "/x_check_controller.php", data: {posted : 1, controller_id : obj.getId() } };
+      return { method: "GET", url: "/x_check_controller.php", data: {posted : 1, controller_id : obj.getId(), query : "_check" } };
     },
     function(obj,result)
     {

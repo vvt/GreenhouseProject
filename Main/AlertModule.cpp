@@ -724,7 +724,7 @@ uint8_t AlertRule::Load(uint16_t readAddr)
 {
   // загружаем правило из EEPROM
   uint16_t curReadAddr = readAddr;
-  linkedRulesIndices.Clear();
+  linkedRulesIndices.clear();
   delete[] rawCommand; rawCommand = NULL;
 
   // сначала читаем настройки
@@ -783,7 +783,7 @@ bool AlertRule::Construct(AbstractModule* lm, const Command& command)
   Settings.LinkedModuleNameIndex = GetKnownModuleID(lm->GetID());
 
   // чистим имена связанных правил, об удалении памяти имён заботится родитель
-  linkedRulesIndices.Clear();
+  linkedRulesIndices.clear();
 
   uint8_t argsCnt = command.GetArgsCount();
   if(argsCnt < 12) // мало аргументов
@@ -1063,7 +1063,7 @@ void AlertModule::ClearParams()
       char* param = paramsArray[i];
       delete[] param;
     }
-    paramsArray.Clear();
+    paramsArray.clear();
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void AlertModule::SaveRules() // сохраняем настройки в EEPROM
@@ -1221,7 +1221,7 @@ void AlertModule::Update(uint16_t dt)
   if(WORK_STATUS.IsModeChanged())
   {
     WORK_STATUS.SetModeUnchanged();
-    lastIterationRaisedRules.Clear();
+    lastIterationRaisedRules.clear();
   }
   
   for(size_t i=0;i<sz;i++)

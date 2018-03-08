@@ -48,12 +48,12 @@ public:
           --d_size;
     };
 
-    void empty()
+    void empty() // simple set size to 0 without memory free
     {
       d_size = 0;
     }
 
-    void clear() //here
+    void Clear() //here
     {
         if(d_data)
           memset(d_data, 0, d_size);

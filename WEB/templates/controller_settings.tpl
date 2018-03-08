@@ -145,6 +145,10 @@
     <input type='text' id='station_id' maxlength='50' value='' style='width:100%;'/><br/>
     Пароль модуля ESP:<br/>
     <input type='password' id='station_pass' maxlength='50' value='' style='width:100%;'/><br/>
+    <p>
+      ВНИМАНИЕ! При записи настроек Wi-Fi контроллер перезапустит ESP, и веб-интерфейс на какое-то
+      время станет недоступен!
+    </p>
     
   </form>
 </div>

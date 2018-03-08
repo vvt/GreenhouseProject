@@ -59,6 +59,8 @@ void IoTModule::Write(Stream* writeTo)
 #endif    
 
   writeTo->write(dataToSend->c_str(),dataToSend->length());
+  delete dataToSend;
+  dataToSend = new String();
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -188,6 +190,8 @@ void IoTModule::Done(const IoTCallResult& result)
         Serial.println(result.success ? F("true") : F("false") );
 #endif
 
+  delete dataToSend;
+  dataToSend = new String();
 
   // проверяем результат отработки отсыла данных через переданный шлюз
   if(result.success) 
@@ -235,7 +239,7 @@ void IoTModule::Setup()
 
  IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
 
-  services.Clear();
+  services.clear();
   
   if(iotSettings.Flags.ThingSpeakEnabled) // ThingSpeak включен
       services.push_back(iotThingSpeak);

@@ -14,7 +14,7 @@ class SocketTransport
     $this->sock = 0;
     $this->port = 1975;
     $this->address = "";
-    $this->timeout = 5;
+    $this->timeout = 10;
   }
   
   function __destruct()
@@ -25,7 +25,7 @@ class SocketTransport
   //
   // open
   //
-  function open($addr, $port=1975, $tmio=5)
+  function open($addr, $port=1975, $tmio=10)
   {
     $this->close();
     

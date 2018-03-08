@@ -441,10 +441,13 @@ function editWiFiSettings()
             controller.queryCommand(false,cmd,function(obj,answer){
            
                 closeWaitDialog();
+                /*
                 if(answer.IsOK)
                   showMessage("Данные успешно сохранены!");
                 else
                   showMessage("Ошибка сохранения данных :(");                      
+                */
+                showMessage("Настройки Wi-Fi применены, ждите, когда контроллер переконнектится.");
 
             });
         

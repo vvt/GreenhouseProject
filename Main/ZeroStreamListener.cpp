@@ -412,8 +412,6 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
 
             size_t modulesCount = MainController->GetModulesCount(); // получаем кол-во зарегистрированных модулей
 
-          //  const char* noDataByte = "FF"; // байт - нет данных с датчика
-
             // пробегаем по всем модулям
             String moduleName;
             moduleName.reserve(20);
@@ -423,8 +421,6 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
               yield(); // немного даём поработать другим модулям
 
               AbstractModule* mod = MainController->GetModule(i);
-             // if(mod == this) // себя пропускаем
-             //   continue;
 
               // проверяем, не пустой ли модуль. для этого смотрим, сколько у него датчиков вообще
               uint8_t tempCount = mod->State.GetStateCount(StateTemperature);

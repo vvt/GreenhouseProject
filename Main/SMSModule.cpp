@@ -163,7 +163,7 @@ void SMSModule::SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToSt
           iotDataFooter = new String();
 
           // формируем запрос
-          *iotDataHeader = F("GET /update?api_key=");
+          *iotDataHeader = F("GET /headers=false&update?api_key=");
           *iotDataHeader += iotSettings.ThingSpeakChannelID;
           *iotDataHeader += F("&");
 
@@ -254,8 +254,11 @@ void SMSModule::Setup()
   flags.wantBalanceToProcess = false;
   flags.wantHTTPRequest = false;
   flags.inHTTPRequestMode = false;
+
+  #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
   httpHandler = NULL;
   httpData = NULL;
+  #endif
   
   rebootStartTime = 0;
 
@@ -355,9 +358,10 @@ void SMSModule::ProcessAnswerLine(String& line)
       EnsureIoTProcessed();
      #endif    
 
+    #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
      // убеждаемся, что мы обработали HTTP-запрос, пусть и неудачно
      EnsureHTTPProcessed(ERROR_MODEM_NOT_ANSWERING);
-     
+    #endif 
 
     InitQueue(); // инициализировали очередь по новой, т.к. модем либо только загрузился, либо - перезагрузился
     needToWaitTimer = GSM_WAIT_BOOT_TIME; // дадим модему ещё 2 секунды на раздупливание
@@ -404,8 +408,6 @@ void SMSModule::ProcessAnswerLine(String& line)
       }
     }
     break;
-
-
 
     case smaTCPSendData: // писали данные для IoT в поток, проверяем, чего там
     {
@@ -859,6 +861,8 @@ void SMSModule::ProcessAnswerLine(String& line)
 #endif
 
 //// ЦИКЛ HTTP////////////////////////////////////////////////////////
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
+
     case smaHttpTCPClose: // закрывали соединение
     {
       if(line.startsWith(F("+TCPCLOSE")))
@@ -898,8 +902,6 @@ void SMSModule::ProcessAnswerLine(String& line)
       }
     }
     break;
-
-
 
     case smaHttpTCPSendData: // писали данные для HTTP в поток, проверяем, чего там
     {
@@ -1417,6 +1419,9 @@ void SMSModule::ProcessAnswerLine(String& line)
       }
       
     break;
+    
+#endif
+    
 // КОНЕЦ ЦИКЛА HTTP ////////////////////////////////////////////    
 
     case smaCheckModemHardware:
@@ -1797,6 +1802,8 @@ void SMSModule::ProcessAnswerLine(String& line)
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
+//--------------------------------------------------------------------------------------------------------------------------------
 bool SMSModule::CanMakeQuery() // тестирует, может ли модуль сейчас сделать запрос
 {
   
@@ -1827,6 +1834,8 @@ void SMSModule::MakeQuery(HTTPRequestHandler* handler) // начинаем за�
     // и говорим, что мы готовы работать по HTTP-запросу
     flags.wantHTTPRequest = true;
 }
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif 
 //--------------------------------------------------------------------------------------------------------------------------------  
 void SMSModule::ProcessIncomingSMS(const String& line) // обрабатываем входящее SMS
 {
@@ -2183,6 +2192,7 @@ void SMSModule::ProcessQueue()
           return;
         }
 
+        #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
         if(flags.wantHTTPRequest)
         {
           // от нас ждут запроса по HTTP
@@ -2192,6 +2202,7 @@ void SMSModule::ProcessQueue()
   
           return; // возвращаемся, здесь делать нефик
         }        
+        #endif
 
 
       #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
@@ -2221,6 +2232,8 @@ void SMSModule::ProcessQueue()
     {
 
       //////////////////////////// ЦИКЛ HTTP ////////////////////////////////////////
+      #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
+      
       case smaHttpTCPWaitAnswer: // ждём ответа, ничего модему не посылаем
       break;
       
@@ -2501,7 +2514,8 @@ void SMSModule::ProcessQueue()
 
         SendCommand(comm);   
       }     
-      break;   
+      break;
+      #endif
       //////////////////////////// ЦИКЛ HTTP КОНЧИЛСЯ////////////////////////////////////////
       
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
@@ -3001,6 +3015,8 @@ void SMSModule::ProcessQueue()
     } // switch
 }
 //--------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::EnsureHTTPProcessed(uint16_t statusCode)
 {
   if(!httpHandler) // не было флага запроса HTTP-адреса
@@ -3019,6 +3035,8 @@ void SMSModule::EnsureHTTPProcessed(uint16_t statusCode)
   delete httpData;
   httpData = NULL;
 }
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::RebootModem()
 {
@@ -3042,6 +3060,7 @@ void SMSModule::RebootModem()
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
+//--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::EnsureIoTProcessed(bool success)
 {
      if(iotDone) 
@@ -3062,6 +3081,7 @@ void SMSModule::EnsureIoTProcessed(bool success)
      flags.wantIoTToProcess = false;         
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------
 void SMSModule::Update(uint16_t dt)
@@ -3142,9 +3162,11 @@ void SMSModule::Update(uint16_t dt)
      #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       EnsureIoTProcessed();
      #endif    
-     
+
+     #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
     // тут убеждаемся, что мы сообщили вызывающей стороне о неуспешном запросе по HTTP
      EnsureHTTPProcessed(ERROR_MODEM_NOT_ANSWERING);
+     #endif
      
      // очень долго, надо перезапустить последнюю команду.
      // причём лучше всего перезапустить всё сначала

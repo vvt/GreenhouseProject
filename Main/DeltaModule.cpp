@@ -252,7 +252,7 @@ void DeltaModule::UpdateDeltas()
 void DeltaModule::InitDeltas()
 {
   // загружаем дельты из EEPROM
-  deltas.Clear();
+  deltas.clear();
   #ifdef _DEBUG
   Serial.println(F("Read delta settings..."));
   #endif
@@ -393,7 +393,7 @@ bool  DeltaModule::ExecCommand(const Command& command, bool wantAnswer)
             State.RemoveState((ModuleStates)ds->SensorType,i); // просим класс состояний удалить состояние
           } // for
 
-          deltas.Clear(); // чистим дельты
+          deltas.clear(); // чистим дельты
           SaveDeltas(); // сохраняем дельты
         
        } // DELTA_DELETE_COMMAND

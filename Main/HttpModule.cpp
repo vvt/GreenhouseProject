@@ -759,7 +759,7 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
   }
 
   // с позиции startLen у нас идёт идентификатор команды
-  String* commandId = new String;
+  String* commandId = new String();
   const char* strPtr = line.c_str() + startLen;
 
   while(*strPtr && *strPtr != '#') // собираем идентификатор команды

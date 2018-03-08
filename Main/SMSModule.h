@@ -56,6 +56,8 @@ typedef enum
   
 #endif  
 
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
+
   smaStartHTTPSend, // начинаем запрос HTTP
 
   // команды, специфичные для M590  
@@ -78,7 +80,8 @@ typedef enum
   smaHttpStartSendDataToService,
   smaHttpSendDataToSIM800,
   smaHttpWaitForServiceAnswer,
- 
+  
+#endif 
   
 } SMSActions;
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -113,13 +116,18 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 , public IoTGate
 #endif
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
 , public HTTPQueryProvider
+#endif
 {
   private:
 
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
     HTTPRequestHandler* httpHandler; // интерфейс перехватчика работы с HTTP-запросами
     String* httpData; // данные для отсыла по HTTP
     void EnsureHTTPProcessed(uint16_t statusCode); // убеждаемся, что мы сообщили вызывающей стороне результат запроса по HTTP
+    int tcpTargetPort;
+#endif
 
     #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       IOT_OnWriteToStream iotWriter;
@@ -163,7 +171,6 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void RebootModem(); // перезагружаем модем
     unsigned long rebootStartTime;
 
-    int tcpTargetPort;
     SMSModuleFlags flags;
 
     #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
@@ -197,9 +204,10 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     virtual void SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone);
 #endif 
 
+#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
   virtual bool CanMakeQuery(); // тестирует, может ли модуль сейчас сделать запрос
   virtual void MakeQuery(HTTPRequestHandler* handler); // начинаем запрос по HTTP
-              
+#endif
 
 };
 

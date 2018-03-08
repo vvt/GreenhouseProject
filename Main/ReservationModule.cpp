@@ -55,7 +55,7 @@ void ReservationModule::ClearReservations()
     delete rec;
   }
 
-  records.Clear();
+  records.clear();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ReservationModule::SaveReservations()
