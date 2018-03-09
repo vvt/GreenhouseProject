@@ -9,14 +9,45 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 // выводит свободную память
 //--------------------------------------------------------------------------------------------------------------------------------------
+#if (TARGET_BOARD == MEGA_BOARD)
+struct __freelist 
+{
+  size_t sz;
+  struct __freelist *nx;
+};
+extern struct __freelist *__flp;
+int freeListSize() 
+{
+  struct __freelist* current;
+  int total = 0;
+  for (current = __flp; current; current = current->nx) 
+  {
+    total += 2; /* Add two bytes for the memory block's header  */
+    total += (int) current->sz;
+  }
+  return total;
+}
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 int freeRam() 
 {
   #if (TARGET_BOARD == MEGA_BOARD)
-  
-    extern int __heap_start, *__brkval;
+   extern int __heap_start, *__brkval;
+   int free_memory;
+    if ((int)__brkval == 0) 
+    {
+      free_memory = ((int)&free_memory) - ((int)&__heap_start);
+    } 
+    else 
+    {
+      free_memory = ((int)&free_memory) - ((int)__brkval);
+      free_memory += freeListSize();
+    }
+    return free_memory;    
+  /*
     int v;
     return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
-    
+ */   
  #elif (TARGET_BOARD == DUE_BOARD)
 
     struct mallinfo mi = mallinfo();
