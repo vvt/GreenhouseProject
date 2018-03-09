@@ -454,7 +454,7 @@ class UniRS485Gate // класс для работы универсальных 
 
     void executeCommands(const RS485Packet& packet);
 
-  #ifdef USE_UNIVERSAL_SENSORS // если комплимся с поддержкой модулей с датчиками - тогда обрабатываем очередь
+  #ifdef USE_UNIVERSAL_MODULES // если комплимся с поддержкой универсальных модулей - тогда обрабатываем очередь
 
     bool isInOnlineQueue(const RS485QueueItem& item);
     RS485Queue sensorsOnlineQueue; // очередь датчиков, с которых были показания

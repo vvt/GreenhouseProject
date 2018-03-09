@@ -8,7 +8,7 @@
 #include "InteropStream.h"
 #include "Memory.h"
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-#ifdef USE_UNIVERSAL_SENSORS
+#ifdef USE_UNIVERSAL_MODULES
 
   #ifdef USE_UNI_REGISTRATION_LINE
     UniRegistrationLine uniRegistrator(UNI_REGISTRATION_PIN);
@@ -18,7 +18,7 @@
     UniPermanentLine uniWiredModules[UNI_WIRED_MODULES_COUNT] = { UNI_WIRED_MODULES };
   #endif
 
-#endif // USE_UNIVERSAL_SENSORS
+#endif // USE_UNIVERSAL_MODULES
 
 #ifdef USE_NRF_GATE
   UniNRFGate nrfGate;
@@ -46,7 +46,7 @@ void ZeroStreamListener::Setup()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void ZeroStreamListener::Update(uint16_t dt)
 {
-#ifdef USE_UNIVERSAL_SENSORS
+#ifdef USE_UNIVERSAL_MODULES
 
 
   #if UNI_WIRED_MODULES_COUNT > 0
@@ -57,7 +57,7 @@ void ZeroStreamListener::Update(uint16_t dt)
     }
   #endif
   
-#endif // USE_UNIVERSAL_SENSORS
+#endif // USE_UNIVERSAL_MODULES
 
   UNUSED(dt);
 
@@ -316,7 +316,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           }          
           
         }
-        #if defined(USE_UNIVERSAL_SENSORS) && defined(USE_UNI_REGISTRATION_LINE)
+        #if defined(USE_UNIVERSAL_MODULES) && defined(USE_UNI_REGISTRATION_LINE)
         else
         if(t == UNI_SEARCH) // поиск универсального модуля на линии регистрации
         {
@@ -615,7 +615,7 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
         
        }
-        #if defined(USE_UNIVERSAL_SENSORS) && defined(USE_UNI_REGISTRATION_LINE)
+        #if defined(USE_UNIVERSAL_MODULES) && defined(USE_UNI_REGISTRATION_LINE)
         else
         if(t == UNI_REGISTER) // зарегистрировать универсальный модуль, висящий на линии
         {

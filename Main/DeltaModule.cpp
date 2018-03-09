@@ -130,7 +130,7 @@ void DeltaModule::Setup()
 {
   // настройка модуля тут
   isDeltasInited = false;
-  settings = MainController->GetSettings();
+  //settings = MainController->GetSettings();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void DeltaModule::SaveDeltas()
@@ -145,7 +145,7 @@ void DeltaModule::SaveDeltas()
   DeltaModule::_thisDeltaModule = this; // сохраняем указатель на себя
 
   // читаем данные из EEPROM
-  settings->WriteDeltaSettings(OnDeltaGetCount, OnDeltaWrite);
+  MainController->GetSettings()->WriteDeltaSettings(OnDeltaGetCount, OnDeltaWrite);
 
   #ifdef _DEBUG
   Serial.println(F("Delta settings saved."));
@@ -260,7 +260,7 @@ void DeltaModule::InitDeltas()
   DeltaModule::_thisDeltaModule = this; // сохраняем указатель на себя
 
   // читаем данные из EEPROM
-  settings->ReadDeltaSettings(OnDeltaSetCount, OnDeltaRead);
+  MainController->GetSettings()->ReadDeltaSettings(OnDeltaSetCount, OnDeltaRead);
 
   #ifdef _DEBUG
 /*

@@ -21,7 +21,7 @@ static uint8_t WATER_RELAYS[] = { WATER_RELAYS_PINS }; // объявляем м�
 void WateringChannel::SignalToHardware()
 {
     byte state = flags.isON ? WATER_RELAY_ON : WATER_RELAY_OFF;
-  
+
     WTR_LOG(F("[WTR] - channel "));
     WTR_LOG(flags.index);
     WTR_LOG(F(" write to pin #"));

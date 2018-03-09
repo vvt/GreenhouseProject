@@ -106,10 +106,12 @@ class CoreTransportClient
   public:
 
    CoreTransportClient();
-   virtual ~CoreTransportClient();
+   /*virtual */
+   ~CoreTransportClient();
   
-   bool connected();     
-
+  bool connected();
+  void accept(CoreTransport* _parent);
+     
   operator bool()
   {
     return  (socket != NO_CLIENT_ID); 
@@ -138,7 +140,6 @@ class CoreTransportClient
     friend class CoreESPTransport;
     #endif
     
-
     CoreTransport* parent;
 
     void releaseBuffer()
@@ -148,7 +149,6 @@ class CoreTransportClient
     }
 
     // установка ID клиента транспортом
-    void accept(CoreTransport* _parent);
     void bind(uint8_t _socket)
     {
       socket = _socket;
@@ -157,7 +157,6 @@ class CoreTransportClient
     {
       socket = NO_CLIENT_ID;
     }
-
 
     void clear();
     uint8_t* getBuffer(size_t& sz)
@@ -175,15 +174,6 @@ class CoreTransportClient
     size_t dataBufferSize;
     uint8_t socket;
     
-};
-//--------------------------------------------------------------------------------------------------------------------------------
-class ESPClient: public CoreTransportClient
-{
-  public:
-
-    ESPClient();
-   virtual ~ESPClient();
-  
 };
 //--------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WIFI_MODULE
@@ -410,7 +400,7 @@ typedef struct
   
 } MQTTSettings;
 //--------------------------------------------------------------------------------------------------------------------------------------
-class CoreMQTT : public IClientEventsSubscriber, public Stream
+class CoreMQTT : public IClientEventsSubscriber//, public Stream
 {
   public:
     CoreMQTT();
@@ -424,13 +414,14 @@ class CoreMQTT : public IClientEventsSubscriber, public Stream
   virtual void OnClientDataWritten(CoreTransportClient& client, int16_t errorCode); // событие "Данные из клиента записаны в поток"
   virtual void OnClientDataAvailable(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone); // событие "Для клиента поступили данные", флаг - все ли данные приняты
 
+/*
   // Stream
   virtual void flush(){}
   virtual int peek() {return 0;}
   virtual int read() {return 0;}
   virtual int available() {return 0;}
   virtual size_t write(uint8_t ch) { *streamBuffer += (char) ch; return 1;}
-
+*/
   // для публикации любого стороннего топика
   bool publish(const char* topicName, const char* payload);
 
@@ -443,7 +434,6 @@ class CoreMQTT : public IClientEventsSubscriber, public Stream
 
 private:
 
-
   void getNextTopic(String& topicName, String& data);
   void switchToNextTopic();
 
@@ -453,7 +443,7 @@ private:
   MQTTPublishList publishList;
   void clearPublishQueue();
 
-  ESPClient currentClient;
+  CoreTransportClient currentClient;
   CoreTransport* currentTransport;
   uint32_t timer;
 
@@ -462,7 +452,7 @@ private:
   String* streamBuffer;
 
   uint32_t intervalBetweenTopics;
-  int currentTopicNumber;
+  uint16_t currentTopicNumber;
 
   void pushToReportQueue(String* toReport);
   Vector<String*> reportQueue;

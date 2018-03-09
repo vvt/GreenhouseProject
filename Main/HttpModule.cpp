@@ -43,7 +43,6 @@
 #define HTTP_COMMAND_RULES_OFF 15
 #define HTTP_COMMAND_ALARMS_ON 16
 #define HTTP_COMMAND_ALARMS_OFF 17
-
 //--------------------------------------------------------------------------------------------------------------------------------
 void HttpModule::Setup()
 {

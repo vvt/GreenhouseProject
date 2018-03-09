@@ -1,9 +1,5 @@
 #include "Globals.h"
 
-#ifdef _DEBUG
-#include "PDUClasses.h"
-#endif
-
 #include "CommandBuffer.h"
 #include "CommandParser.h"
 #include "ModuleController.h"
@@ -12,7 +8,6 @@
 #include "Memory.h"
 #include "InteropStream.h"
 
-
 #ifdef USE_HTTP_MODULE
 #include "HttpModule.h"
 #endif
@@ -20,7 +15,6 @@
 #ifdef USE_PIN_MODULE
 #include "PinModule.h"
 #endif
-
 
 #ifdef USE_STAT_MODULE
 #include "StatModule.h"
@@ -114,12 +108,10 @@ CommandParser commandParser;
 // Контроллер модулей
 ModuleController controller;
 
-
 #ifdef USE_PIN_MODULE
 //  Модуль управления цифровыми пинами
 PinModule pinModule;
 #endif
-
 
 #ifdef USE_STAT_MODULE
 // Модуль вывода статистики
@@ -277,7 +269,6 @@ void WIFI_EVENT_FUNC()
 ZeroStreamListener zeroStreamModule;
 AlertModule alertsModule;
 
-
 #ifdef USE_EXTERNAL_WATCHDOG
   typedef enum
   {
@@ -323,13 +314,11 @@ void setup()
   // устанавливаем провайдера команд для контроллера
   controller.SetCommandParser(&commandParser);
 
-
   // регистрируем модули  
   #ifdef USE_PIN_MODULE  
   controller.RegisterModule(&pinModule);
   #endif
   
-
   #ifdef USE_STAT_MODULE
   controller.RegisterModule(&statModule);
   #endif
@@ -417,18 +406,15 @@ void setup()
     controller.RegisterModule(&tftModule);
   #endif
   
- // модуль алертов регистрируем последним, т.к. он должен вычитать зависимости с уже зарегистрированными модулями
   controller.RegisterModule(&zeroStreamModule);
+ // модуль алертов регистрируем последним, т.к. он должен вычитать зависимости с уже зарегистрированными модулями
   controller.RegisterModule(&alertsModule);
 
   controller.begin(); // начинаем работу
 
-//    ProcessInitCommands(); // запускаем на обработку команды инициализации
-
   // Печатаем в Serial готовность
   Serial.print(READY);
 
-  // тест часов реального времени
   #ifdef USE_DS3231_REALTIME_CLOCK
   
    DS3231Clock rtc = controller.GetClock();
@@ -440,11 +426,10 @@ void setup()
    Serial.print(rtc.getDateStr(tm));
    Serial.print(F(" - "));
    Serial.print(rtc.getTimeStr(tm));
-
-   
+      
   #endif 
 
-    Serial.println(F(""));
+  Serial.println(F(""));
 
   #ifdef USE_LOG_MODULE
     controller.Log(&logModule,READY); // печатаем в файл действий строчку Ready, которая скажет нам, что мега стартовала
@@ -566,8 +551,6 @@ void loop()
   #endif
 
 #endif
-
-
 
   // смотрим, есть ли входящие команды
    if(commandsFromSerial.HasCommand())

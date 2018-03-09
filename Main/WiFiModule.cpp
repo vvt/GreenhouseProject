@@ -498,15 +498,16 @@ void WiFiModule::Setup()
   httpHandler = NULL;
   httpDataWritten = false;
   httpData = new String();
-  MainController->SetHTTPProvider(0,this); 
+  MainController->SetHTTPProvider(0,this);
+  httpClient.accept(&ESP);
  #endif
 
 #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
      iotWriter = NULL;
      iotDone = NULL;
-
      thingSpeakDataWritten = false;
      IoTList.RegisterGate(this); // регистрируем себя как отсылателя данных в IoT
+     thingSpeakClient.accept(&ESP);
 #endif
 
   ESP.begin();

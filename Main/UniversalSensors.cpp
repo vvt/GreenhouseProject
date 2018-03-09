@@ -21,7 +21,7 @@ UniRS485Gate::UniRS485Gate()
 #endif  
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-#ifdef USE_UNIVERSAL_SENSORS
+#ifdef USE_UNIVERSAL_MODULES
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 bool UniRS485Gate::isInOnlineQueue(const RS485QueueItem& item)
 {
@@ -31,7 +31,7 @@ bool UniRS485Gate::isInOnlineQueue(const RS485QueueItem& item)
   return false;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-#endif // USE_UNIVERSAL_SENSORS
+#endif // USE_UNIVERSAL_MODULES
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::enableSend()
 {
@@ -725,7 +725,7 @@ void UniRS485Gate::Update(uint16_t dt)
     }
   #endif // USE_UNI_EXECUTION_MODULE
 
-  #ifdef USE_UNIVERSAL_SENSORS
+  #ifdef USE_UNIVERSAL_MODULES
 
 
    static byte _is_inited = false;
@@ -1189,7 +1189,7 @@ void UniRS485Gate::Update(uint16_t dt)
       
     } // if(sensorsTimer > _upd_interval)
     
-  #endif // USE_UNIVERSAL_SENSORS
+  #endif // USE_UNIVERSAL_MODULES
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 UniRS485Gate RS485;

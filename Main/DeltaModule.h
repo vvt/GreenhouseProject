@@ -23,7 +23,7 @@ class DeltaModule : public AbstractModule // модуль регистрации
 {
   private:
 
-  GlobalSettings* settings; // указатель на настройки
+//  GlobalSettings* settings; // указатель на настройки
   bool isDeltasInited; // флаг, что мы инициализировали настройки дельт
   uint16_t lastUpdateCall;
 

@@ -15,7 +15,7 @@ public:
 
   bool HasCommand();
   const String& GetCommand() {return *strBuff;}
-  void ClearCommand() {/*strBuff = "";*/ delete strBuff; strBuff = new String(); }
+  void ClearCommand() { delete strBuff; strBuff = new String(); }
   Stream* GetStream() {return pStream;}
 
 };

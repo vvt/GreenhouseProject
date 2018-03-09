@@ -272,23 +272,9 @@ void ModuleController::PublishToCommandStream(AbstractModule* module,const Comma
    PublishSingleton.Flags.Busy = false; // освобождаем структуру
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ModuleController::CallRemoteModuleCommand(AbstractModule* mod, const String& command)
-{
-
-  UNUSED(mod);
-  UNUSED(command);
-  
-#ifdef _DEBUG  
-  Serial.println("BROADCAST THE COMMAND \"" + command + "\"");
-#endif
-  
-}
-//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::Publish(AbstractModule* module,const Command& sourceCommand)
 {
-
-  PublishToCommandStream(module,sourceCommand);
-  
+  PublishToCommandStream(module,sourceCommand); 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 AbstractModule* ModuleController::GetModuleByID(const String& id)
@@ -305,10 +291,6 @@ AbstractModule* ModuleController::GetModuleByID(const String& id)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::ProcessModuleCommand(const Command& c, AbstractModule* mod)
 {
-
-#ifdef _DEBUG
-///Serial.println("called: " +  c.GetTargetModuleID() + PARAM_DELIMITER + c.GetRawArguments());
-#endif  
 
 if(!mod) // ничего не передали, надо искать модуль
   mod =  GetModuleByID(c.GetTargetModuleID());

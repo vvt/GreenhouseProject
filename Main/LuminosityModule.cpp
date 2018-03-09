@@ -135,11 +135,12 @@ void LuminosityModule::Setup()
   SAVE_STATUS(LIGHT_MODE_BIT,1); // сохраняем, что мы в автоматическом режиме работы
   
 #ifdef USE_LIGHT_MANUAL_MODE_DIODE
-  blinker.begin(DIODE_LIGHT_MANUAL_MODE_PIN);//,F("LX")); // настраиваем блинкер на нужный пин
+  blinker.begin(DIODE_LIGHT_MANUAL_MODE_PIN); // настраиваем блинкер на нужный пин
 #endif
 
   #if LAMP_RELAYS_COUNT > 0
    // выключаем все реле
+   
     for(uint8_t i=0;i<LAMP_RELAYS_COUNT;i++)
     {
       #if LIGHT_DRIVE_MODE == DRIVE_DIRECT

@@ -38,8 +38,8 @@ bool WindowState::ChangePosition(unsigned long newPos)
 //  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
 //  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
   
-  GlobalSettings* settings = MainController->GetSettings();
-  unsigned long interval = settings->GetOpenInterval();
+ // GlobalSettings* settings = MainController->GetSettings();
+//  unsigned long interval = settings->GetOpenInterval();
   
   long currentDifference = 0;
   if(CurrentPosition > newPos)
@@ -99,8 +99,10 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback)
+void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFedback)
 {  
+  UNUSED(isFirstFedback);
+  
   GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();
 

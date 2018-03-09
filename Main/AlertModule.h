@@ -57,7 +57,7 @@ typedef struct
   uint8_t DayMask; // маска дней недели, когда работает правило
   uint16_t StartTime; // начало работы (минут от начала суток)
   uint16_t WorkTime; // продолжительность работы, минут
-  long DataAlert; // настройка, за которой следим (4 байта)
+  int32_t DataAlert; // настройка, за которой следим (4 байта)
 
   uint8_t TargetCommandType; // тип команды на выполнение
   uint8_t TargetCommandParam; // дополнительный параметр для команды

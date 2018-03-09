@@ -105,7 +105,7 @@ void EthernetModule::Update(uint16_t dt)
         client.stop();
 
         // очищаем внутренний буфер, подготавливая его к приёму следующей команды
-        clientCommands[sockNumber] = F(""); 
+        clientCommands[sockNumber] = ""; 
         
         break; // выходим из цикла
         

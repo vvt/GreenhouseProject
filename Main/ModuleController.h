@@ -114,8 +114,6 @@ public:
   
   void UpdateModules(uint16_t dt, CallbackUpdateFunc func);
   
-  void CallRemoteModuleCommand(AbstractModule* mod, const String& command); // вызывает команду с другой коробочки
-
   void Publish(AbstractModule* module,const Command& sourceCommand); // каждый модуль по необходимости дергает этот метод для публикации событий/ответов на запрос
 
   void SetCommandParser(CommandParser* c) {cParser = c;};

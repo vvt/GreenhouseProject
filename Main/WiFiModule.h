@@ -52,7 +52,7 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 
 #ifdef USE_WIFI_MODULE_AS_HTTP_PROVIDER
     HTTPRequestHandler* httpHandler; // интерфейс перехватчика работы с HTTP-запросами
-    ESPClient httpClient;
+    CoreTransportClient httpClient;
     bool canCallHTTPEvent;
     bool httpDataWritten;
     String* httpData;
@@ -69,7 +69,7 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 
       uint16_t thingSpeakDataLength;
       bool thingSpeakDataWritten;
-      ESPClient thingSpeakClient;
+      CoreTransportClient thingSpeakClient;
       void sendDataToThingSpeak();
       void EnsureIoTProcessed(bool success=false);
       
