@@ -917,7 +917,7 @@ void CoreESPTransport::processIPD(const String& line)
                   delete [] buff;
                       
                   // пересчитываем длину пакета, вдруг там мало осталось, и незачем выделять под несколько байт огромный буфер
-                  packetSize =  min(MAX_PACKET_SIZE, lengthOfData - totalWritten);
+                  packetSize =  min(MAX_PACKET_SIZE, (lengthOfData - totalWritten) );
                   buff = new uint8_t[packetSize];
                   writePtr = buff; // на начало буфера
                   packetWritten = 0;
@@ -996,7 +996,7 @@ void CoreESPTransport::processConnect(const String& line)
         #endif
           
           // не найдено ни одного ответа из известных. Проблема в том, что у внешнего клиента ещё нет слота,
-          // но там надо ему временно выставить слот (мы это сделали выше), потом вызвать событие отсоединения, потом - очистить ему слот
+          // но нам надо ему временно выставить слот (мы это сделали выше), потом вызвать событие отсоединения, потом - очистить ему слот
           removeClientFromQueue(cipstartConnectClient);
           notifyClientConnected(*cipstartConnectClient,false,CT_ERROR_CANT_CONNECT);
           cipstartConnectClient->release();

@@ -39,18 +39,17 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
 , public Stream
 {
   private:
-
-
+  
     String* streamBuffer;
 
     #ifdef USE_WIFI_MODULE_AS_MQTT_CLIENT
       CoreMQTT mqtt;
     #endif
 
-
     void ProcessUnknownClientQuery(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone);
 
 #ifdef USE_WIFI_MODULE_AS_HTTP_PROVIDER
+
     HTTPRequestHandler* httpHandler; // интерфейс перехватчика работы с HTTP-запросами
     CoreTransportClient httpClient;
     bool canCallHTTPEvent;
@@ -59,6 +58,7 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
     void EnsureHTTPProcessed(uint16_t statusCode); // убеждаемся, что мы сообщили вызывающей стороне результат запроса по HTTP
     void sendDataToGardenbossRu();
     void processGardenbossData(uint8_t* data, size_t dataSize, bool isLastData);
+    
 #endif
     
     #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)

@@ -260,8 +260,6 @@ void IdlePageMenuItem::RequestSDSensorData(LCDMenu* menu)
     // получаем модуль в системе
     AbstractModule* module = NULL;
     ModuleStates sensorType;
-    
-
 
     switch(idleFlags.currentSensorsDirectory)
     {
@@ -292,7 +290,6 @@ void IdlePageMenuItem::RequestSDSensorData(LCDMenu* menu)
       
     } // switch    
 
-
     if(module)
     {
       // получаем состояние для датчика
@@ -318,7 +315,6 @@ void IdlePageMenuItem::RequestSDSensorData(LCDMenu* menu)
       
     } // if(module)
       
-
    workFile.close(); // не забываем закрывать файл за собой
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -508,7 +504,7 @@ void IdlePageMenuItem::draw(DrawContext* dc)
         DS3231Clock rtc = MainController->GetClock();
         DS3231Time tm = rtc.getTime();
 
-        static char dt_buff[20] = {0};
+        /*static */char dt_buff[20] = {0};
         sprintf_P(dt_buff,(const char*) F("%02d.%02d.%d %02d:%02d"), tm.dayOfMonth, tm.month, tm.year, tm.hour, tm.minute);
         
         strW = dc->getStrWidth(dt_buff);

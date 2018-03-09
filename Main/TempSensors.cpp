@@ -99,9 +99,9 @@ void WindowState::SwitchRelays(uint8_t rel1State, uint8_t rel2State)
     
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFedback)
+void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback)
 {  
-  UNUSED(isFirstFedback);
+  UNUSED(isFirstFeedback);
   
   GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();

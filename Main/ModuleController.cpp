@@ -182,7 +182,7 @@ void ModuleController::Setup()
 _rtc.begin();
 #endif
 
-#if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE)|| (defined(SENSORS_SETTINGS_ON_SD_ENABLED) && defined(USE_LCD_MODULE))
+#if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE) || (defined(SENSORS_SETTINGS_ON_SD_ENABLED) && defined(USE_LCD_MODULE))
 
   pinMode(SDCARD_CS_PIN,OUTPUT);
   digitalWrite(SDCARD_CS_PIN,HIGH);

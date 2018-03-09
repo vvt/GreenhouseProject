@@ -17,8 +17,7 @@ class AlarmDispatcher
 
 #ifdef USE_SMS_MODULE
     RaisedAlarmsList queueSMSAlarms;
-    RaisedAlarmsList processedSMSAlarms;
-    
+    RaisedAlarmsList processedSMSAlarms;   
 #endif
 
   public:

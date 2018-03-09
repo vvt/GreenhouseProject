@@ -21,11 +21,6 @@ void LogModule::Setup()
     currentLogFileName.reserve(20); // резервируем память, чтобы избежать фрагментации
 
    lastUpdateCall = 0;
-   /*
-   #ifdef USE_DS3231_REALTIME_CLOCK
-   rtc = MainController->GetClock();
-   #endif
-   */
 
    lastDOW = -1;
    
@@ -33,7 +28,6 @@ void LogModule::Setup()
    lastActionsDOW = -1;
 #endif   
 
-//   hasSD = MainController->HasSDCard();
    loggingInterval = LOGGING_INTERVAL; // по умолчанию, берём из Globals.h. Позже - будет из настроек.
   // настройка модуля тут
  }
@@ -189,7 +183,7 @@ void LogModule::CreateNewLogFile(const DS3231Time& tm)
    currentLogFileName += String(tm.month);
    
    if(tm.dayOfMonth < 10)
-    currentLogFileName += '0';
+    currentLogFileName += F("0");
     
    currentLogFileName += String(tm.dayOfMonth);
 
@@ -263,8 +257,7 @@ void LogModule::TryAddFileHeader()
 
     size_t cnt = MainController->GetModulesCount();
     bool anyModuleNameWritten = false;
-
-    
+   
     for(size_t i=0;i<cnt;i++)
     {
       AbstractModule* m = MainController->GetModule(i);

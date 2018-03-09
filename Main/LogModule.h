@@ -20,14 +20,9 @@ class LogModule : public AbstractModule // модуль логгирования
   static String _NEWLINE;
 
   unsigned long lastUpdateCall;
-  /*
-  #ifdef USE_DS3231_REALTIME_CLOCK
-  DS3231Clock rtc;
-  #endif
-  */
+
   int8_t lastDOW;
 
-  //bool hasSD;
   SdFile logFile; // текущий файл для логгирования
   SdFile actionFile; // файл с записями о произошедших действиях
   String currentLogFileName; // текущее имя файла, с которым мы работаем сейчас

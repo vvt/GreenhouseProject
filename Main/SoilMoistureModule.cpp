@@ -5,12 +5,14 @@
 
 #define PULSE_TIMEOUT 50000 // 50 миллисекунд на чтение фронта максимум
 //--------------------------------------------------------------------------------------------------------------------------------------
+#pragma pack(push,1)
 typedef struct
 {
   int8_t pin;
   int8_t type;
   
 } SoilMoistureSensorSettings;
+#pragma pack(pop)
 //--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_SOIL_MOISTURE_SENSORS > 0
 static SoilMoistureSensorSettings SOIL_MOISTURE_SENSORS_ARRAY[] = { SOIL_MOISTURE_SENSORS };
