@@ -3050,7 +3050,7 @@ void CoreMQTT::getNextTopic(String& topicName, String& data)
       #ifdef MQTT_REPORT_AS_JSON
         convertAnswerToJSON(PublishSingleton.Text,&data);
       #else // ответ как есть, в виде RAW
-        dataOut = PublishSingleton.Text;
+        data = PublishSingleton.Text;
       #endif
 
        switchToNextTopic();
