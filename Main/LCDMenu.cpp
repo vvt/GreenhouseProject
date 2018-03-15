@@ -1848,11 +1848,6 @@ void LCDMenu::draw()
 if(!flags.needRedraw || !flags.backlightIsOn) // не надо ничего перерисовывать
   return;
 
-#ifdef LCD_DEBUG
-Serial.print("LCDMenu::draw() - ");
-unsigned long m = millis();
-#endif
-
 #define LCD_YIELD yield()
     
  size_t sz = items.size();
@@ -1911,9 +1906,7 @@ unsigned long m = millis();
   } while( nextPage() ); 
 
    flags.needRedraw = false; // отрисовали всё, что нам надо - и сбросили флаг необходимости отрисовки
-#ifdef LCD_DEBUG
-   Serial.println(millis() - m);
-#endif   
+ 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif

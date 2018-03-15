@@ -5,7 +5,7 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_PH_MODULE
 
-#define PH_DEBUG_OUT(which, value) {Serial.print((which)); Serial.println((value));}
+#define PH_DEBUG_OUT(which, value) {DEBUG_LOG((which)); DEBUG_LOGLN((value));}
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 PHCalculator PHCalculation;
 PhModule* _thisPHModule = NULL;

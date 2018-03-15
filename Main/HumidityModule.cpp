@@ -94,20 +94,6 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
 
       // теперь мы можем читать с датчика - предыдущий строб, если был - разорван, текущий, если есть - включен
       return si7021.read();
-     
-      
-      /*
-
-      static bool isSI7021Inited = false;
-      
-      if(!isSI7021Inited)
-      {
-        isSI7021Inited = true;
-        si7021.begin();
-      }
-      
-      return si7021.read();
-      */
     }
     break;
 

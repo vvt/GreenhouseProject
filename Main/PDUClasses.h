@@ -49,13 +49,13 @@ class PDUMessageDecoder // декодировщик сообщений из UCS2
     uint8_t DCS_Bits(const String& tp_DCS);
     int UCS2ToUTF8(unsigned long ucs2, unsigned char * utf8);
 
-    String getUTF8From16BitEncoding(const String& ucs2Message);
     String getUTF8From8BitEncoding(const String& ucs2Message);
     String getUTF8From7BitEncoding(const String& ucs2Message, uint16_t trueLength);
   
   public:
 
-    PDUIncomingMessage Decode(const String& ucs2Message, const String& allowedSenderNumber); // декодирует сообщение
+    String getUTF8From16BitEncoding(const String& ucs2Message);
+    PDUIncomingMessage Decode(const String& ucs2Message); // декодирует сообщение
     PDUMessageDecoder();
   
 }; 

@@ -599,9 +599,6 @@ OneState& OneState::operator=(const OneState& rhs)
 
   if(Type != rhs.Type)
   {
-  #ifdef _DEBUG
-  Serial.println(F("[ERR] OneState::operator= - called with different types!"));
-  #endif
     return *this;
   }
 
@@ -963,10 +960,7 @@ OneState::operator HumidityPair()
 {
   if(!(Type == StateHumidity || Type == StateSoilMoisture || Type == StatePH)) // влажность можно получить только для трёх типов датчиков
   {
-  #ifdef _DEBUG
-    Serial.println(F("[ERR] OneState:operator HumidityPair() - !StateHumidity"));
-  #endif
-  return HumidityPair(Humidity(),Humidity()); // undefined behaviour
+    return HumidityPair(Humidity(),Humidity()); // undefined behaviour
   }
 
     return HumidityPair(*((Humidity*)PreviousData),*((Humidity*)Data));  
@@ -976,10 +970,7 @@ OneState::operator TemperaturePair()
 {
   if(Type != StateTemperature)
   {
-  #ifdef _DEBUG
-    Serial.println(F("[ERR] OneState:operator TemperaturePair() - !StateTemperature"));
-  #endif
-  return TemperaturePair(Temperature(),Temperature()); // undefined behaviour
+    return TemperaturePair(Temperature(),Temperature()); // undefined behaviour
   }
 
     return TemperaturePair(*((Temperature*)PreviousData),*((Temperature*)Data));
@@ -989,10 +980,7 @@ OneState::operator LuminosityPair()
 {
   if(Type != StateLuminosity)
   {
-  #ifdef _DEBUG
-    Serial.println(F("[ERR] OneState:operator LuminosityPair() - !StateLuminosity"));
-  #endif
-  return LuminosityPair(0,0); // undefined behaviour
+    return LuminosityPair(0,0); // undefined behaviour
   }
   return LuminosityPair(*((long*)PreviousData),*((long*)Data));   
 }
@@ -1001,10 +989,7 @@ OneState::operator WaterFlowPair()
 {
   if(!(Type == StateWaterFlowInstant || Type == StateWaterFlowIncremental))
   {
-  #ifdef _DEBUG
-    Serial.println(F("[ERR] OneState:operator WaterFlowPair() - !StateWaterFlow"));
-  #endif
-  return WaterFlowPair(0,0); // undefined behaviour
+    return WaterFlowPair(0,0); // undefined behaviour
   }
   return WaterFlowPair(*((unsigned long*)PreviousData),*((unsigned long*)Data));   
 }
@@ -1015,10 +1000,7 @@ OneState operator-(const OneState& left, const OneState& right)
 
   if(left.Type != right.Type)
   {
-  #ifdef _DEBUG
-    Serial.println(F("[ERR] OneState operator- - Different types!"));
-  #endif
-  return result; // undefined behaviour
+    return result; // undefined behaviour
   }
   
       switch(left.Type)
@@ -1219,10 +1201,6 @@ void ModuleState::UpdateState(ModuleStates state, uint8_t idx, void* newData)
         return;
       } // if
   } // for
-
-#ifdef _DEBUG
-Serial.println(F("[ERR] - UpdateState FAILED!"));
-#endif  
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 uint8_t ModuleState::GetStateCount(ModuleStates state)
@@ -1354,4 +1332,27 @@ FeedbacksManager FeedbackManager;
 //--------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_FEEDBACK_MANAGER
 //--------------------------------------------------------------------------------------------------------------------------------
+#if defined(_DEBUG) || defined(WIFI_DEBUG) || defined(GSM_DEBUG_MODE) || defined(LOGGING_DEBUG_MODE) || defined(ETHERNET_DEBUG) || defined(WATER_DEBUG) || defined(NRF_DEBUG) || defined(RS485_DEBUG) || defined(UNI_DEBUG) || defined(PH_DEBUG) || defined(IOT_DEBUG) || defined(HTTP_DEBUG) || defined(MQTT_DEBUG)
+
+  #if defined(USE_WIFI_MODULE) || defined(USE_SMS_MODULE)
+  #include "CoreTransport.h"
+  #endif
+
+void DebugLog(const String& str)
+{
+  for(size_t i=0;i<str.length();i++)
+  {
+    #ifdef USE_WIFI_MODULE
+      ESP.readFromStream();
+    #endif
+
+   #ifdef USE_SMS_MODULE
+    SIM800.readFromStream();
+   #endif     
+    
+    Serial.write(str[i]);
+  }
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+#endif
 

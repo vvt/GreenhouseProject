@@ -1,9 +1,11 @@
-#ifndef _SMS_MODULE_H
-#define _SMS_MODULE_H
+#pragma once
 //--------------------------------------------------------------------------------------------------------------------------------
 #include "AbstractModule.h"
 #include "Settings.h"
 #include "TinyVector.h"
+#include "CoreTransport.h"
+//--------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_SMS_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 #include "IoT.h"
@@ -11,174 +13,54 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 #include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
 //--------------------------------------------------------------------------------------------------------------------------------
-typedef enum
-{
-  smaIdle, // ничего не делаем, просто ждём
-  smaCheckReady, // проверяем готовность (AT+CPAS)
-  smaEchoOff, // выключаем эхо (ATE0)
-  smaDisableCellBroadcastMessages, // AT+CSCB=1
-  smaAON, // включаем АОН (AT+CLIP=1)
-  smaPDUEncoding, // включаем кодировку PDU (AT+CMGF=0)
-  smaUCS2Encoding, // включаем кодировку UCS2 (AT+CSCS="UCS2")
-  smaSMSSettings, // включаем вывод входящих смс сразу в порт (AT+CNMI=2,2)
-  smaWaitReg, // ждём регистрации (AT+CREG?)
-  smaHangUp, // кладём трубку (ATH)
-  smaStartSendSMS, // начинаем отсылать SMS (AT+CMGS=)
-  smaSmsActualSend, // актуальный отсыл SMS
-  smaClearAllSMS, // очистка всех SMS (AT+CMGD=0,4)
-  smaCheckModemHang, // проверяем, не завис ли модем (AT)
-  smaRequestBalance, // запрос баланса (ATD#100#;)
-  smaCheckModemHardware, // запрос, какой модем подключен (AT+CGMM)
-  
-#if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
-  
-  smaStartIoTSend, // начинаем отсыл данных в IoT
-
-  // Команды, специфичные для M590
-  smaGDCONT, // задаём параметры PDP-контекста (AT+CGDCONT)
-  smaXGAUTH, // авторизация в APN (AT+XGAUTH)
-  smaXIIC, // установка соединения PPP (AT+XIIC=1)
-  smaCheckPPPIp, // проверяем выданный IP (AT+XIIC?)
-  smaTCPSETUP, // устанавливаем TCP-соединение
-  smaTCPSEND, // начинаем посылать данные
-  smaTCPSendData, // отсылаем данные
-  smaTCPClose, // закрываем соединение
-  smaTCPWaitAnswer, // ждём ответа
-
-  // команды, специфичные для SIM800L
-  smaStartGPRSConnection,
-  smaCheckGPRSConnection,
-  smaCloseGPRSConnection,
-  smaConnectToIOT,
-  smaStartSendIoTData,
-  smaSendDataToSIM800,
-  smaWaitForIoTAnswer,
-  
-#endif  
-
-#ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
-
-  smaStartHTTPSend, // начинаем запрос HTTP
-
-  // команды, специфичные для M590  
-  smaHttpGDCONT, // задаём параметры PDP-контекста (AT+CGDCONT)
-  smaHttpXGAUTH, // авторизация в APN (AT+XGAUTH)
-  smaHttpXIIC, // установка соединения PPP (AT+XIIC=1)
-  smaHttpCheckPPPIp, // проверяем выданный IP (AT+XIIC?)
-  smaHttpTCPSETUP, // устанавливаем TCP-соединение
-  smaHttpTCPSEND, // начинаем посылать данные
-  smaHttpTCPSendData, // отсылаем данные
-  smaHttpTCPClose, // закрываем соединение
-  smaHttpTCPWaitAnswer, // ждём ответа
-  smaHttpDnsAddress, // получаем адрес сервиса
-
-  // команды, специфичные для SIM800L
-  smaHttpStartGPRSConnection,
-  smaHttpCheckGPRSConnection,
-  smaHttpCloseGPRSConnection,
-  smaHttpConnectToService,
-  smaHttpStartSendDataToService,
-  smaHttpSendDataToSIM800,
-  smaHttpWaitForServiceAnswer,
-  
-#endif 
-  
-} SMSActions;
-//--------------------------------------------------------------------------------------------------------------------------------
-typedef Vector<SMSActions> SMSActionsVector;
-//--------------------------------------------------------------------------------------------------------------------------------
-
-enum
-{
-  M590,
-  SIM800
-};
-//--------------------------------------------------------------------------------------------------------------------------------
-typedef struct
-{
-    bool waitForSMSInNextLine : 1;
-    bool isModuleRegistered : 1; // зарегистрирован ли модуль у оператора?
-    bool isAnyAnswerReceived : 1;
-    bool inRebootMode : 1;
-    bool wantIoTToProcess : 1;
-    byte model : 2;
-    bool isIPAssigned : 1;
-    
-    bool wantBalanceToProcess : 1;
-    bool wantHTTPRequest : 1; // нас попросили запросить URI по HTTP и получить ответ
-    bool inHTTPRequestMode: 1; // мы в процессе работы с HTTP-запросом
-    
-    byte pad : 5;
-      
-} SMSModuleFlags;
-//--------------------------------------------------------------------------------------------------------------------------------
-class SMSModule : public AbstractModule, public Stream // модуль поддержки управления по SMS
+class SMSModule : public AbstractModule // модуль поддержки управления по SMS
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
 , public IoTGate
 #endif
 #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
 , public HTTPQueryProvider
 #endif
+, public IClientEventsSubscriber
 {
   private:
 
 #ifdef USE_GSM_MODULE_AS_HTTP_PROVIDER
     HTTPRequestHandler* httpHandler; // интерфейс перехватчика работы с HTTP-запросами
-    String* httpData; // данные для отсыла по HTTP
+    CoreTransportClient httpClient;
+    bool canCallHTTPEvent;
+    bool httpDataWritten;
+    String* httpData;
     void EnsureHTTPProcessed(uint16_t statusCode); // убеждаемся, что мы сообщили вызывающей стороне результат запроса по HTTP
-    int tcpTargetPort;
+    void sendDataToGardenbossRu();
+    void processGardenbossData(uint8_t* data, size_t dataSize, bool isLastData);
 #endif
 
     #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
       IOT_OnWriteToStream iotWriter;
       IOT_OnSendDataDone iotDone;
       IoTService iotService;
-      String* iotDataHeader;
-      String* iotDataFooter;
-      uint16_t iotDataLength;
+
+      uint16_t thingSpeakDataLength;
+      bool thingSpeakDataWritten;
+      CoreTransportClient thingSpeakClient;
+      void sendDataToThingSpeak();
       void EnsureIoTProcessed(bool success=false);
     #endif
 
-    String GetAPN();
-    void GetAPNUserPass(String& user, String& pass);
 
-    uint8_t currentAction; // текущая операция, завершения которой мы ждём
-    SMSActionsVector actionsQueue; // что надо сделать, шаг за шагом 
-    bool IsKnownAnswer(const String& line, bool& okFound); // если ответ нам известный, то возвращает true
-    void SendCommand(const String& command, bool addNewLine=true); // посылает команды модулю GSM
-    void ProcessQueue(); // разбираем очередь команд
-    void InitQueue(); // инициализируем очередь
-
-    String* cusdSMS;
-    String* smsToSend; // какое SMS отправить
-    String* commandToSend; // какую команду сперва отправить для отсыла SMS
-
-    String* queuedWindowCommand; // команда на выполнение управления окнами, должна выполняться только когда окна не в движении
-    uint16_t queuedTimer; // таймер, чтобы не дёргать часто проверку состояния окон - это незачем
-    void ProcessQueuedWindowCommand(uint16_t dt); // обрабатываем команду управления окнами, помещенную в очередь
-
-    long needToWaitTimer; // таймер ожидания до запроса следующей команды
-
-    void ProcessIncomingCall(const String& line); // обрабатываем входящий звонок
-    void ProcessIncomingSMS(const String& line); // обрабатываем входящее СМС
-
-    void RequestBalance();
-
-    String* customSMSCommandAnswer;
-
-    unsigned long sendCommandTime, answerWaitTimer;
-
-    void RebootModem(); // перезагружаем модем
-    unsigned long rebootStartTime;
-
-    SMSModuleFlags flags;
-
-    #if defined(USE_ALARM_DISPATCHER) && defined(USE_SMS_MODULE) && defined(CLEAR_ALARM_STATUS)
-      unsigned long processedAlarmsClearTimer;
-    #endif
 
     const char* GetKnownModuleName(int moduleIndex);
     String RequestDataFromKnownModule(const char* knownModule, int moduleIndex, int sensorIndex, const String& label);
+    void SendStatToCaller(const String& phoneNum);
+    void RequestBalance();
+
+    bool requestBalanceAsked;
+
+
+    #if defined(USE_ALARM_DISPATCHER) && defined(CLEAR_ALARM_STATUS)
+      unsigned long processedAlarmsClearTimer;
+    #endif
+    
   public:
     SMSModule() : AbstractModule("SMS") {}
 
@@ -186,19 +68,6 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
     void Setup();
     void Update(uint16_t dt);
 
-    void SendStatToCaller(const String& phoneNum);
-    void SendSMS(const String& sms, bool isSMSInUCS2Format=false);
-
-    void ProcessAnswerLine(String& line);
-    volatile bool WaitForSMSWelcome; // флаг, что мы ждём приглашения на отсыл SMS - > (плохое ООП, негодное :) )
-
-    virtual int available(){ return false; };
-    virtual int read(){ return -1;};
-    virtual int peek(){return -1;};
-    virtual void flush(){};
-
- 
-    virtual size_t write(uint8_t toWr);  
 
 #if defined(USE_IOT_MODULE) && defined(USE_GSM_MODULE_AS_IOT_GATE)
     virtual void SendData(IoTService service,uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone);
@@ -209,7 +78,15 @@ class SMSModule : public AbstractModule, public Stream // модуль подд�
   virtual void MakeQuery(HTTPRequestHandler* handler); // начинаем запрос по HTTP
 #endif
 
+  // IClientEventsSubscriber
+  virtual void OnClientConnect(CoreTransportClient& client, bool connected, int16_t errorCode); // событие "Статус соединения клиента"
+  virtual void OnClientDataWritten(CoreTransportClient& client, int16_t errorCode); // событие "Данные из клиента записаны в поток"
+  virtual void OnClientDataAvailable(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone); // событие "Для клиента поступили данные", флаг - все ли данные приняты
+
+  void IncomingCall(const String& phoneNumber, bool isKnownNumber, bool& shouldHangUp);
+  void IncomingSMS(const String& phoneNumber,const String& message, bool isKnownNumber);
+  void IncomingCUSD(const String& cusd);
+
 };
 
-
-#endif
+#endif // #ifdef USE_SMS_MODULE

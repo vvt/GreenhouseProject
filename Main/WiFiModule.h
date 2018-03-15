@@ -13,21 +13,6 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WIFI_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------
-class CommandExecuteResult : public Stream
-{
-  public:
-
-  String buffer;
-  
-   // Stream
-  virtual void flush(){}
-  virtual int peek() {return 0;}
-  virtual int read() {return 0;}
-  virtual int available() {return 0;}
-  virtual size_t write(uint8_t ch) { buffer += (char) ch; return 1;}  
-  
-}; 
-//--------------------------------------------------------------------------------------------------------------------------------
 class WiFiModule : public AbstractModule // модуль поддержки WI-FI
 #if defined(USE_IOT_MODULE) && defined(USE_WIFI_MODULE_AS_IOT_GATE)
 , public IoTGate
@@ -46,6 +31,7 @@ class WiFiModule : public AbstractModule // модуль поддержки WI-F
       CoreMQTT mqtt;
     #endif
 
+    TransportReceiveBuffer externalClientData;
     void ProcessUnknownClientQuery(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone);
 
 #ifdef USE_WIFI_MODULE_AS_HTTP_PROVIDER

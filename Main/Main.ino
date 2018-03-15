@@ -136,44 +136,6 @@ HttpModule httpModule;
 #ifdef USE_SMS_MODULE
 // модуль управления по SMS
  SMSModule smsModule;
- String* smsReceiveBuff;
- 
-void GSM_EVENT_FUNC()
-{
-  char ch;
-  while(GSM_SERIAL.available())
-  {
-    ch = GSM_SERIAL.read();
-    
-    if(ch == '\r')
-      continue;
-    
-    if(ch == '\n')
-    {
-      smsModule.ProcessAnswerLine(*smsReceiveBuff);
-      delete smsReceiveBuff;
-      smsReceiveBuff = new String();
-    }
-    
-    else
-    {
-        
-        if(smsModule.WaitForSMSWelcome && ch == '>') // ждут команду >
-        {         
-          smsModule.WaitForSMSWelcome = false;
-          String s = F(">");
-          smsModule.ProcessAnswerLine(s);
-          delete smsReceiveBuff;
-          smsReceiveBuff = new String();
-        }
-        else
-          *smsReceiveBuff += ch;
-    }
-
-    
-  } // while
-
-}
 #endif
 
 #ifdef USE_WATERING_MODULE
@@ -257,13 +219,6 @@ TFTModule tftModule;
 #ifdef USE_WIFI_MODULE
 // модуль работы по Wi-Fi
 WiFiModule wifiModule;
-
-void WIFI_EVENT_FUNC()
-{
-  if(!ESP.paused())
-    ESP.update();
-}
-
 #endif
 
 ZeroStreamListener zeroStreamModule;
@@ -390,7 +345,6 @@ void setup()
   #endif 
 
   #ifdef USE_SMS_MODULE
-  smsReceiveBuff = new String();
   controller.RegisterModule(&smsModule);
   #endif
 
@@ -448,12 +402,12 @@ void ModuleUpdateProcessed(AbstractModule* module)
   // используем её, чтобы проверить состояние порта UART для WI-FI-модуля - вдруг надо внеочередно обновить
     #ifdef USE_WIFI_MODULE
     // модуль Wi-Fi обновляем каждый раз после обновления очередного модуля
-    WIFI_EVENT_FUNC(); // вызываем функцию проверки данных в порту
+     ESP.update();
     #endif
 
    #ifdef USE_SMS_MODULE
    // и модуль GSM тоже тут обновим
-   GSM_EVENT_FUNC();
+    SIM800.update();
    #endif     
 }
 
@@ -603,12 +557,12 @@ void yield()
 
    #ifdef USE_WIFI_MODULE
     // модуль Wi-Fi обновляем каждый раз при вызове функции yield
-    WIFI_EVENT_FUNC(); // вызываем функцию проверки данных в порту
+    ESP.readFromStream(); // вызываем функцию проверки данных в порту
     #endif
 
    #ifdef USE_SMS_MODULE
    // и модуль GSM тоже тут обновим
-   GSM_EVENT_FUNC();
+   SIM800.readFromStream();
    #endif 
 
    #ifdef USE_LCD_MODULE
@@ -623,6 +577,39 @@ void yield()
 
 // до сюда можно добавлять любой сторонний код
 
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void serialEvent1()
+{
+   #ifdef USE_WIFI_MODULE
+    ESP.readFromStream();
+    #endif
+
+   #ifdef USE_SMS_MODULE
+   SIM800.readFromStream();
+   #endif   
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void serialEvent2()
+{
+   #ifdef USE_WIFI_MODULE
+    ESP.readFromStream();
+    #endif
+
+   #ifdef USE_SMS_MODULE
+   SIM800.readFromStream();
+   #endif   
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void serialEvent3()
+{
+   #ifdef USE_WIFI_MODULE
+    ESP.readFromStream();
+    #endif
+
+   #ifdef USE_SMS_MODULE
+   SIM800.readFromStream();
+   #endif   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 

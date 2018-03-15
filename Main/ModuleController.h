@@ -67,6 +67,7 @@ class ModuleController
 #endif
 
   void PublishToCommandStream(AbstractModule* module,const Command& sourceCommand); // публикация в поток команды
+  void streamWrite(Stream* s, const String& str);
 
 #ifdef USE_ALARM_DISPATCHER
   AlarmDispatcher alarmDispatcher;

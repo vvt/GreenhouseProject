@@ -10,7 +10,7 @@ Project WIKI is located <a href="https://github.com/Porokhnya/GreenhouseProject/
   <li>Receive and execute external commands from <a href="http://gardenboss.ru" target="_blank">GardenBoss.ru</a>;</li>
   <li>Publish MQTT-topics;</li>
   <li>Can be controlled via SMS and MQTT;</li>
-  <li>Able to use different gates to WAN/LAN: GSM/GPRS (SIM800L/Neoway M590), Wi-Fi (ESP8266), LAN (W5100);</li>
+  <li>Able to use different gates to WAN/LAN: GSM/GPRS (SIM800), Wi-Fi (ESP8266), LAN (W5100);</li>
   <li>Able to work with sensors using different ways - connected directly to microcontroller, through RS-485, 1-Wire, nRF;</li>
   <li>Able to be configured by using smart rules - is the key feature of the firmware, where user can provide and manage the needed firmware behaviour;</li>
   <li>Work with different display models - Nextion, LCD 128x64, 7" TFT on Arduino Due;</li>

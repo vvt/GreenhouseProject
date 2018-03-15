@@ -1,49 +1,16 @@
 #include "IoTModule.h"
 #include "ModuleController.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
-
 #if defined(USE_IOT_MODULE)
-
 IoTModule* _thisIotModule;
-/*
-IoTSensorData IOT_SENSORS_DATA[] = 
-{
-   IOT_SENSORS
-  ,{0,0,NULL} // последний элемент пустой, заглушка для признака окончания списка
-};
-*/
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------------
-
-#if defined(USE_IOT_MODULE) && defined(IOT_UNIT_TEST)
- 
-  void IoTModule::SendData(IoTService service, uint16_t dataLength, IOT_OnWriteToStream writer, IOT_OnSendDataDone onDone)
-  {
-    // эта функция вызывается модулем при отсылке данных. Мы должны дёрнуть writer, когда можно писать в поток,
-    // и  onDone - когда работа завершена.
-    
-    Serial.print(F("IoT unit test, start write to service: "));
-    Serial.print(service);
-    Serial.print(F("; data length: "));
-    Serial.println(dataLength);
-
-    // просим записать в Serial
-    writer(&Serial);
-
-    // говорим, что мы не смогли записать данные в переданный сервис (чтобы дать поработать другим модулям)
-    onDone({false,service});
-    
-  }
-#endif // IOT_UNIT_TEST
-//--------------------------------------------------------------------------------------------------------------------------------------
-
 #if defined(USE_IOT_MODULE)
 void iotWrite(Stream* writeTo) // вызывается, когда в поток можно писать, в этом обработчике можно писать в поток данные длиной dataLength
 {
   _thisIotModule->Write(writeTo);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-
 void iotDone(const IoTCallResult& result)
 {
 _thisIotModule->Done(result);
@@ -55,7 +22,7 @@ void IoTModule::Write(Stream* writeTo)
     return;
 
 #ifdef IOT_DEBUG
-  Serial.println(F("Write IOT DATA TO STREAM..."));
+  DEBUG_LOGLN(F("Write IOT DATA TO STREAM..."));
 #endif    
 
   writeTo->write(dataToSend->c_str(),dataToSend->length());
@@ -87,7 +54,7 @@ AbstractModule* IoTModule::FindModule(byte index)
 void IoTModule::SwitchToWaitMode()
 {
 #ifdef IOT_DEBUG
-  Serial.println(F("IOT - switch to wait mode..."));
+  DEBUG_LOGLN(F("IOT - switch to wait mode..."));
 #endif    
   
      delete dataToSend;
@@ -99,7 +66,7 @@ void IoTModule::SwitchToWaitMode()
 void IoTModule::CollectDataForThingSpeak()
 {
 #ifdef IOT_DEBUG
-  Serial.println(F("IOT - collect data for ThingSpeak..."));
+  DEBUG_LOGLN(F("IOT - collect data for ThingSpeak..."));
 #endif    
   
   // тут собираем данные для ThingSpeak, в понятном ему формате
@@ -146,7 +113,7 @@ void IoTModule::CollectDataForThingSpeak()
 void IoTModule::SwitchToNextService()
 {
 #ifdef IOT_DEBUG
-  Serial.println(F("IOT - switch to next service..."));
+  DEBUG_LOGLN(F("IOT - switch to next service..."));
 #endif    
 
   
@@ -177,18 +144,9 @@ void IoTModule::Done(const IoTCallResult& result)
 {
   // выводим тестовые данные
 #ifdef IOT_DEBUG
-  Serial.print(F("IOT done, success: "));
-  Serial.println(result.success ? F("true") : F("false") );
+  DEBUG_LOG(F("IOT done, success: "));
+  DEBUG_LOGLN(result.success ? F("true") : F("false") );
 #endif    
-
- #ifdef IOT_UNIT_TEST
-        Serial.println();
-        Serial.println(F("IOT CALL DONE!"));        
-        Serial.print(F("IoT service: "));
-        Serial.print(result.service);
-        Serial.print(F("; success? : "));
-        Serial.println(result.success ? F("true") : F("false") );
-#endif
 
   delete dataToSend;
   dataToSend = new String();
@@ -214,9 +172,6 @@ void IoTModule::Setup()
  #if defined(USE_IOT_MODULE) 
  
   _thisIotModule = this;
-    #if defined(IOT_UNIT_TEST)
-      IoTList.RegisterGate(this); // регистрируем себя как отсылателя данных, режим юнит-тестирования
-    #endif
  
   dataToSend = new String();
   updateTimer = 0;
@@ -234,7 +189,7 @@ void IoTModule::Setup()
     return;
 
 #ifdef IOT_DEBUG
-  Serial.println(F("IOT - send data to IoT..."));
+  DEBUG_LOGLN(F("IOT - send data to IoT..."));
 #endif   
 
  IoTSettings iotSettings = MainController->GetSettings()->GetIoTSettings();
@@ -257,7 +212,7 @@ void IoTModule::Setup()
  void IoTModule::ProcessNextGate()
  {
 #ifdef IOT_DEBUG
-  Serial.println(F("IOT - switch to next gate..."));
+  DEBUG_LOGLN(F("IOT - switch to next gate..."));
 #endif
      
     currentGateIndex++; // переходим на следующий шлюз
@@ -273,7 +228,7 @@ void IoTModule::Setup()
     } // !gate
 
 #ifdef IOT_DEBUG
-  Serial.println(F("IOT - ask gate for send data..."));
+  DEBUG_LOGLN(F("IOT - ask gate for send data..."));
 #endif   
 
     // тут можем обрабатывать отсыл данных через выбранный шлюз
@@ -300,7 +255,7 @@ void IoTModule::Update(uint16_t dt)
     {
       updateTimer = 0;
       #ifdef IOT_DEBUG
-        Serial.println(F("IOT - want to send data..."));
+        DEBUG_LOGLN(F("IOT - want to send data..."));
       #endif         
       SendDataToIoT();
     }

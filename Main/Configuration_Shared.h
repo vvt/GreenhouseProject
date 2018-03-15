@@ -585,13 +585,6 @@
 //--------------------------------------------------------------------------------------------------------------------------------
 // проверка целостности
 //--------------------------------------------------------------------------------------------------------------------------------
-
- #ifdef _DEBUG
-  #define CHECK_PUBLISH_CONSISTENCY { if(PublishSingleton.Flags.Busy && PublishSingleton.Text.length() > 0) {Serial.print(F("[ERROR] Attempt to writing to unclear PublishSingleton: ")); Serial.println(PublishSingleton.Text);} }
- #else
-  #define CHECK_PUBLISH_CONSISTENCY (void) 0
- #endif
-
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
 #endif

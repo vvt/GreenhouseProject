@@ -90,9 +90,15 @@ void UniRS485Gate::waitTransmitComplete()
 {
   // ждём завершения передачи по UART
  #if (TARGET_BOARD == MEGA_BOARD) 
-  while(!(RS_485_UCSR & _BV(RS_485_TXC) ));
+  while(!(RS_485_UCSR & _BV(RS_485_TXC) ))
+  {
+    //yield(); // даём вычитать из буферов ESP и SIM800
+  }
  #elif (TARGET_BOARD == DUE_BOARD) 
-  while((RS_485_UCSR->US_CSR & RS_485_TXC) == 0);
+  while((RS_485_UCSR->US_CSR & RS_485_TXC) == 0)
+  {
+    //yield(); // даём вычитать из буферов ESP и SIM800    
+  }
  #else
   #error "Unknown target board!"
  #endif
@@ -111,7 +117,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandOpenWindows:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: Open windows!"));        
+                DEBUG_LOGLN(F("RS485: Open windows!"));        
               #endif
               ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|OPEN"),false);          
           }
@@ -120,7 +126,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandCloseWindows:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: Close windows!"));        
+                DEBUG_LOGLN(F("RS485: Close windows!"));        
               #endif
               ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|CLOSE"),false);          
           }
@@ -129,7 +135,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandOpenWindow:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: open window!"));        
+                DEBUG_LOGLN(F("RS485: open window!"));        
               #endif
               String cmd = F("STATE|WINDOW|");
               cmd += cePacket->commands[i].param1;
@@ -141,7 +147,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandCloseWindow:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: close window!"));        
+                DEBUG_LOGLN(F("RS485: close window!"));        
               #endif
               String cmd = F("STATE|WINDOW|");
               cmd += cePacket->commands[i].param1;
@@ -153,7 +159,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandWaterOn:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: Water on!"));        
+                DEBUG_LOGLN(F("RS485: Water on!"));        
               #endif
               ModuleInterop.QueryCommand(ctSET, F("WATER|ON"),false);          
           }
@@ -162,7 +168,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandWaterOff:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: Water off!"));        
+                DEBUG_LOGLN(F("RS485: Water off!"));        
               #endif
               ModuleInterop.QueryCommand(ctSET, F("WATER|OFF"),false);          
           }
@@ -171,7 +177,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandWaterChannelOn:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: water channel on!"));        
+                DEBUG_LOGLN(F("RS485: water channel on!"));        
               #endif
               String cmd = F("WATER|ON|");
               cmd += cePacket->commands[i].param1;
@@ -182,7 +188,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandWaterChannelOff:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: water channel off!"));        
+                DEBUG_LOGLN(F("RS485: water channel off!"));        
               #endif
               String cmd = F("WATER|OFF|");
               cmd += cePacket->commands[i].param1;
@@ -193,7 +199,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandLightOn:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: Light on!"));        
+                DEBUG_LOGLN(F("RS485: Light on!"));        
               #endif
               ModuleInterop.QueryCommand(ctSET, F("LIGHT|ON"),false);          
           }
@@ -202,7 +208,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandLigntOff:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: Light off!"));        
+                DEBUG_LOGLN(F("RS485: Light off!"));        
               #endif
               ModuleInterop.QueryCommand(ctSET, F("LIGHT|OFF"),false);          
           }
@@ -211,7 +217,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandPinOn:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: pin on!"));        
+                DEBUG_LOGLN(F("RS485: pin on!"));        
               #endif
               String cmd = F("PIN|");
               cmd += cePacket->commands[i].param1;
@@ -223,7 +229,7 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
           case emCommandPinOff:
           {
               #ifdef RS485_DEBUG
-                Serial.println(F("RS485: pin off!"));        
+                DEBUG_LOGLN(F("RS485: pin off!"));        
               #endif
               String cmd = F("PIN|");
               cmd += cePacket->commands[i].param1;
@@ -235,6 +241,18 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
       } // switch
     
   } // for
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniRS485Gate::writeToStream(Stream* s, const uint8_t* buffer, size_t len)
+{
+   s->write(buffer,len);
+  /*
+  for(size_t i=0;i<len;i++)
+  {
+    s->write(buffer[i]);
+    yield(); // и пообновляем тут, чтобы буфера не протухли у ESP и SIM800
+  }
+  */
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void UniRS485Gate::sendControllerStatePacket()
@@ -261,7 +279,8 @@ void UniRS485Gate::sendControllerStatePacket()
     packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
 
     // пишем в шину RS-495 слепок состояния контроллера
-    RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+    //RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+    writeToStream(&RS_485_SERIAL,(const uint8_t *)&packet,sizeof(RS485Packet));
 
     // теперь ждём завершения передачи
     waitTransmitComplete();
@@ -274,22 +293,23 @@ void UniRS485Gate::Update(uint16_t dt)
 
   static RS485Packet packet;
 
+  #ifdef USE_RS485_EXTERNAL_CONTROL_MODULE
   ///////////////////////////////////////////////////////////////////////
   // Опрашиваем модули управления
   ///////////////////////////////////////////////////////////////////////
-  static uint16_t executionModuleTimer = 0;
-  executionModuleTimer += dt;
+  static uint16_t controlModuleTimer = 0;
+  controlModuleTimer += dt;
   
-  if(executionModuleTimer > 2000)
+  if(controlModuleTimer > 2000)
   {
       // пора опрашивать модули управления
     
-      executionModuleTimer = 0;
+      controlModuleTimer = 0;
       
       enableSend();
       
       #ifdef RS485_DEBUG
-        Serial.println(F("Request information from control modules..."));        
+        DEBUG_LOGLN(F("Request information from control modules..."));        
       #endif
 
       memset(&packet,0,sizeof(RS485Packet));
@@ -307,7 +327,8 @@ void UniRS485Gate::Update(uint16_t dt)
       const byte* b = (const byte*) &packet;
       packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
 
-      RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+      //RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+      writeToStream(&RS_485_SERIAL,(const uint8_t *)&packet,sizeof(RS485Packet));
     
       // теперь ждём завершения передачи
       waitTransmitComplete();
@@ -334,9 +355,9 @@ void UniRS485Gate::Update(uint16_t dt)
               {
                 
                 #ifdef RS485_DEBUG
-                  Serial.print(F("Control module #"));
-                  Serial.print(0);
-                  Serial.println(F(" not answering!"));
+                  DEBUG_LOG(F("Control module #"));
+                  DEBUG_LOG(String(0));
+                  DEBUG_LOGLN(F(" not answering!"));
                 #endif
                 
                 break;
@@ -352,7 +373,7 @@ void UniRS485Gate::Update(uint16_t dt)
               if(bytesReaded == sizeof(RS485Packet)) // прочитали весь пакет
               {
                 #ifdef RS485_DEBUG
-                  Serial.println(F("Packet received from control module!"));
+                  DEBUG_LOGLN(F("Packet received from control module!"));
                 #endif
                 
                 break;
@@ -372,7 +393,7 @@ void UniRS485Gate::Update(uint16_t dt)
           if(headOk && tailOk)
           {
             #ifdef RS485_DEBUG
-              Serial.println(F("Header and tail ok."));
+              DEBUG_LOGLN(F("Header and tail ok."));
             #endif
          
             // вычисляем crc
@@ -380,14 +401,14 @@ void UniRS485Gate::Update(uint16_t dt)
             if(crc == packet.crc8)
             {
               #ifdef RS485_DEBUG
-                Serial.println(F("Checksum ok."));
+                DEBUG_LOGLN(F("Checksum ok."));
               #endif
               
               // теперь проверяем, нам ли пакет
               if(packet.direction == RS485FromSlave && packet.type == RS485RequestCommandsPacket)
               {
                 #ifdef RS485_DEBUG
-                  Serial.println(F("Packet type ok, start analyze commands..."));
+                  DEBUG_LOGLN(F("Packet type ok, start analyze commands..."));
                 #endif
 
                   executeCommands(packet);
@@ -397,13 +418,14 @@ void UniRS485Gate::Update(uint16_t dt)
                   packet.type = RS485CommandsToExecuteReceipt;
                   packet.crc8 = crc8(b,sizeof(RS485Packet)-1);
 
-                  RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+                  //RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+                  writeToStream(&RS_485_SERIAL,(const uint8_t *)&packet,sizeof(RS485Packet));
     
                    // теперь ждём завершения передачи
                   waitTransmitComplete();
 
                 #ifdef RS485_DEBUG
-                  Serial.println(F("Commands from control module executed."));
+                  DEBUG_LOGLN(F("Commands from control module executed."));
                 #endif                  
 
               }
@@ -418,6 +440,8 @@ void UniRS485Gate::Update(uint16_t dt)
   ///////////////////////////////////////////////////////////////////////
   // Конец опроса модулей управления
   ///////////////////////////////////////////////////////////////////////
+  #endif // USE_RS485_EXTERNAL_CONTROL_MODULE
+  
   bool controllerStateWasSentOnThisIteration = false;
 
   #if defined(USE_FEEDBACK_MANAGER) && defined(USE_TEMP_SENSORS) && SUPPORTED_WINDOWS > 0
@@ -464,8 +488,8 @@ void UniRS485Gate::Update(uint16_t dt)
               #ifdef RS485_DEBUG
       
               // отладочная информация
-              Serial.print(F("Send query for feedback packet #"));
-              Serial.println(wfPacket->moduleNumber);
+              DEBUG_LOG(F("Send query for feedback packet #"));
+              DEBUG_LOGLN(String(wfPacket->moduleNumber));
                     
               #endif
 
@@ -477,7 +501,8 @@ void UniRS485Gate::Update(uint16_t dt)
             
            // посылаем пакет   
            // пишем в шину RS-495 запрос об обратной связи
-            RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+            //RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+            writeToStream(&RS_485_SERIAL,(const uint8_t *)&packet,sizeof(RS485Packet));
     
             // теперь ждём завершения передачи
             waitTransmitComplete();
@@ -508,9 +533,9 @@ void UniRS485Gate::Update(uint16_t dt)
               {
                 
                 #ifdef RS485_DEBUG
-                  Serial.print(F("Feedback module #"));
-                  Serial.print(i);
-                  Serial.println(F(" not answering!"));
+                  DEBUG_LOG(F("Feedback module #"));
+                  DEBUG_LOG(String(i));
+                  DEBUG_LOGLN(F(" not answering!"));
                 #endif
                 
                 break;
@@ -526,7 +551,7 @@ void UniRS485Gate::Update(uint16_t dt)
               if(bytesReaded == sizeof(RS485Packet)) // прочитали весь пакет
               {
                 #ifdef RS485_DEBUG
-                  Serial.println(F("Packet received from slave!"));
+                  DEBUG_LOGLN(F("Packet received from slave!"));
                 #endif
                 
                 break;
@@ -542,7 +567,7 @@ void UniRS485Gate::Update(uint16_t dt)
         {
           // пакет получен полностью, парсим его
           #ifdef RS485_DEBUG
-            Serial.println(F("Packet from feedback received, parse it..."));
+            DEBUG_LOGLN(F("Packet from feedback received, parse it..."));
           #endif
           
           bool headOk = packet.header1 == 0xAB && packet.header2 == 0xBA;
@@ -551,7 +576,7 @@ void UniRS485Gate::Update(uint16_t dt)
           if(headOk && tailOk)
           {
             #ifdef RS485_DEBUG
-              Serial.println(F("Header and tail ok."));
+              DEBUG_LOGLN(F("Header and tail ok."));
             #endif
             
             // вычисляем crc
@@ -559,14 +584,14 @@ void UniRS485Gate::Update(uint16_t dt)
             if(crc == packet.crc8)
             {
               #ifdef RS485_DEBUG
-                Serial.println(F("Checksum ok."));
+                DEBUG_LOGLN(F("Checksum ok."));
               #endif
               
               // теперь проверяем, нам ли пакет
               if(packet.direction == RS485FromSlave && packet.type == RS485WindowsPositionPacket)
               {
                 #ifdef RS485_DEBUG
-                  Serial.println(F("Packet type ok"));
+                  DEBUG_LOGLN(F("Packet type ok"));
                 #endif
 
                 anyFeedbackReceived = true; // получили фидбак по крайней мере от одного модуля
@@ -604,10 +629,10 @@ void UniRS485Gate::Update(uint16_t dt)
                   } // for
 
                     #ifdef RS485_DEBUG
-                      Serial.print(F("Position of window #"));
-                      Serial.print(currentWindowNumber);
-                      Serial.print(F(" is "));
-                      Serial.println(position);
+                      DEBUG_LOG(F("Position of window #"));
+                      DEBUG_LOG(String(currentWindowNumber));
+                      DEBUG_LOG(F(" is "));
+                      DEBUG_LOGLN(String(position));
                     #endif
 
                     // теперь читаем бит - есть ли позиция
@@ -620,10 +645,10 @@ void UniRS485Gate::Update(uint16_t dt)
                     }
 
                     #ifdef RS485_DEBUG
-                      Serial.print(F("hasPosition of window #"));
-                      Serial.print(currentWindowNumber);
-                      Serial.print(F(" is "));
-                      Serial.println(hasPosition);
+                      DEBUG_LOG(F("hasPosition of window #"));
+                      DEBUG_LOG(String(currentWindowNumber));
+                      DEBUG_LOG(F(" is "));
+                      DEBUG_LOGLN(String(hasPosition));
                     #endif
                                         
                     // теперь читаем бит - сработал ли концевик закрытия
@@ -636,10 +661,10 @@ void UniRS485Gate::Update(uint16_t dt)
                     }
 
                     #ifdef RS485_DEBUG
-                      Serial.print(F("isCloseSensorTriggered of window #"));
-                      Serial.print(currentWindowNumber);
-                      Serial.print(F(" is "));
-                      Serial.println(isCloseSwitchTriggered);
+                      DEBUG_LOG(F("isCloseSensorTriggered of window #"));
+                      DEBUG_LOG(String(currentWindowNumber));
+                      DEBUG_LOG(F(" is "));
+                      DEBUG_LOGLN(String(isCloseSwitchTriggered));
                     #endif
 
                     // теперь читаем бит - сработал ли концевик открытия
@@ -652,10 +677,10 @@ void UniRS485Gate::Update(uint16_t dt)
                     }
 
                     #ifdef RS485_DEBUG
-                      Serial.print(F("isOpenSwitchTriggered of window #"));
-                      Serial.print(currentWindowNumber);
-                      Serial.print(F(" is "));
-                      Serial.println(isOpenSwitchTriggered);
+                      DEBUG_LOG(F("isOpenSwitchTriggered of window #"));
+                      DEBUG_LOG(String(currentWindowNumber));
+                      DEBUG_LOG(F(" is "));
+                      DEBUG_LOGLN(String(isOpenSwitchTriggered));
                     #endif
 
                    // теперь просим менеджера сообщить окну информацию о позиции
@@ -671,28 +696,28 @@ void UniRS485Gate::Update(uint16_t dt)
               #ifdef RS485_DEBUG
               else
               {
-                Serial.println(F("Wrong packet type :("));
+                DEBUG_LOGLN(F("Wrong packet type :("));
               }
               #endif
             } // if(crc)
             #ifdef RS485_DEBUG
             else
             {
-              Serial.println(F("Bad checksum :("));
+              DEBUG_LOGLN(F("Bad checksum :("));
             }
             #endif
           }
           #ifdef RS485_DEBUG
           else
           {
-            Serial.println(F("Head or tail of packet is invalid :("));
+            DEBUG_LOGLN(F("Head or tail of packet is invalid :("));
           } // else
           #endif
         }
         #ifdef RS485_DEBUG
         else
         {
-          Serial.println(F("Uncompleted feedback packet :("));
+          DEBUG_LOGLN(F("Uncompleted feedback packet :("));
         } // else
         #endif
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -885,16 +910,18 @@ void UniRS485Gate::Update(uint16_t dt)
         #ifdef RS485_DEBUG
 
         // отладочная информация
-        Serial.print(F("Request data for sensor type="));
-        Serial.print(qi->sensorType);
-        Serial.print(F(" and index="));
-        Serial.println(qi->sensorIndex);
+        DEBUG_LOG(F("Request data for sensor type="));
+        DEBUG_LOG(String(qi->sensorType));
+        DEBUG_LOG(F(" and index="));
+        DEBUG_LOGLN(String(qi->sensorIndex));
 
         #endif
 
         enableSend();
         // пакет готов к отправке, отправляем его
-        RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+        //RS_485_SERIAL.write((const uint8_t *)&packet,sizeof(RS485Packet));
+        writeToStream(&RS_485_SERIAL,(const uint8_t *)&packet,sizeof(RS485Packet));
+        
         waitTransmitComplete(); // ждём окончания посыла
         // теперь переключаемся на приём
         enableReceive();
@@ -921,7 +948,7 @@ void UniRS485Gate::Update(uint16_t dt)
             qi->badReadingAttempts++; // поймали таймаут, увеличиваем кол-во неудачных попыток чтения
             
             #ifdef RS485_DEBUG
-              Serial.println(F("TIMEOUT REACHED!!!"));
+              DEBUG_LOGLN(F("TIMEOUT REACHED!!!"));
             #endif
             
             break;
@@ -937,7 +964,7 @@ void UniRS485Gate::Update(uint16_t dt)
           if(bytesReaded == sizeof(RS485Packet)) // прочитали весь пакет
           {
             #ifdef RS485_DEBUG
-              Serial.println(F("Packet received from slave!"));
+              DEBUG_LOGLN(F("Packet received from slave!"));
             #endif
             
             break;
@@ -953,7 +980,7 @@ void UniRS485Gate::Update(uint16_t dt)
         {
           // пакет получен полностью, парсим его
           #ifdef RS485_DEBUG
-            Serial.println(F("Packet from slave received, parse it..."));
+            DEBUG_LOGLN(F("Packet from slave received, parse it..."));
           #endif
           
           bool headOk = packet.header1 == 0xAB && packet.header2 == 0xBA;
@@ -961,7 +988,7 @@ void UniRS485Gate::Update(uint16_t dt)
           if(headOk && tailOk)
           {
             #ifdef RS485_DEBUG
-              Serial.println(F("Header and tail ok."));
+              DEBUG_LOGLN(F("Header and tail ok."));
             #endif
             
             // вычисляем crc
@@ -969,14 +996,14 @@ void UniRS485Gate::Update(uint16_t dt)
             if(crc == packet.crc8)
             {
               #ifdef RS485_DEBUG
-                Serial.println(F("Checksum ok."));
+                DEBUG_LOGLN(F("Checksum ok."));
               #endif
               
               // теперь проверяем, нам ли пакет
               if(packet.direction == RS485FromSlave && packet.type == RS485SensorDataPacket)
               {
                 #ifdef RS485_DEBUG
-                  Serial.println(F("Packet type ok"));
+                  DEBUG_LOGLN(F("Packet type ok"));
                 #endif
 
                 byte* readDataPtr = packet.data;
@@ -987,7 +1014,7 @@ void UniRS485Gate::Update(uint16_t dt)
                 if(sType == qi->sensorType && sIndex == qi->sensorIndex)
                 {
                   #ifdef RS485_DEBUG
-                    Serial.println(F("Reading sensor data..."));
+                    DEBUG_LOGLN(F("Reading sensor data..."));
                   #endif
 
                   // добавляем наш тип сенсора в систему, если этого ещё не сделано
@@ -1017,8 +1044,8 @@ void UniRS485Gate::Update(uint16_t dt)
                         #endif                              
 
                         #ifdef RS485_DEBUG
-                          Serial.print(F("Temperature: "));
-                          Serial.println(t);
+                          DEBUG_LOG(F("Temperature: "));
+                          DEBUG_LOGLN(t);
                         #endif
 
                         // получаем состояния
@@ -1028,7 +1055,7 @@ void UniRS485Gate::Update(uint16_t dt)
                           if(states.State1)
                           {
                             #ifdef RS485_DEBUG
-                              Serial.println(F("Update data in controller..."));
+                              DEBUG_LOGLN(F("Update data in controller..."));
                             #endif
                             
                             states.State1->Update(&t);
@@ -1055,8 +1082,8 @@ void UniRS485Gate::Update(uint16_t dt)
                         #endif                              
 
                         #ifdef RS485_DEBUG
-                          Serial.print(F("Humidity: "));
-                          Serial.println(h);
+                          DEBUG_LOG(F("Humidity: "));
+                          DEBUG_LOGLN(h);
                         #endif
 
                         // получаем состояния
@@ -1064,7 +1091,7 @@ void UniRS485Gate::Update(uint16_t dt)
                         if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
                         {
                             #ifdef RS485_DEBUG
-                              Serial.println(F("Update data in controller..."));
+                              DEBUG_LOGLN(F("Update data in controller..."));
                             #endif
 
                           if(states.State1)
@@ -1084,8 +1111,8 @@ void UniRS485Gate::Update(uint16_t dt)
                         memcpy(&lum,readDataPtr,sizeof(long));
 
                         #ifdef RS485_DEBUG
-                          Serial.print(F("Luminosity: "));
-                          Serial.println(lum);
+                          DEBUG_LOG(F("Luminosity: "));
+                          DEBUG_LOGLN(String(lum));
                         #endif
 
                         // получаем состояния
@@ -1095,7 +1122,7 @@ void UniRS485Gate::Update(uint16_t dt)
                           if(states.State1)
                           {
                             #ifdef RS485_DEBUG
-                              Serial.println(F("Update data in controller..."));
+                              DEBUG_LOGLN(F("Update data in controller..."));
                             #endif
                             
                             states.State1->Update(&lum);
@@ -1116,11 +1143,11 @@ void UniRS485Gate::Update(uint16_t dt)
 
                         #ifdef RS485_DEBUG
                           if(sType == uniSoilMoisture)
-                            Serial.print(F("Soil moisture: "));
+                            DEBUG_LOG(F("Soil moisture: "));
                           else
-                            Serial.print(F("pH: "));
+                            DEBUG_LOG(F("pH: "));
                             
-                          Serial.println(h);
+                          DEBUG_LOGLN(h);
                         #endif
 
                         // получаем состояния
@@ -1130,7 +1157,7 @@ void UniRS485Gate::Update(uint16_t dt)
                           if(states.State1)
                           {
                             #ifdef RS485_DEBUG
-                              Serial.println(F("Update data in controller..."));
+                              DEBUG_LOGLN(F("Update data in controller..."));
                             #endif
                             
                             states.State1->Update(&h);
@@ -1145,35 +1172,35 @@ void UniRS485Gate::Update(uint16_t dt)
                 #ifdef RS485_DEBUG
                 else
                 {
-                  Serial.println(F("Received data from unknown sensor :("));
+                  DEBUG_LOGLN(F("Received data from unknown sensor :("));
                 }
                 #endif
               }
               #ifdef RS485_DEBUG
               else
               {
-                Serial.println(F("Wrong packet type :("));
+                DEBUG_LOGLN(F("Wrong packet type :("));
               }
               #endif
             }
             #ifdef RS485_DEBUG
             else
             {
-              Serial.println(F("Bad checksum :("));
+              DEBUG_LOGLN(F("Bad checksum :("));
             }
             #endif
           }
           #ifdef RS485_DEBUG
           else
           {
-            Serial.println(F("Head or tail of packet is invalid :("));
+            DEBUG_LOGLN(F("Head or tail of packet is invalid :("));
           } // else
           #endif
         }
         #ifdef RS485_DEBUG
         else
         {
-          Serial.println(F("Received uncompleted packet :("));
+          DEBUG_LOGLN(F("Received uncompleted packet :("));
         } // else
         #endif
           
@@ -1182,7 +1209,7 @@ void UniRS485Gate::Update(uint16_t dt)
       #ifdef RS485_DEBUG
       else
       {
-        Serial.println(F("No queue size :("));
+        DEBUG_LOGLN(F("No queue size :("));
       }
       #endif
         
@@ -1696,8 +1723,8 @@ void SensorsUniClient::Update(UniRawScratchpad* scratchpad, bool isModuleOnline,
       if(curMillis - measureTimer > 5000)
       {
         #ifdef UNI_DEBUG
-          Serial.print(F("Start measure on 1-Wire pin "));
-          Serial.println(pin);
+          DEBUG_LOG(F("Start measure on 1-Wire pin "));
+          DEBUG_LOGLN(String(pin));
          #endif    
         
         measureTimer = curMillis;
@@ -1839,8 +1866,8 @@ void UniPermanentLine::Update(uint16_t dt)
   {
     // прочитали, значит, датчик есть на линии.
    #ifdef UNI_DEBUG
-    Serial.print(F("Module found on 1-Wire pin "));
-    Serial.println(pin);
+    DEBUG_LOG(F("Module found on 1-Wire pin "));
+    DEBUG_LOGLN(String(pin));
    #endif    
    
     // проверяем, зарегистрирован ли модуль у нас?
@@ -1861,8 +1888,8 @@ void UniPermanentLine::Update(uint16_t dt)
   {
     // на линии никого нет
    #ifdef UNI_DEBUG
-    Serial.print(F("NO MODULES FOUND ON 1-Wire pin "));
-    Serial.println(pin);
+    DEBUG_LOG(F("NO MODULES FOUND ON 1-Wire pin "));
+    DEBUG_LOGLN(String(pin));
    #endif
 
   }
@@ -2331,8 +2358,8 @@ bool UniScratchpadClass::read()
     if(!ow.reset()) { // нет датчика на линии 
       
      #ifdef UNI_DEBUG
-      Serial.print(F("NO PRESENCE FOUND ON 1-Wire pin "));
-      Serial.println(pin);
+      DEBUG_LOG(F("NO PRESENCE FOUND ON 1-Wire pin "));
+      DEBUG_LOGLN(String(pin));
      #endif
       return false; 
 }
@@ -2351,11 +2378,11 @@ bool UniScratchpadClass::read()
 
    #ifdef UNI_DEBUG
     if(isCrcGood) {
-      Serial.print(F("Checksum OK on 1-Wire pin "));
-      Serial.println(pin);
+      DEBUG_LOG(F("Checksum OK on 1-Wire pin "));
+      DEBUG_LOGLN(String(pin));
     } else {
-      Serial.print(F("BAD scratchpad checksum on 1-Wire pin "));
-      Serial.println(pin);
+      DEBUG_LOG(F("BAD scratchpad checksum on 1-Wire pin "));
+      DEBUG_LOGLN(String(pin));
       
     }
    #endif
@@ -2695,7 +2722,7 @@ void UniNRFGate::Update(uint16_t dt)
          packet.crc8 = OneWire::crc8((const byte*) &packet,sizeof(packet)-1);
     
          #ifdef NRF_DEBUG
-         Serial.println(F("Controller state changed, send it..."));
+         DEBUG_LOGLN(F("Controller state changed, send it..."));
          #endif // NRF_DEBUG
       
         // останавливаем прослушку
@@ -2708,7 +2735,7 @@ void UniNRFGate::Update(uint16_t dt)
         radio.startListening();
     
         #ifdef NRF_DEBUG
-        Serial.println(F("Controller state sent."));
+        DEBUG_LOGLN(F("Controller state sent."));
         #endif // NRF_DEBUG
             
       } // if
@@ -2724,21 +2751,21 @@ void UniNRFGate::Update(uint16_t dt)
      radio.read(&nrfScratch,PAYLOAD_SIZE);
 
      #ifdef NRF_DEBUG
-      Serial.println(F("Received the scratch via radio..."));
+      DEBUG_LOGLN(F("Received the scratch via radio..."));
      #endif
 
      byte checksum = OneWire::crc8((const byte*)&nrfScratch,sizeof(UniRawScratchpad)-1);
      if(checksum == nrfScratch.crc8)
      {
       #ifdef NRF_DEBUG
-      Serial.println(F("Checksum OK"));
+      DEBUG_LOGLN(F("Checksum OK"));
      #endif
 
       // проверяем, наш ли пакет
       if(nrfScratch.head.controller_id == UniDispatcher.GetControllerID())
       {
       #ifdef NRF_DEBUG
-      Serial.println(F("Packet for us :)"));
+      DEBUG_LOGLN(F("Packet for us :)"));
       #endif  
           // наш пакет, продолжаем
           AbstractUniClient* client = UniFactory.GetClient(&nrfScratch);
@@ -2788,15 +2815,15 @@ void UniNRFGate::Update(uint16_t dt)
           
 
       #ifdef NRF_DEBUG
-      Serial.println(F("Controller data updated."));
+      DEBUG_LOGLN(F("Controller data updated."));
       #endif  
 
       }
       #ifdef NRF_DEBUG
       else 
       {
-        Serial.print(F("Unknown controller "));
-        Serial.println(nrfScratch.head.controller_id);
+        DEBUG_LOG(F("Unknown controller "));
+        DEBUG_LOGLN(String(nrfScratch.head.controller_id));
       }
       #endif       
        
@@ -2804,7 +2831,7 @@ void UniNRFGate::Update(uint16_t dt)
      } // checksum
       #ifdef NRF_DEBUG
       else
-      Serial.println(F("Checksum FAIL"));
+      DEBUG_LOGLN(F("Checksum FAIL"));
      #endif
     
     

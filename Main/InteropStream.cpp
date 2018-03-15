@@ -13,10 +13,6 @@ InteropStream::~InteropStream()
 //--------------------------------------------------------------------------------------------------------------------------------
 bool InteropStream::QueryCommand(COMMAND_TYPE cType, const String& command, bool isInternalCommand)
 {
-  
- 
- CHECK_PUBLISH_CONSISTENCY; // проверяем структуру публикации на предмет того, что там ничего нет
-
   String data = command; // копируем во внутренний буфер, т.к. входной параметр - const
    
   int delimIdx = data.indexOf('|');

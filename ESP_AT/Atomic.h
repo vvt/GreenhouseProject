@@ -33,6 +33,7 @@ class EventsList
     void update();
     void begin();
 
+    void clear();
     void raise(const char* evt);
     void raise(const char* data, size_t dataLength);
 
@@ -56,6 +57,7 @@ class CipsendHandler
     CipsendHandler();
    ~CipsendHandler();
 
+   void clear();
    void update();
 
    void add(size_t dataLength,uint8_t linkID);

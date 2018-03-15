@@ -68,14 +68,14 @@ void HttpModule::CheckForIncomingCommands(byte wantedAction)
   if(!prov)
   {
    #ifdef HTTP_DEBUG
-    Serial.println(F("HTTP check for commands - NO PROVIDER!!!"));
+    DEBUG_LOGLN(F("HTTP check for commands - NO PROVIDER!!!"));
    #endif
     return;
   }
 
    #ifdef HTTP_DEBUG
-    Serial.print(F("HTTP current provider: "));
-    Serial.println(flags.currentProviderNumber);
+    DEBUG_LOG(F("HTTP current provider: "));
+    DEBUG_LOGLN(String(flags.currentProviderNumber));
    #endif
 
    // выставляем флаг, что мы в процессе обработки запроса
@@ -91,7 +91,7 @@ void HttpModule::CheckForIncomingCommands(byte wantedAction)
 void HttpModule::OnAskForHost(String& host, int& port)
 {
   #ifdef HTTP_DEBUG
-    Serial.println(F("Provider asking for host..."));
+    DEBUG_LOGLN(F("Provider asking for host..."));
   #endif
 
   // сообщаем, куда коннектиться
@@ -510,7 +510,7 @@ void HttpModule::CollectSensorsData(String* data)
 void HttpModule::OnAskForData(String* data)
 {
   #ifdef HTTP_DEBUG
-    Serial.println(F("Provider asking for data..."));
+    DEBUG_LOGLN(F("Provider asking for data..."));
   #endif
 
   /*
@@ -522,7 +522,7 @@ void HttpModule::OnAskForData(String* data)
       case HTTP_ASK_FOR_COMMANDS: // запрашиваем команды
       {
         #ifdef HTTP_DEBUG
-          Serial.println(F("Asking for commands..."));
+          DEBUG_LOGLN(F("Asking for commands..."));
         #endif 
 
         // формируем запрос:
@@ -597,8 +597,8 @@ void HttpModule::OnAskForData(String* data)
         // запрос сформирован
 
         #ifdef HTTP_DEBUG
-          Serial.println(F("QUERY IS: "));
-          Serial.println(*data);
+          DEBUG_LOGLN(F("QUERY IS: "));
+          DEBUG_LOGLN(*data);
         #endif
       
         
@@ -608,7 +608,7 @@ void HttpModule::OnAskForData(String* data)
       case HTTP_REPORT_TO_SERVER: // рапортуем на сервер
       {
         #ifdef HTTP_DEBUG
-          Serial.println(F("Report to server..."));
+          DEBUG_LOGLN(F("Report to server..."));
         #endif 
 
         GlobalSettings* sett = MainController->GetSettings();
@@ -691,7 +691,7 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
     flags.currentProviderNumber = flags.currentProviderNumber == 0 ? 1 : 0;
 
      #ifdef HTTP_DEBUG
-      Serial.println(F("HTTP - no 200 OK, change provider!"));
+      DEBUG_LOGLN(F("HTTP - no 200 OK, change provider!"));
      #endif
 
      return;
@@ -707,7 +707,7 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
   
     if(idx != -1)
     {
-       // есть в ответе HTTP/ - это для Neoway
+       // есть в ответе HTTP/
        if(!line.endsWith(F("200 OK")))
        {
          // не 200 OK
@@ -716,7 +716,7 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
           flags.currentProviderNumber = flags.currentProviderNumber == 0 ? 1 : 0;
       
            #ifdef HTTP_DEBUG
-            Serial.println(F("HTTP - no 200 OK, change provider!"));
+            DEBUG_LOGLN(F("HTTP - no 200 OK, change provider!"));
            #endif
       
            return;
@@ -767,8 +767,8 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
   } // while
 
   #ifdef HTTP_DEBUG
-    Serial.print(F("Command ID: "));
-    Serial.println(*commandId);
+    DEBUG_LOG(F("Command ID: "));
+    DEBUG_LOGLN(*commandId);
   #endif
 
   // если мы в конце строки - бяда!
@@ -812,13 +812,13 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
         } // while
 
         #ifdef HTTP_DEBUG
-          Serial.print(F("Known command: "));
-          Serial.println(knownIdent);
+          DEBUG_LOG(F("Known command: "));
+          DEBUG_LOGLN(knownIdent);
 
           if(*strPtr)
           {
-            Serial.print(F("Command param: "));
-            Serial.println(strPtr);          
+            DEBUG_LOG(F("Command param: "));
+            DEBUG_LOGLN(strPtr);          
           }
         #endif
 
@@ -988,8 +988,8 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
         }
         
         #ifdef HTTP_DEBUG
-          Serial.print(F("RAW command: "));
-          Serial.println(strPtr);
+          DEBUG_LOG(F("RAW command: "));
+          DEBUG_LOGLN(strPtr);
         #endif
 
          // копируем команду к нам - и очищаем буфер приёма ESP
@@ -1027,8 +1027,8 @@ void HttpModule::OnAnswerLineReceived(String& line, bool& enough)
 void HttpModule::OnHTTPResult(uint16_t statusCode)
 {
   #ifdef HTTP_DEBUG
-    Serial.print(F("Provider reports DONE: "));
-    Serial.println(statusCode);
+    DEBUG_LOG(F("Provider reports DONE: "));
+    DEBUG_LOGLN(String(statusCode));
   #endif
 
   flags.inProcessQuery = false; // говорим, что свободны как ветер
@@ -1054,7 +1054,7 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
 
     // тут проверяем - можем ли мы сменить провайдера и повторить запрос через другого? ести текущий результат - неудачен?
   #ifdef HTTP_DEBUG
-    Serial.println(F("HTTP FAIL - try to change provider..."));
+    DEBUG_LOGLN(F("HTTP FAIL - try to change provider..."));
   #endif
     
     byte curProviderIndex = flags.currentProviderNumber;
@@ -1067,10 +1067,10 @@ void HttpModule::OnHTTPResult(uint16_t statusCode)
     {
       // можем сменить, поэтому меняем 
       #ifdef HTTP_DEBUG
-        Serial.print(F("HTTP - provider changed from "));
-        Serial.print(flags.currentProviderNumber);
-        Serial.print(F(" to "));
-        Serial.println(curProviderIndex);
+        DEBUG_LOG(F("HTTP - provider changed from "));
+        DEBUG_LOG(String(flags.currentProviderNumber));
+        DEBUG_LOG(F(" to "));
+        DEBUG_LOGLN(String(curProviderIndex));
       #endif
 
       flags.currentProviderNumber = curProviderIndex;
@@ -1115,7 +1115,7 @@ void HttpModule::Update(uint16_t dt)
   if(!(wifiReady || gsmReady))
   {
     #ifdef HTTP_DEBUG
-      Serial.println(F("HTTP - providers busy, try again after 5 seconds..."));
+      DEBUG_LOGLN(F("HTTP - providers busy, try again after 5 seconds..."));
     #endif 
        
     waitTimer = 5000; // через 5 секунд повторим
@@ -1165,7 +1165,7 @@ void HttpModule::Update(uint16_t dt)
     if(commandsToReport.size())
     {
     #ifdef HTTP_DEBUG
-      Serial.println(F("HTTP - report to server..."));
+      DEBUG_LOGLN(F("HTTP - report to server..."));
     #endif      
       // есть, надо сперва разрулить это дело
       CheckForIncomingCommands(HTTP_REPORT_TO_SERVER);
@@ -1183,7 +1183,7 @@ void HttpModule::Update(uint16_t dt)
   {
 
     #ifdef HTTP_DEBUG
-      Serial.println(F("HTTP - check for commands..."));
+      DEBUG_LOGLN(F("HTTP - check for commands..."));
     #endif
         
     commandsCheckTimer = 0;

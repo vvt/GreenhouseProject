@@ -31,7 +31,9 @@ void UTFTRus::printSpecialChar(TFTSpecialSimbol specialSymbol, int x, int y, int
     else 
     {
         pDisplay->rotateChar(ch, x, y, 0, deg);
-    }    
+    }
+
+   yield();
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 char UTFTRus::mapChar(TFTSpecialSimbol ch)
@@ -163,12 +165,18 @@ int UTFTRus::print(const char* st,int x, int y, int deg, bool computeStringLengt
     if (deg==0) 
     {
       if(!computeStringLengthOnly)
+      {
         pDisplay->printChar(ch, x + (ch_pos * (pDisplay->cfont.x_size)), y);
+        yield();
+      }
     } 
     else 
     {
       if(!computeStringLengthOnly)
+      {
         pDisplay->rotateChar(ch, x, y, ch_pos, deg);
+        yield();
+      }
     }
     ++ch_pos;
   } // for  

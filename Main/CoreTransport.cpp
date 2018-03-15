@@ -41,10 +41,10 @@ void CoreTransportClient::disconnect()
   if(!parent)
     return;
   
-    if(!connected())
-      return;
+  if(!connected())
+    return;
 
-    parent->doDisconnect(*this);
+  parent->doDisconnect(*this);
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -53,10 +53,10 @@ void CoreTransportClient::connect(const char* ip, uint16_t port)
   if(!parent)
     return;
   
-    if(connected()) // уже присоединены, нельзя коннектится до отсоединения!!!
-      return;
+  if(connected()) // уже присоединены, нельзя коннектится до отсоединения!!!
+    return;
           
-    parent->doConnect(*this,ip,port);
+  parent->doConnect(*this,ip,port);
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ bool CoreTransportClient::write(uint8_t* buff, size_t sz)
     if(!sz || !buff || !connected() || socket == NO_CLIENT_ID)
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("CoreTransportClient - CAN'T WRITE!"));
+        DEBUG_LOGLN(F("CoreTransportClient - CAN'T WRITE!"));
       #endif
       return false;
     }
@@ -120,9 +120,22 @@ CoreTransport::~CoreTransport()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreTransport::initPool()
 {
+
+  #ifdef WIFI_DEBUG
+    DEBUG_LOGLN(F("ESP: INIT CLIENTS POOL..."));
+  #endif
+  
+  Vector<CoreTransportClient*> tmp = externalClients;
+  for(size_t i=0;i<tmp.size();i++)
+  {
+    notifyClientConnected(*(tmp[i]),false,CT_ERROR_NONE);
+    tmp[i]->release();
+  }
+  
   for(size_t i=0;i<status.size();i++)
   {
     status[i] = false;
+    pool[i]->clear(); // очищаем внутренних клиентов
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -152,7 +165,7 @@ void CoreTransport::doConnect(CoreTransportClient& client, const char* ip, uint1
 
   // если внешний клиент - будем следить за его статусом соединения/подсоединения
    if(isExternalClient(client))
-    closedCatchList.push_back(&client);
+    externalClients.push_back(&client);
 
    beginConnect(client,ip,port); 
 }
@@ -206,7 +219,6 @@ bool CoreTransport::isExternalClient(CoreTransportClient& client)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreTransport::notifyClientConnected(CoreTransportClient& client, bool connected, int16_t errorCode)
 {
-
    // тут надо синхронизировать с пулом клиентов
    if(client.socket != NO_CLIENT_ID)
    {
@@ -222,17 +234,24 @@ void CoreTransport::notifyClientConnected(CoreTransportClient& client, bool conn
       if(!connected) // пришло что-то типа 1,CLOSED
       {         
         // клиент отсоединился, надо освободить его сокет
-        for(size_t i=0;i<closedCatchList.size();i++)
+        for(size_t i=0;i<externalClients.size();i++)
         {
-          if(closedCatchList[i]->socket == client.socket)
+          if(externalClients[i]->socket == client.socket)
           {
-            closedCatchList[i]->clear();
-            closedCatchList[i]->release(); // освобождаем внешнему клиенту сокет
-            for(size_t k=i+1;k<closedCatchList.size();k++)
+            externalClients[i]->clear();
+            
+            #ifdef WIFI_DEBUG
+              DEBUG_LOG(F("RELEASE SOCKET ON OUTGOING CLIENT #"));
+              DEBUG_LOGLN(String(client.socket));
+            #endif
+            
+            externalClients[i]->release(); // освобождаем внешнему клиенту сокет
+            
+            for(size_t k=i+1;k<externalClients.size();k++)
             {
-              closedCatchList[k-1] = closedCatchList[k];
+              externalClients[k-1] = externalClients[k];
             }
-            closedCatchList.pop();
+            externalClients.pop();
             break;
           }
         } // for
@@ -278,69 +297,59 @@ CoreESPTransport ESP;
 //--------------------------------------------------------------------------------------------------------------------------------------
 CoreESPTransport::CoreESPTransport() : CoreTransport(ESP_MAX_CLIENTS)
 {
-
-  wiFiReceiveBuff = new String();
-  flags.bPaused = false;
-
-  waitCipstartConnect = false;
+  recursionGuard = 0;
+  flags.waitCipstartConnect = false;
   cipstartConnectClient = NULL;
+  workStream = NULL;
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void CoreESPTransport::waitTransmitComplete()
+void CoreESPTransport::readFromStream()
 {
-  // ждём завершения передачи по UART
- if(!workStream)
+  if(!workStream)
     return;
     
-  #if TARGET_BOARD == MEGA_BOARD
-
-    if(workStream == &Serial)
-      while(!(UCSR0A & _BV(TXC0) ));
-    else
-    if(workStream == &Serial1)
-      while(!(UCSR1A & _BV(TXC1) ));
-    else
-    if(workStream == &Serial2)
-      while(!(UCSR2A & _BV(TXC2) ));
-    else
-    if(workStream == &Serial3)
-      while(!(UCSR3A & _BV(TXC3) ));
-
-  #elif TARGET_BOARD == DUE_BOARD
-
-    if(workStream == &Serial)
-      while((UART->UART_SR & UART_SR_TXRDY) != UART_SR_TXRDY);
-    else
-    if(workStream == &Serial1)
-      while((USART0->US_CSR & US_CSR_TXEMPTY) == 0);
-    else
-    if(workStream == &Serial2)
-      while((USART1->US_CSR & US_CSR_TXEMPTY)  == 0);      
-    else
-    if(workStream == &Serial3)
-      while((USART3->US_CSR & US_CSR_TXEMPTY)  == 0); 
-  #else
-    #error "Unknown target board!"
-  #endif  
-
+  while(workStream->available())
+  {
+    receiveBuffer.push_back((uint8_t) workStream->read());
+  }
 }
-//-------------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------
 void CoreESPTransport::sendCommand(const String& command, bool addNewLine)
 {
-  #ifdef WIFI_DEBUG
-    Serial.print(F("ESP: ==>> "));
-    Serial.println(command);
-  #endif
-  
-  workStream->write(command.c_str(),command.length());
-  
+
+  size_t len = command.length();
+  for(size_t i=0;i<len;i++)
+  {
+    // записали байтик
+    workStream->write(command[i]);
+
+    // прочитали, что пришло от ESP
+    readFromStream();
+
+   #ifdef USE_SMS_MODULE
+     // и модуль GSM тоже тут обновим
+     SIM800.readFromStream();
+   #endif     
+  }
+    
   if(addNewLine)
   {
     workStream->println();
   }
+  
+  // прочитали, что пришло от ESP
+  readFromStream();
 
-  waitTransmitComplete();
+   #ifdef USE_SMS_MODULE
+   // и модуль GSM тоже тут обновим
+   SIM800.readFromStream();
+   #endif   
+
+  #ifdef WIFI_DEBUG
+    DEBUG_LOG(F("ESP: ==> "));
+    DEBUG_LOGLN(command);
+  #endif
 
   machineState = espWaitAnswer; // говорим, что надо ждать ответа от ESP
   // запоминаем время отсылки последней команды
@@ -354,304 +363,142 @@ bool CoreESPTransport::pingGoogle(bool& result)
     {
       return false;
     }
-    
-    pause();
 
-        ESPKnownAnswer ka;
-        workStream->println(F("AT+PING=\"google.com\""));
-        // поскольку у нас serialEvent не основан на прерываниях, на самом-то деле (!),
-        // то мы должны получить ответ вот прямо вот здесь, и разобрать его.
+    flags.specialCommandDone = false;
+    clearSpecialCommandResults();
+    initCommandsQueue.push_back(cmdPING);
 
-        String line; // тут принимаем данные до конца строки
-        bool  pingDone = false;
-        
-        char ch;
-        uint32_t startTime = millis();
-        
-        while(millis() - startTime < 10000) // таймаут в 10 секунд
-        { 
-          if(pingDone) // получили ответ на PING
-            break;
-            
-          while(workStream->available())
-          {
-            ch = workStream->read();
-            timer = millis(); // не забываем обновлять таймер ответа - поскольку у нас что-то пришло - значит, модем отвечает
-        
-            if(ch == '\r')
-              continue;
-            
-            if(ch == '\n')
-            {
-              // получили строку, разбираем её
-              
-              // здесь надо обработать известные статусы
-                 if(checkIPD(line))
-                 {     
-                    processIPD(line);
-                    continue;
-                 }
-                 processKnownStatusFromESP(line);
-              
-                 if(isKnownAnswer(line, ka))
-                 {
-                    result = (ka == kaOK);
-                    pingDone = true;
-                 }
-             line = "";
-            } // ch == '\n'
-            else
-              line += ch;
-        
-          if(pingDone) // получили ответ на PING
-              break;
- 
-          } // while
-          
-        } // while(1)    
+    while(!flags.specialCommandDone)
+    {     
+      update();
+      yield();
+      if(flags.wantReconnect || machineState == espReboot)
+        break;
+    }
 
-  resume();
+    if(!specialCommandResults.size())
+    {
+      return false;
+    }
 
-  return true;
+    result = *(specialCommandResults[0]) == F("OK");
+
+    clearSpecialCommandResults();
+
+    return true;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool CoreESPTransport::getMAC(String& staMAC, String& apMAC)
 {
+
     if(machineState != espIdle || !workStream || !ready() || initCommandsQueue.size()) // чего-то делаем, не могём
     {
       return false;
     }
 
-    pause();
+    staMAC = '-';
+    apMAC = '-';    
 
-        ESPKnownAnswer ka;
-        workStream->println(F("AT+CIPSTAMAC?"));
+    flags.specialCommandDone = false;
+    clearSpecialCommandResults();
+    initCommandsQueue.push_back(cmdCIFSR);
 
-        String line; // тут принимаем данные до конца строки
-        staMAC = "-";
-        apMAC = "-";
-        
-        bool  apMACDone = false, staMACDone=false;
-        char ch;
-        uint32_t startTime = millis();
-        
-        while(millis() - startTime < 10000) // таймаут в 10 секунд
-        { 
-          if(staMACDone) // получили MAC-адрес станции
-            break;
-            
-          while(workStream->available())
-          {
-            ch = workStream->read();
-            timer = millis(); // не забываем обновлять таймер ответа - поскольку у нас что-то пришло - значит, модем отвечает
-        
-            if(ch == '\r')
-              continue;
-            
-            if(ch == '\n')
-            {
-              // получили строку, разбираем её
-              // здесь надо обработать известные статусы
-                 if(checkIPD(line))
-                 {     
-                    processIPD(line);
-                    continue;
-                 }
-                 processKnownStatusFromESP(line);
-              
-                 if(line.startsWith(F("+CIPSTAMAC:"))) // MAC станции
-                 {
-                  #ifdef WIFI_DEBUG
-                    Serial.println(F("Station MAC found, parse..."));
-                  #endif  
-            
-                   staMAC = line.substring(11);                      
-                  
-                 } // if(line.startsWith
-                 else
-                 if(isKnownAnswer(line, ka))
-                 {
-                    staMACDone = true;
-                 }
-             line = "";
-            } // ch == '\n'
-            else
-              line += ch;
-        
-          if(staMACDone) // получили MAC станции
-              break;
- 
-          } // while
-          
-        } // while(1)
+    while(!flags.specialCommandDone)
+    {     
+      update();
+      yield();
+      if(flags.wantReconnect || machineState == espReboot)
+        break;
+    }
 
-        // теперь получаем MAC точки доступа
-        workStream->println(F("AT+CIPAPMAC?"));
-        line = "";
+    if(!specialCommandResults.size())
+    {
+      return false;
+    }
 
-        startTime = millis();
-        
-        while(millis() - startTime < 10000) // таймаут в 10 секунд
-        { 
-          if(apMACDone) // получили MAC-адрес точки доступа
-            break;
-            
-          while(workStream->available())
-          {
-            ch = workStream->read();
-            timer = millis(); // не забываем обновлять таймер ответа - поскольку у нас что-то пришло - значит, модем отвечает
-        
-            if(ch == '\r')
-              continue;
-            
-            if(ch == '\n')
-            {
-              // получили строку, разбираем её
-              
-              // здесь надо обработать известные статусы
-                 if(checkIPD(line))
-                 {     
-                    processIPD(line);
-                    continue;
-                 }
-                 processKnownStatusFromESP(line);
-              
-                 if(line.startsWith(F("+CIPAPMAC:"))) // MAC нашей точки доступа
-                 {
-                   #ifdef WIFI_DEBUG
-                    Serial.println(F("softAP MAC found, parse..."));
-                   #endif
-            
-                   apMAC = line.substring(10);                      
-                  
-                 } // if(line.startsWith
-                 else
-                 if(isKnownAnswer(line,ka))
-                 {
-                    apMACDone = true;
-                 }
-             line = "";
-            } // ch == '\n'
-            else
-              line += ch;
-        
-          if(apMACDone) // получили MAC точки доступа
-              break;
- 
-          } // while
-          
-        } // while(1)
+    for(size_t i=0;i<specialCommandResults.size();i++)
+    {
+      String* s = specialCommandResults[i];
+      
+      int idx = s->indexOf(F("STAMAC,"));
+      if(idx != -1)
+      {
+        const char* stamacPtr = s->c_str() + idx + 7;
+        staMAC = stamacPtr;
+      }
+      else
+      {
+        idx = s->indexOf(F("APMAC,"));
+        if(idx != -1)
+        {
+          const char* apmacPtr = s->c_str() + idx + 6;
+          apMAC = apmacPtr;
+        }
+      }
+      
+      
+    } // for
 
-    resume();
+    clearSpecialCommandResults();
 
-  return true;              
+    return true;            
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool CoreESPTransport::getIP(String& stationCurrentIP, String& apCurrentIP)
 {
+
     if(machineState != espIdle || !workStream || !ready() || initCommandsQueue.size()) // чего-то делаем, не могём
     {
       return false;
     }
 
+    stationCurrentIP = '-';
+    apCurrentIP = '-';    
 
-    pause();
+    flags.specialCommandDone = false;
+    clearSpecialCommandResults();
+    initCommandsQueue.push_back(cmdCIFSR);
 
-    workStream->println(F("AT+CIFSR"));  
-    
-    String line; // тут принимаем данные до конца строки
-    bool knownAnswerFound = false;
-    ESPKnownAnswer ka;  
-
-    char ch;
-    uint32_t startTime = millis();
-    
-    while(millis() - startTime < 10000) // таймаут в 10 секунд
-    { 
-      if(knownAnswerFound) // получили оба IP
+    while(!flags.specialCommandDone)
+    {     
+      update();
+      yield();
+      if(flags.wantReconnect || machineState == espReboot)
         break;
-        
-      while(workStream->available())
-      {
-        ch = (char) workStream->read();
-        timer = millis(); // не забываем обновлять таймер ответа - поскольку у нас что-то пришло - значит, модем отвечает
-    
-        if(ch == '\r')
-          continue;
-        
-        if(ch == '\n')
-        {
-          // получили строку, разбираем её
-          
-          // здесь надо обработать известные статусы
-           if(checkIPD(line))
-           {     
-              processIPD(line);
-              continue;
-           }
-           processKnownStatusFromESP(line);
-                     
-            if(line.startsWith(F("+CIFSR:APIP"))) // IP нашей точки доступа
-             {
-               #ifdef WIFI_DEBUG
-                Serial.println(F("AP IP found, parse..."));
-               #endif
-        
-               int idx = line.indexOf("\"");
-               if(idx != -1)
-               {
-                  apCurrentIP = line.substring(idx+1);
-                  idx = apCurrentIP.indexOf("\"");
-                  if(idx != -1)
-                    apCurrentIP = apCurrentIP.substring(0,idx);
-                  
-               }
-               else
-                apCurrentIP = F("0.0.0.0");
+    }
 
-             } // if(line.startsWith(F("+CIFSR:APIP")))
-             else
-              if(line.startsWith(F("+CIFSR:STAIP"))) // IP нашей точки доступа, назначенный роутером
-             {
-                  #ifdef WIFI_DEBUG
-                    Serial.println(F("STA IP found, parse..."));
-                  #endif
-        
-               int idx = line.indexOf("\"");
-               if(idx != -1)
-               {
-                  stationCurrentIP = line.substring(idx+1);
-                  idx = stationCurrentIP.indexOf("\"");
-                  if(idx != -1)
-                    stationCurrentIP = stationCurrentIP.substring(0,idx);
-                  
-               }
-               else
-                stationCurrentIP = F("0.0.0.0");
+    if(!specialCommandResults.size())
+    {
+      return false;
+    }
 
-             } // if(line.startsWith(F("+CIFSR:STAIP")))
-
-           if(isKnownAnswer(line,ka))
-            knownAnswerFound = true;
-         
-          line = "";
-        } // ch == '\n'
-        else
-        {
-              line += ch;
-        }
-    
-     if(knownAnswerFound) // получили оба IP
-        break;
-
-      } // while
+    for(size_t i=0;i<specialCommandResults.size();i++)
+    {
+      String* s = specialCommandResults[i];
       
-    } // while(1)
+      int idx = s->indexOf(F("STAIP,"));
+      if(idx != -1)
+      {
+        const char* staipPtr = s->c_str() + idx + 6;
+        stationCurrentIP = staipPtr;
+      }
+      else
+      {
+        idx = s->indexOf(F("APIP,"));
+        if(idx != -1)
+        {
+          const char* apipPtr = s->c_str() + idx + 5;
+          apCurrentIP = apipPtr;
+        }
+      }
+      
+      
+    } // for
 
-    resume();
+    clearSpecialCommandResults();
 
     return true;
-    
+
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreESPTransport::sendCommand(ESPCommands command)
@@ -668,16 +515,40 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdWaitSendDone:
     break;
 
+    case cmdPING:
+    {
+      #ifdef WIFI_DEBUG
+        DEBUG_LOGLN(F("ESP: PING GOOGLE..."));
+      #endif
+
+      sendCommand(F("AT+PING=\"google.com\""));
+     
+    }
+    break;
+
+
+    case cmdCIFSR:
+    {
+      #ifdef WIFI_DEBUG
+        DEBUG_LOGLN(F("ESP: REQUEST CIFSR..."));
+      #endif
+
+      sendCommand(F("AT+CIFSR"));
+      
+    }
+    break;
+
     case cmdWantReady:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: reset..."));
+        DEBUG_LOGLN(F("ESP: reset..."));
       #endif
 
       // принудительно очищаем очередь клиентов
       clearClientsQueue(true);
       // и говорим, что все слоты свободны
       initPool();
+      
       sendCommand(F("AT+RST"));
     }
     break;
@@ -685,7 +556,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdEchoOff:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: echo OFF..."));
+        DEBUG_LOGLN(F("ESP: echo OFF..."));
       #endif
       sendCommand(F("ATE0"));
     }
@@ -694,7 +565,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCWMODE:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: softAP mode..."));
+        DEBUG_LOGLN(F("ESP: softAP mode..."));
       #endif
       sendCommand(F("AT+CWMODE_CUR=3"));
     }
@@ -703,7 +574,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCWSAP:
     {
         #ifdef WIFI_DEBUG
-          Serial.println(F("ESP: Creating the access point..."));
+          DEBUG_LOGLN(F("ESP: Creating the access point..."));
         #endif
 
         GlobalSettings* Settings = MainController->GetSettings();
@@ -721,7 +592,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCWJAP:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: Connecting to the router..."));
+        DEBUG_LOGLN(F("ESP: Connecting to the router..."));
       #endif
 
         GlobalSettings* Settings = MainController->GetSettings();
@@ -738,7 +609,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCWQAP:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: Disconnect from router..."));
+        DEBUG_LOGLN(F("ESP: Disconnect from router..."));
       #endif
       sendCommand(F("AT+CWQAP"));
     }
@@ -747,7 +618,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCIPMODE:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: Set the TCP server mode to 0..."));
+        DEBUG_LOGLN(F("ESP: Set the TCP server mode to 0..."));
       #endif
       sendCommand(F("AT+CIPMODE=0"));
     }
@@ -756,7 +627,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCIPMUX:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: Allow multiple connections..."));
+        DEBUG_LOGLN(F("ESP: Allow multiple connections..."));
       #endif
       sendCommand(F("AT+CIPMUX=1"));
     }
@@ -774,7 +645,7 @@ void CoreESPTransport::sendCommand(ESPCommands command)
     case cmdCheckModemHang:
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: check for ESP available..."));
+        DEBUG_LOGLN(F("ESP: check for ESP available..."));
       #endif
       
       flags.wantReconnect = false;
@@ -828,135 +699,6 @@ bool CoreESPTransport::isKnownAnswer(const String& line, ESPKnownAnswer& result)
   return false;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void CoreESPTransport::processIPD(const String& line)
-{
-#ifdef WIFI_DEBUG  
-  Serial.print(F("ESP: start parse +IPD, received="));
-  Serial.println(line);
-#endif
-
-  // здесь в line лежит только команда вида +IPD,<id>,<len>:
-  // все данные надо вычитывать из потока
-        
-    int16_t idx = line.indexOf(F(",")); // ищем первую запятую после +IPD
-    const char* ptr = line.c_str();
-    ptr += idx+1;
-    // перешли за запятую, парсим ID клиента
-    String connectedClientID = F("");
-    while(*ptr != ',')
-    {
-      connectedClientID += (char) *ptr;
-      ptr++;
-    }
-    ptr++; // за запятую
-    String dataLen;
-    while(*ptr != ':')
-    {
-      dataLen += (char) *ptr;
-      ptr++; // перешли на начало данных
-    }
-
-    // получили ID клиента и длину его данных, которые - пока в потоке, и надо их быстро попакетно вычитать
-    int16_t clientID = connectedClientID.toInt();
-    size_t lengthOfData = dataLen.toInt();
-    
-    if(clientID >=0 && clientID < ESP_MAX_CLIENTS)
-    {
-
-       CoreTransportClient* client = getClient(clientID);
-
-       // у нас есть lengthOfData с данными для клиента, нам надо побить это на пакеты длиной N байт,
-       // и последовательно вызывать событие прихода данных. Это нужно для того, чтобы не переполнить оперативку,
-       // поскольку у нас её - не вагон.
-
-      // пусть у нас будет максимум 512 байт на пакет
-      const uint16_t MAX_PACKET_SIZE = 512;
-      
-      // если длина всех данных меньше MAX_PACKET_SIZE - просто тупо все сразу вычитаем
-       uint16_t packetSize = min(MAX_PACKET_SIZE,lengthOfData);
-
-        // теперь выделяем буфер под данные
-        uint8_t* buff = new uint8_t[packetSize];
-
-        // у нас есть буфер, в него надо скопировать данные из потока
-        uint8_t* writePtr = buff;
-        
-        size_t packetWritten = 0; // записано в пакет
-        size_t totalWritten = 0; // всего записано
-
-        pause();
-
-            uint32_t startTime = millis();
-            bool hasTimeout = false;
-
-            while(totalWritten < lengthOfData) // пока не запишем все данные с клиента
-            {
-              if(millis() - startTime > WIFI_IPD_READING_TIMEOUT)
-              {
-                hasTimeout = true;
-                break;
-              }
-                if(workStream->available())
-                { 
-                  startTime = millis();               
-                  *writePtr++ = (uint8_t) workStream->read();
-                  packetWritten++;
-                  totalWritten++;
-                }
-                else
-                  continue;
-
-                if(packetWritten >= packetSize)
-                {
-                  
-                  // скопировали один пакет    
-                  // сообщаем подписчикам, что данные для клиента получены
-                  notifyDataAvailable(*client, buff, packetWritten, totalWritten >= lengthOfData);
-
-                  // чистим память
-                  delete [] buff;
-                      
-                  // пересчитываем длину пакета, вдруг там мало осталось, и незачем выделять под несколько байт огромный буфер
-                  packetSize =  min(MAX_PACKET_SIZE, (lengthOfData - totalWritten) );
-                  buff = new uint8_t[packetSize];
-                  writePtr = buff; // на начало буфера
-                  packetWritten = 0;
-                }
-              
-            } // while
-
-            #ifdef WIFI_DEBUG
-            if(hasTimeout)
-            {
-              Serial.print(F("DATA LENGTH="));
-              Serial.print(lengthOfData);
-              Serial.print(F("; READED="));
-              Serial.println(totalWritten);
-              Serial.println(F("TIMEOUT TIMEOUT TIMEOUT TIMEOUT TIMEOUT"));
-            }
-            #endif
-            
-           resume();
-
-            // проверяем - есть ли остаток?
-            if(packetWritten > 0)
-            {            
-              // после прохода цикла есть остаток данных, уведомляем клиента
-              // сообщаем подписчикам, что данные для клиента получены
-              notifyDataAvailable(*client, buff, packetWritten, hasTimeout ? true : totalWritten >= lengthOfData);
-            }
-            
-            delete [] buff;  
-       
-    } // if(clientID >=0 && clientID < ESP_MAX_CLIENTS)
-    
-
-#ifdef WIFI_DEBUG
-  Serial.println(F("ESP: +IPD parsed."));  
-#endif
-
-}
-//--------------------------------------------------------------------------------------------------------------------------------------
 void CoreESPTransport::processConnect(const String& line)
 {
      // клиент подсоединился
@@ -972,15 +714,15 @@ void CoreESPTransport::processConnect(const String& line)
     if(clientID >=0 && clientID < ESP_MAX_CLIENTS)
     {
       #ifdef WIFI_DEBUG
-        Serial.print(F("ESP: client connected - #"));
-        Serial.println(clientID);
+        DEBUG_LOG(F("ESP: client connected - #"));
+        DEBUG_LOGLN(String(clientID));
       #endif
 
       // тут смотрим - посылали ли мы запрос на коннект?
-      if(waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
+      if(flags.waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
       {
         #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: WAIT CIPSTART CONNECT, CATCH OUTGOING CLIENT!"));
+        DEBUG_LOGLN(F("ESP: WAIT CIPSTART CONNECT, CATCH OUTGOING CLIENT!"));
         #endif
         // есть клиент, для которого надо установить ID.
         // тут у нас может возникнуть коллизия, когда придёт коннект с внешнего адреса.
@@ -989,10 +731,10 @@ void CoreESPTransport::processConnect(const String& line)
         // ДО ТОГО, как придёт статус ID,CONNECT
         cipstartConnectClient->bind(clientID);
         
-        if(!cipstartConnectKnownAnswerFound)
+        if(!flags.cipstartConnectKnownAnswerFound)
         {
         #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: WAIT CIPSTART CONNECT, NO OK FOUND!"));
+        DEBUG_LOGLN(F("ESP: WAIT CIPSTART CONNECT, NO OK FOUND!"));
         #endif
           
           // не найдено ни одного ответа из известных. Проблема в том, что у внешнего клиента ещё нет слота,
@@ -1013,7 +755,7 @@ void CoreESPTransport::processConnect(const String& line)
         else
         {
         #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: WAIT CIPSTART CONNECT, CLIENT CONNECTED!"));
+        DEBUG_LOGLN(F("ESP: WAIT CIPSTART CONNECT, CLIENT CONNECTED!"));
         #endif
           
           // если вы здесь - ответ OK получен сразу после команды AT+CIPSTART,
@@ -1022,10 +764,10 @@ void CoreESPTransport::processConnect(const String& line)
           notifyClientConnected(*client,true,CT_ERROR_NONE);          
         }
       
-          waitCipstartConnect = false;
+          flags.waitCipstartConnect = false;
           cipstartConnectClient = NULL;
           cipstartConnectClientID = NO_CLIENT_ID;
-          cipstartConnectKnownAnswerFound = false;
+          flags.cipstartConnectKnownAnswerFound = false;
         
       } // if
       else
@@ -1056,8 +798,8 @@ void CoreESPTransport::processDisconnect(const String& line)
     if(clientID >=0 && clientID < ESP_MAX_CLIENTS)
     {
       #ifdef WIFI_DEBUG
-        Serial.print(F("ESP: client disconnected - #"));
-        Serial.println(clientID);
+        DEBUG_LOG(F("ESP: client disconnected - #"));
+        DEBUG_LOGLN(String(clientID));
       #endif
 
       // выставляем клиенту флаг, что он отсоединён
@@ -1067,12 +809,12 @@ void CoreESPTransport::processDisconnect(const String& line)
     }
 
     // тут смотрим - посылали ли мы запрос на коннект?
-    if(waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
+    if(flags.waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
     {
 
       #ifdef WIFI_DEBUG
-        Serial.print(F("ESP: waitCipstartConnect - #"));
-        Serial.println(clientID);
+        DEBUG_LOG(F("ESP: waitCipstartConnect - #"));
+        DEBUG_LOGLN(String(clientID));
       #endif
       
       // есть клиент, для которого надо установить ID
@@ -1081,7 +823,7 @@ void CoreESPTransport::processDisconnect(const String& line)
       cipstartConnectClient->release();
       removeClientFromQueue(cipstartConnectClient);
       
-      waitCipstartConnect = false;
+      flags.waitCipstartConnect = false;
       cipstartConnectClient = NULL;
       cipstartConnectClientID = NO_CLIENT_ID;
       
@@ -1106,7 +848,7 @@ void CoreESPTransport::processKnownStatusFromESP(const String& line)
    {
       flags.connectedToRouter = true;
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: connected to router!"));
+        DEBUG_LOGLN(F("ESP: connected to router!"));
       #endif
    }
    else
@@ -1114,112 +856,262 @@ void CoreESPTransport::processKnownStatusFromESP(const String& line)
    {
       flags.connectedToRouter = false;
       #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: disconnected from router!"));
+        DEBUG_LOGLN(F("ESP: disconnected from router!"));
       #endif
    }  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-bool CoreESPTransport::checkIPD(const String& line)
+bool CoreESPTransport::checkIPD(const TransportReceiveBuffer& buff)
 {
-  return line.startsWith(F("+IPD")) && (line.indexOf(":") != -1);
+  if(buff.size() < 9) // минимальная длина для IPD, на примере +IPD,1,1:
+    return false;
+
+  if(buff[0] == '+' && buff[1] == 'I' && buff[2] == 'P' && buff[3] == 'D')
+  {
+    size_t to = min(buff.size(),20); // заглядываем вперёд на 20 символов, не больше
+    for(size_t i=4;i<to;i++)
+    {
+      if(buff[i] == ':') // буфер начинается на +IPD и содержит дальше ':', т.е. за ним уже идут данные
+        return true;
+    }
+  }
+
+  return false;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreESPTransport::update()
 { 
-  if(!workStream || paused()) // либо нет рабочего потока, либо кто-то нас попросил ничего не вычитывать пока из ESP
+  if(!workStream) // нет рабочего потока
     return;
 
   if(flags.onIdleTimer) // попросили подождать определённое время, в течение которого просто ничего не надо делать
   {
-      if(millis() - timer > idleTime)
+      if(millis() - idleTimer > idleTime)
       {
-        //DBGLN(F("ESP: idle done!"));
         flags.onIdleTimer = false;
       }
-  } 
+  }
 
-  // флаг, что есть ответ от ESP, выставляется по признаку наличия хоть чего-то в буфере приёма
-  bool hasAnswer = workStream->available() > 0;
+  // читаем из потока всё, что там есть
+  readFromStream();
+
+   #ifdef USE_SMS_MODULE
+   // и модуль GSM тоже тут обновим
+   SIM800.readFromStream();
+   #endif   
+
+  RecursionCounter recGuard(&recursionGuard);
+
+  if(recursionGuard > 1) // рекурсивный вызов - просто вычитываем из потока - и всё.
+  {
+    #ifdef WIFI_DEBUG
+      DEBUG_LOGLN(F("ESP: RECURSION!"));
+    #endif    
+    return;
+  }
+  
+  bool hasAnswer = receiveBuffer.size();
+
+  if(!hasAnswer)
+  {
+      // нет ответа от ESP, проверяем, зависла ли она?
+      if(millis() - timer > WIFI_MAX_ANSWER_TIME)
+      {
+        #ifdef WIFI_DEBUG
+          DEBUG_LOGLN(F("ESP: modem not answering, reboot!"));
+        #endif
+
+        #ifdef USE_WIFI_REBOOT_PIN
+          // есть пин, который надо использовать при зависании
+          pinMode(WIFI_REBOOT_PIN,OUTPUT);
+          digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
+       #endif
+       
+        machineState = espReboot;
+        timer = millis();
+        
+      } // if 
+  }
+  else // есть ответ
+  {
+   // timer = millis();
+  }
 
   // выставляем флаг, что мы хотя бы раз получили хоть чего-то от ESP
   flags.isAnyAnswerReceived = flags.isAnyAnswerReceived || hasAnswer;
 
-  bool hasAnswerLine = false; // флаг, что мы получили строку ответа от модема
+  bool hasAnswerLine = false; // флаг, что мы получили строку ответа от модема    
 
-  char ch;
-  while(workStream->available())
+  String thisCommandLine;
+
+  // тут проверяем, есть ли чего интересующего в буфере?
+  if(checkIPD(receiveBuffer))
   {
-    // здесь мы должны детектировать - пришло IPD или нет.
-    // если пришли данные - мы должны вычитать их длину, и уже после этого - отправить данные клиенту,
-    // напрямую читая из потока. Это нужно, потому что данные могут быть бинарными, и мы никогда в них не дождёмся
-    // перевода строки.
+      
+    // в буфере лежит +IPD,ID,DATA_LEN:
+      int16_t idx = receiveBuffer.indexOf(','); // ищем первую запятую после +IPD
+      uint8_t* ptr = receiveBuffer.pData();
+      ptr += idx+1;
+      // перешли за запятую, парсим ID клиента
+      String connectedClientID;
+      while(*ptr != ',')
+      {
+        connectedClientID += (char) *ptr;
+        ptr++;
+      }
+      ptr++; // за запятую
+      String dataLen;
+      while(*ptr != ':')
+      {
+        dataLen += (char) *ptr;
+        ptr++;
+      }
+  
+      // получили ID клиента и длину его данных, которые - пока в потоке, и надо их быстро попакетно вычитать
+      int ipdClientID = connectedClientID.toInt();
+      size_t ipdClientDataLength = dataLen.toInt();
 
-     if(checkIPD(*wiFiReceiveBuff))
-     {     
-        processIPD(*wiFiReceiveBuff);
+      #ifdef WIFI_DEBUG
+        DEBUG_LOG(F("+IPD DETECTED, CLIENT #"));
+        DEBUG_LOG(String(ipdClientID));
+        DEBUG_LOG(F(", LENGTH="));
+        DEBUG_LOGLN(String(ipdClientDataLength));
+      #endif
+
+      // удаляем +IPD,ID,DATA_LEN:
+      receiveBuffer.remove(0,receiveBuffer.indexOf(':')+1);
+
+      // у нас есть длина данных к вычитке, плюс сколько-то их лежит в буфере уже.
+      // читать всё - мы не можем, т.к. данные могут быть гигантскими.
+      // следовательно, надо читать по пакетам.
+      CoreTransportClient* cl = getClient(ipdClientID);
+
+      if(receiveBuffer.size() >= ipdClientDataLength)
+      {
+        // на время события мы должны обеспечить неизменность буфера, т.к.
+        // в обработчике события может быть вызван yield, у указатель на память станет невалидным!
+        
+        uint8_t* thisBuffer = new uint8_t[ipdClientDataLength];
+        memcpy(thisBuffer,receiveBuffer.pData(),ipdClientDataLength);
+
+        receiveBuffer.remove(0,ipdClientDataLength);
+
+        if(!receiveBuffer.size())
+          receiveBuffer.clear();
+          
+        // весь пакет - уже в буфере
+        notifyDataAvailable(*cl, thisBuffer, ipdClientDataLength, true);
+        delete [] thisBuffer;
                 
-        delete wiFiReceiveBuff;
-        wiFiReceiveBuff = new String();
-        timer = millis();        
-        return; // надо вывалится из цикла, поскольку мы уже всё отослали клиенту, для которого пришли данные
-     }
-    
-    ch = workStream->read();
+      }
+      else
+      {
+        // не хватает части пакета в буфере.
+        
+        // теперь смотрим, сколько у нас данных ещё не послано клиентам
+        size_t remainingDataLength = ipdClientDataLength;
 
-    if(ch == '\r') // ненужный нам символ
-      continue;
-    else
-    if(ch == '\n')
-    {   
-        hasAnswerLine = true; // выставляем флаг, что у нас есть строка ответа от ESP  
-        break; // выходим из цикла, остальное дочитаем позже, если это потребуется кому-либо
-    }
-    else
-    {     
-        if(flags.waitForDataWelcome && ch == '>') // ждём команду >  (на ввод данных)
-        {
-          flags.waitForDataWelcome = false;
-          *wiFiReceiveBuff = F(">");
-          hasAnswerLine = true;
-          break; // выходим из цикла, получили приглашение на ввод данных
-        }
-        else
-        {
-          *wiFiReceiveBuff += ch;
-                         
-          if(wiFiReceiveBuff->length() > 512) // буфер слишком длинный
-          {
-            #ifdef WIFI_DEBUG
-              Serial.println(F("ESP: incoming data too long, skip it!"));
-            #endif
-            delete wiFiReceiveBuff;
-            wiFiReceiveBuff = new String();
-          }
-        }
-    } // any char except '\r' and '\n' 
-    
-  } // while(workStream->available())
+        // нам осталось послать remainingDataLength данных клиентам,
+        // побив их на пакеты длиной максимум TRANSPORT_MAX_PACKET_LENGTH
 
-  if(hasAnswer)
+        // вычисляем длину одного пакета
+        size_t packetLength = min(TRANSPORT_MAX_PACKET_LENGTH,remainingDataLength);
+
+        while(remainingDataLength > 0)
+        {
+            // читаем, пока не хватает данных для одного пакета
+            while(receiveBuffer.size() < packetLength)
+            {
+                #ifdef USE_SMS_MODULE
+                  SIM800.readFromStream();
+                #endif
+              
+                // данных не хватает, дочитываем
+                if(!workStream->available())
+                  continue;
+    
+                receiveBuffer.push_back((uint8_t) workStream->read());
+                
+            } // while
+
+            // вычитали один пакет, уведомляем клиентов, при этом может пополниться буфер,
+            // поэтому сохраняем пакет так, чтобы указатель на него был всегда валидным.
+            uint8_t* thisBuffer = new uint8_t[packetLength];
+            memcpy(thisBuffer,receiveBuffer.pData(),packetLength);
+
+            receiveBuffer.remove(0,packetLength);
+            if(!receiveBuffer.size())
+              receiveBuffer.clear();
+
+            notifyDataAvailable(*cl, thisBuffer, packetLength, (remainingDataLength - packetLength) == 0);
+            delete [] thisBuffer;
+            
+            remainingDataLength -= packetLength;
+            packetLength = min(TRANSPORT_MAX_PACKET_LENGTH,remainingDataLength);
+        } // while
+
+          
+      } // else
+
+    
+  } // if(checkIPD(receiveBuffer))
+  else if(flags.waitForDataWelcome && receiveBuffer[0] == '>')
   {
-     timer = millis(); // не забываем обновлять таймер ответа - поскольку у нас что-то пришло - значит, модем отвечает
-  }
+    flags.waitForDataWelcome = false;
+    thisCommandLine = '>';
+    hasAnswerLine = true;
 
-    if(hasAnswerLine && !wiFiReceiveBuff->length()) // пустая строка, не надо обрабатывать
-      hasAnswerLine = false;
+    receiveBuffer.remove(0,1);
+  }
+  else // любые другие ответы от ESP
+  {
+    // ищем до первого перевода строки
+    size_t cntr = 0;
+    for(;cntr<receiveBuffer.size();cntr++)
+    {
+      if(receiveBuffer[cntr] == '\n')
+      {          
+        hasAnswerLine = true;
+        cntr++;
+        break;
+      }
+    } // for
+
+    if(hasAnswerLine) // нашли перевод строки в потоке
+    {
+      for(size_t i=0;i<cntr;i++)
+      {
+        if(receiveBuffer[i] != '\r' && receiveBuffer[i] != '\n')
+          thisCommandLine += (char) receiveBuffer[i];
+      } // for
+
+      receiveBuffer.remove(0,cntr);
+      
+    } // if(hasAnswerLine)
+  } // else
+
+  // если в приёмном буфере ничего нету - просто почистим память
+  if(!receiveBuffer.size())
+    receiveBuffer.clear();
+
+
+  if(hasAnswerLine && !thisCommandLine.length()) // пустая строка, не надо обрабатывать
+    hasAnswerLine = false;
 
    #ifdef WIFI_DEBUG
     if(hasAnswerLine)
     {
-      Serial.print(F("<== ESP: "));
-      Serial.println(*wiFiReceiveBuff);
+      DEBUG_LOG(F("<== ESP: "));
+      DEBUG_LOGLN(thisCommandLine);
     }
    #endif
 
     // тут анализируем ответ от ESP, если он есть, на предмет того - соединён ли клиент, отсоединён ли клиент и т.п.
     // это нужно делать именно здесь, поскольку в этот момент в ESP может придти внешний коннект.
     if(hasAnswerLine)
-      processKnownStatusFromESP(*wiFiReceiveBuff);
+    {
+      processKnownStatusFromESP(thisCommandLine);
+    }
 
   // при разборе ответа тут будет лежать тип ответа, чтобы часто не сравнивать со строкой
   ESPKnownAnswer knownAnswer = kaNone;
@@ -1235,7 +1127,7 @@ void CoreESPTransport::update()
             if(initCommandsQueue.size())
             {
                 #ifdef WIFI_DEBUG
-                  Serial.println(F("ESP: process next init command..."));
+                  DEBUG_LOGLN(F("ESP: process next init command..."));
                 #endif
                 currentCommand = initCommandsQueue[initCommandsQueue.size()-1];
                 initCommandsQueue.pop();
@@ -1249,7 +1141,7 @@ void CoreESPTransport::update()
               if(clientsQueue.size())
               {
                   // получаем первого клиента в очереди
-                  ESPClientQueueData dt = clientsQueue[0];
+                  TransportClientQueueData dt = clientsQueue[0];
                   int clientID = dt.client->socket;
                   
                   // смотрим, чего он хочет от нас
@@ -1268,41 +1160,44 @@ void CoreESPTransport::update()
 
                     case actionConnect:
                     {
-
-                      // здесь надо искать первый свободный слот для клиента
-                      CoreTransportClient* freeSlot = getClient(NO_CLIENT_ID);
-                      clientID = freeSlot ? freeSlot->socket : NO_CLIENT_ID;
-                      
-                      if(flags.connectedToRouter)
+                      // мы разрешаем коннектиться только тогда, когда предыдущий коннект клиента уже обработан
+                      if(!cipstartConnectClient)
                       {
-                        waitCipstartConnect = true;
-                        cipstartConnectClient = dt.client;
-                        cipstartConnectClientID = clientID;
-                        cipstartConnectKnownAnswerFound = false;
-  
-                        currentCommand = cmdCIPSTART;
-                        String comm = F("AT+CIPSTART=");
-                        comm += clientID;
-                        comm += F(",\"TCP\",\"");
-                        comm += dt.ip;
-                        comm += F("\",");
-                        comm += dt.port;
-  
-                        delete [] clientsQueue[0].ip;
-                        clientsQueue[0].ip = NULL;
-              
-                        // и отсылаем её
-                        sendCommand(comm);
-                      } // flags.connectedToRouter
-                      else
-                      {
-                        // не законнекчены к роутеру, не можем устанавливать внешние соединения!!!
-                        removeClientFromQueue(dt.client);
-                        dt.client->bind(clientID);
-                        notifyClientConnected(*(dt.client),false,CT_ERROR_CANT_CONNECT);
-                        dt.client->release();
-                        
-                      }
+                          // здесь надо искать первый свободный слот для клиента
+                          CoreTransportClient* freeSlot = getClient(NO_CLIENT_ID);
+                          clientID = freeSlot ? freeSlot->socket : NO_CLIENT_ID;
+                          
+                          if(flags.connectedToRouter)
+                          {
+                            flags.waitCipstartConnect = true;
+                            cipstartConnectClient = dt.client;
+                            cipstartConnectClientID = clientID;
+                            flags.cipstartConnectKnownAnswerFound = false;
+      
+                            currentCommand = cmdCIPSTART;
+                            String comm = F("AT+CIPSTART=");
+                            comm += clientID;
+                            comm += F(",\"TCP\",\"");
+                            comm += dt.ip;
+                            comm += F("\",");
+                            comm += dt.port;
+      
+                            delete [] clientsQueue[0].ip;
+                            clientsQueue[0].ip = NULL;
+                  
+                            // и отсылаем её
+                            sendCommand(comm);
+                          } // flags.connectedToRouter
+                          else
+                          {
+                            // не законнекчены к роутеру, не можем устанавливать внешние соединения!!!
+                            removeClientFromQueue(dt.client);
+                            dt.client->bind(clientID);
+                            notifyClientConnected(*(dt.client),false,CT_ERROR_CANT_CONNECT);
+                            dt.client->release();
+                            
+                          }
+                      } // if(!cipstartConnectClient)
                     }
                     break; // actionConnect
 
@@ -1367,26 +1262,49 @@ void CoreESPTransport::update()
                   }
                   break; // cmdNone
 
+                  case cmdPING:
+                  {
+                    // ждали ответа на пинг
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      flags.specialCommandDone = true;
+                      specialCommandResults.push_back(new String(thisCommandLine.c_str()));
+                      machineState = espIdle; // переходим к следующей команде
+                    }
+                    
+                  }
+                  break; // cmdPING
+
+                  case cmdCIFSR:
+                  {
+                    // ждём выполнения команды CIFSR
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      flags.specialCommandDone = true;
+                      machineState = espIdle; // переходим к следующей команде
+                    }
+                    else if(thisCommandLine.startsWith(F("+CIFSR:")))
+                    {
+                      specialCommandResults.push_back(new String(thisCommandLine.c_str()));
+                    }
+                  }
+                  break; // cmdCIFSR
+
                   case cmdCIPCLOSE:
                   {
                     // отсоединялись. Здесь не надо ждать известного ответа, т.к. ответ может придти асинхронно
-                    //if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
-                    {
                       if(clientsQueue.size())
                       {
                         // клиент отсоединён, ставим ему соответствующий флаг, освобождаем его и удаляем из очереди
-                        ESPClientQueueData dt = clientsQueue[0];
+                        TransportClientQueueData dt = clientsQueue[0];
 
                         CoreTransportClient* thisClient = dt.client;
                         removeClientFromQueue(thisClient);
 
-                        // событие здесь не надо отсылать, т.к. в ветке обработки ...,CLOSED оно само обработается
-                        //notifyClientConnected(*thisClient,false,CT_ERROR_NONE);
-
                       } // if(clientsQueue.size()) 
                       
                         machineState = espIdle; // переходим к следующей команде
-                    }
+
                   }
                   break; // cmdCIPCLOSE
 
@@ -1395,11 +1313,11 @@ void CoreESPTransport::update()
                     // соединялись, коннект у нас только с внутреннего соединения, поэтому в очереди лежит по-любому
                     // указатель на связанного с нами клиента, который использует внешний пользователь транспорта
                     
-                        if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                        if(isKnownAnswer(thisCommandLine,knownAnswer))
                         {
                           if(knownAnswer == kaOK || knownAnswer == kaError || knownAnswer == kaAlreadyConnected)
                           {
-                            cipstartConnectKnownAnswerFound = true;
+                            flags.cipstartConnectKnownAnswerFound = true;
                           }
                             
                           if(knownAnswer == kaOK)
@@ -1407,7 +1325,7 @@ void CoreESPTransport::update()
                             // законнектились удачно, после этого должна придти строка ID,CONNECT
                             if(clientsQueue.size())
                             {
-                               ESPClientQueueData dt = clientsQueue[0];
+                               TransportClientQueueData dt = clientsQueue[0];
                                removeClientFromQueue(dt.client);                              
                             }
                           }
@@ -1417,11 +1335,11 @@ void CoreESPTransport::update()
                             if(clientsQueue.size())
                             {
                                #ifdef WIFI_DEBUG
-                                Serial.print(F("ESP: Client connect ERROR, received: "));
-                                Serial.println(*wiFiReceiveBuff);
+                                DEBUG_LOG(F("ESP: Client connect ERROR, received: "));
+                                DEBUG_LOGLN(thisCommandLine);
                                #endif
                                
-                               ESPClientQueueData dt = clientsQueue[0];
+                               TransportClientQueueData dt = clientsQueue[0];
 
                                CoreTransportClient* thisClient = dt.client;
                                removeClientFromQueue(thisClient);
@@ -1435,7 +1353,7 @@ void CoreESPTransport::update()
                             }
 
                             // ошибка соединения, строка ID,CONNECT нас уже не волнует
-                            waitCipstartConnect = false;
+                            flags.waitCipstartConnect = false;
                             cipstartConnectClient = NULL;
                             
                           } // else
@@ -1450,14 +1368,14 @@ void CoreESPTransport::update()
                   {
                     // дожидаемся результата отсыла данных
                       
-                      if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                      if(isKnownAnswer(thisCommandLine,knownAnswer))
                       {
                         if(knownAnswer == kaSendOk)
                         {
                           // send ok
                           if(clientsQueue.size())
                           {
-                             ESPClientQueueData dt = clientsQueue[0];
+                             TransportClientQueueData dt = clientsQueue[0];
                              
                              CoreTransportClient* thisClient = dt.client;
                              removeClientFromQueue(thisClient);
@@ -1473,7 +1391,7 @@ void CoreESPTransport::update()
                           // send fail
                           if(clientsQueue.size())
                           {
-                             ESPClientQueueData dt = clientsQueue[0];
+                             TransportClientQueueData dt = clientsQueue[0];
 
                              CoreTransportClient* thisClient = dt.client;
                              removeClientFromQueue(thisClient);
@@ -1496,7 +1414,7 @@ void CoreESPTransport::update()
                   case cmdCIPSEND:
                   {
                     // тут отсылали запрос на запись данных с клиента
-                    if(*wiFiReceiveBuff == F(">"))
+                    if(thisCommandLine == F(">"))
                     {
                        // дождались приглашения, можем писать в ESP
                        // тут пишем напрямую
@@ -1504,21 +1422,28 @@ void CoreESPTransport::update()
                        {
                           // говорим, что ждём окончания отсыла данных
                           currentCommand = cmdWaitSendDone;                          
-                          ESPClientQueueData dt = clientsQueue[0];
+                          TransportClientQueueData dt = clientsQueue[0];
 
                           #ifdef WIFI_DEBUG
-                            Serial.print(F("ESP: > RECEIVED, CLIENT #"));
-                            Serial.print(dt.client->socket);
-                            Serial.print(F("; LENGTH="));
-                            Serial.println(dt.dataLength);
+                            DEBUG_LOG(F("ESP: > RECEIVED, CLIENT #"));
+                            DEBUG_LOG(String(dt.client->socket));
+                            DEBUG_LOG(F("; LENGTH="));
+                            DEBUG_LOGLN(String(dt.dataLength));
                           #endif
 
-                          workStream->write(dt.data,dt.dataLength);
+                          for(size_t kk=0;kk<dt.dataLength;kk++)
+                          {
+                            workStream->write(dt.data[kk]);
+                            readFromStream();
 
-                          waitTransmitComplete();
+                             #ifdef USE_SMS_MODULE
+                             // и модуль GSM тоже тут обновим
+                             SIM800.readFromStream();
+                             #endif                             
+                          }
 
                           #ifdef WIFI_DEBUG
-                            Serial.println(F("CLEAR CLIENT DATA !!!"));
+                            DEBUG_LOGLN(F("CLEAR CLIENT DATA !!!"));
                           #endif
                           
                           delete [] clientsQueue[0].data;
@@ -1532,20 +1457,20 @@ void CoreESPTransport::update()
                        }
                     } // if
                     else
-                    if(wiFiReceiveBuff->indexOf(F("FAIL")) != -1 || wiFiReceiveBuff->indexOf(F("ERROR")) != -1)
+                    if(thisCommandLine.indexOf(F("FAIL")) != -1 || thisCommandLine.indexOf(F("ERROR")) != -1)
                     {
                        // всё плохо, не получилось ничего записать
                       if(clientsQueue.size())
                       {
                          
-                         ESPClientQueueData dt = clientsQueue[0];
+                         TransportClientQueueData dt = clientsQueue[0];
 
                          CoreTransportClient* thisClient = dt.client;
                          removeClientFromQueue(thisClient);
 
                          #ifdef WIFI_DEBUG
-                          Serial.print(F("ESP: CLIENT WRITE ERROR #"));
-                          Serial.println(thisClient->socket);
+                          DEBUG_LOG(F("ESP: CLIENT WRITE ERROR #"));
+                          DEBUG_LOGLN(String(thisClient->socket));
                          #endif
 
                          // очищаем данные у клиента
@@ -1564,10 +1489,10 @@ void CoreESPTransport::update()
                   
                   case cmdWantReady: // ждём загрузки модема в ответ на команду AT+RST
                   {
-                    if(isESPBootFound(*wiFiReceiveBuff))
+                    if(isESPBootFound(thisCommandLine))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: BOOT FOUND!!!"));
+                        DEBUG_LOGLN(F("ESP: BOOT FOUND!!!"));
                       #endif
                       
                       machineState = espIdle; // переходим к следующей команде
@@ -1577,10 +1502,10 @@ void CoreESPTransport::update()
 
                   case cmdEchoOff:
                   {
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: Echo OFF command processed."));
+                        DEBUG_LOGLN(F("ESP: Echo OFF command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }
@@ -1589,10 +1514,10 @@ void CoreESPTransport::update()
 
                   case cmdCWMODE:
                   {
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: CWMODE command processed."));
+                        DEBUG_LOGLN(F("ESP: CWMODE command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }
@@ -1601,10 +1526,10 @@ void CoreESPTransport::update()
 
                   case cmdCWSAP:
                   {
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: CWSAP command processed."));
+                        DEBUG_LOGLN(F("ESP: CWSAP command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }  
@@ -1613,7 +1538,7 @@ void CoreESPTransport::update()
 
                   case cmdCWJAP:
                   {                    
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
 
                       machineState = espIdle; // переходим к следующей команде
@@ -1622,7 +1547,7 @@ void CoreESPTransport::update()
                       {
                         // ошибка подсоединения к роутеру
                         #ifdef WIFI_DEBUG
-                          Serial.println(F("ESP: CWJAP command FAIL, RESTART!"));
+                          DEBUG_LOGLN(F("ESP: CWJAP command FAIL, RESTART!"));
                         #endif
                         restart();
                       }
@@ -1630,7 +1555,7 @@ void CoreESPTransport::update()
                       {
                         // подсоединились успешно
                         #ifdef WIFI_DEBUG
-                          Serial.println(F("ESP: CWJAP command processed."));
+                          DEBUG_LOGLN(F("ESP: CWJAP command processed."));
                         #endif                        
                       }
                   
@@ -1640,10 +1565,10 @@ void CoreESPTransport::update()
 
                   case cmdCWQAP:
                   {                    
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: CWQAP command processed."));
+                        DEBUG_LOGLN(F("ESP: CWQAP command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }  
@@ -1652,10 +1577,10 @@ void CoreESPTransport::update()
 
                   case cmdCIPMODE:
                   {                    
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: CIPMODE command processed."));
+                        DEBUG_LOGLN(F("ESP: CIPMODE command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }  
@@ -1664,10 +1589,10 @@ void CoreESPTransport::update()
 
                   case cmdCIPMUX:
                   {                    
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: CIPMUX command processed."));
+                        DEBUG_LOGLN(F("ESP: CIPMUX command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }  
@@ -1676,10 +1601,10 @@ void CoreESPTransport::update()
                   
                   case cmdCIPSERVER:
                   {                    
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: CIPSERVER command processed."));
+                        DEBUG_LOGLN(F("ESP: CIPSERVER command processed."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
                     }  
@@ -1688,10 +1613,10 @@ void CoreESPTransport::update()
 
                   case cmdCheckModemHang:
                   {                    
-                    if(isKnownAnswer(*wiFiReceiveBuff,knownAnswer))
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
                     {
                       #ifdef WIFI_DEBUG
-                        Serial.println(F("ESP: ESP answered and available."));
+                        DEBUG_LOGLN(F("ESP: ESP answered and available."));
                       #endif
                       machineState = espIdle; // переходим к следующей команде
 
@@ -1702,23 +1627,23 @@ void CoreESPTransport::update()
 
                           // чтобы часто не дёргать реконнект - мы говорим, что после рестарта надо подождать 5 секунд перед тем, как обрабатывать следующую команду
                           #ifdef WIFI_DEBUG
-                            Serial.println(F("ESP: Wait 5 seconds before reconnect..."));
+                            DEBUG_LOGLN(F("ESP: Wait 5 seconds before reconnect..."));
                           #endif
                           flags.onIdleTimer = true;
-                          timer = millis();
+                          idleTimer = millis();
                           idleTime = 5000;
                           
                        } // if(flags.wantReconnect)
                       
                     } // if(isKnownAnswer
 
-                     if(*wiFiReceiveBuff == F("No AP"))
+                     if(thisCommandLine == F("No AP"))
                      {
                         GlobalSettings* Settings = MainController->GetSettings();
                         if(Settings->GetWiFiState() & 0x01)
                         {
                           #ifdef WIFI_DEBUG
-                            Serial.println(F("ESP: No connect to router, want to reconnect..."));
+                            DEBUG_LOGLN(F("ESP: No connect to router, want to reconnect..."));
                           #endif
                           // нет соединения с роутером, надо переподсоединиться, как только это будет возможно.
                           flags.wantReconnect = true;
@@ -1730,7 +1655,7 @@ void CoreESPTransport::update()
                       {
                         // на случай, когда ESP не выдаёт WIFI CONNECTED в порт - проверяем статус коннекта тут,
                         // как признак, что строчка содержит ID нашей сети, проще говоря - не равна No AP
-                        if(wiFiReceiveBuff->startsWith(F("+CWJAP")))
+                        if(thisCommandLine.startsWith(F("+CWJAP")))
                           flags.connectedToRouter = true;
                         
                       }
@@ -1755,21 +1680,13 @@ void CoreESPTransport::update()
           if(millis() - timer > powerOffTime)
           {
             #ifdef WIFI_DEBUG
-              Serial.println(F("ESP: turn power ON!"));
-            #endif
-
-            bool useRebootPin =
-            #ifdef USE_WIFI_REBOOT_PIN
-              true;
-            #else
-              false;
+              DEBUG_LOGLN(F("ESP: turn power ON!"));
             #endif
             
-            if(useRebootPin)
-            {
+            #ifdef USE_WIFI_REBOOT_PIN
               pinMode(WIFI_REBOOT_PIN,OUTPUT);
               digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_ON);
-            }
+            #endif
 
             machineState = espWaitInit;
             timer = millis();
@@ -1785,7 +1702,7 @@ void CoreESPTransport::update()
           {            
             restart();
             #ifdef WIFI_DEBUG
-              Serial.println(F("ESP: inited after reboot!"));
+              DEBUG_LOGLN(F("ESP: inited after reboot!"));
             #endif
           } // 
         }
@@ -1795,54 +1712,23 @@ void CoreESPTransport::update()
 
   } // if(!flags.onIdleTimer)
 
-
-  if(hasAnswerLine)
-  {
-    // не забываем чистить за собой
-      delete wiFiReceiveBuff;
-      wiFiReceiveBuff = new String();       
-  }
-
-
-    if(!hasAnswer) // проверяем на зависание
-    {
-
-      // нет ответа от ESP, проверяем, зависла ли она?
-      uint32_t hangTime = WIFI_MAX_ANSWER_TIME;
-      if(millis() - timer > hangTime)
-      {
-        #ifdef WIFI_DEBUG
-          Serial.println(F("ESP: modem not answering, reboot!"));
-        #endif
-
-        bool useRebootPin = 
-        #ifdef USE_WIFI_REBOOT_PIN
-          true;
-        #else
-          false;
-        #endif
-
-        if(useRebootPin)
-        {
-          // есть пин, который надо использовать при зависании
-          pinMode(WIFI_REBOOT_PIN,OUTPUT);
-          digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
-        }
-
-        machineState = espReboot;
-        timer = millis();
-        
-      } // if   
-         
-    }
     
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreESPTransport::clearSpecialCommandResults()
+{
+  for(size_t i=0;i<specialCommandResults.size();i++)
+  {
+    delete specialCommandResults[i];
+  }
+  specialCommandResults.clear();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreESPTransport::begin()
 {
 
   #ifdef WIFI_DEBUG
-    Serial.println(F("ESP: begin."));
+   DEBUG_LOGLN(F("ESP: begin."));
   #endif
     
   workStream = &WIFI_SERIAL;
@@ -1865,31 +1751,23 @@ void CoreESPTransport::begin()
 
   restart();
 
-  bool useRebootPin = 
   #ifdef USE_WIFI_REBOOT_PIN
-    true;
-  #else
-    false;
-  #endif
-
-  if(useRebootPin)
-  {
     // есть пин, который надо использовать при зависании
     pinMode(WIFI_REBOOT_PIN,OUTPUT);
     digitalWrite(WIFI_REBOOT_PIN, WIFI_POWER_OFF);
     machineState = espReboot;
-  }
+  #endif
 
   #ifdef WIFI_DEBUG
-    Serial.println(F("ESP: started."));
+    DEBUG_LOGLN(F("ESP: started."));
   #endif
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreESPTransport::restart()
 {
-  delete wiFiReceiveBuff;
-  wiFiReceiveBuff = new String();
+  // очищаем входной буфер
+  receiveBuffer.clear();
 
   // очищаем очередь клиентов, заодно им рассылаем события
   clearClientsQueue(true);
@@ -1901,9 +1779,11 @@ void CoreESPTransport::restart()
   flags.connectedToRouter = false;
   flags.wantReconnect = false;
   flags.onIdleTimer = false;
-  flags.bPaused = false;
   
   timer = millis();
+
+  flags.waitCipstartConnect = false; // не ждёт соединения внешнего клиента
+  cipstartConnectClient = NULL;
 
   currentCommand = cmdNone;
   machineState = espIdle;
@@ -1950,7 +1830,7 @@ void CoreESPTransport::clearClientsQueue(bool raiseEvents)
 
     for(size_t i=0;i<clientsQueue.size();i++)
     {
-        ESPClientQueueData dt = clientsQueue[i];
+        TransportClientQueueData dt = clientsQueue[i];
         delete [] dt.data;
         delete [] dt.ip;
 
@@ -1995,7 +1875,7 @@ void CoreESPTransport::clearClientsQueue(bool raiseEvents)
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-bool CoreESPTransport::isClientInQueue(CoreTransportClient* client, ESPClientAction action)
+bool CoreESPTransport::isClientInQueue(CoreTransportClient* client, TransportClientAction action)
 {
   for(size_t i=0;i<clientsQueue.size();i++)
   {
@@ -2006,21 +1886,21 @@ bool CoreESPTransport::isClientInQueue(CoreTransportClient* client, ESPClientAct
   return false;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void CoreESPTransport::addClientToQueue(CoreTransportClient* client, ESPClientAction action, const char* ip, uint16_t port)
+void CoreESPTransport::addClientToQueue(CoreTransportClient* client, TransportClientAction action, const char* ip, uint16_t port)
 {
   while(isClientInQueue(client, action))
   {
     #ifdef WIFI_DEBUG
-      Serial.print(F("ESP: Client #"));
-      Serial.print(client->socket);
-      Serial.print(F(" with same action already in queue, ACTION="));
-      Serial.print(action);
-      Serial.println(F(" - remove that client!"));
+      DEBUG_LOG(F("ESP: Client #"));
+      DEBUG_LOG(String(client->socket));
+      DEBUG_LOG(F(" with same action already in queue, ACTION="));
+      DEBUG_LOG(String(action));
+      DEBUG_LOGLN(F(" - remove that client!"));
     #endif
     removeClientFromQueue(client,action);
   }
 
-    ESPClientQueueData dt;
+    TransportClientQueueData dt;
     dt.client = client;
     dt.action = action;
     
@@ -2035,7 +1915,7 @@ void CoreESPTransport::addClientToQueue(CoreTransportClient* client, ESPClientAc
     clientsQueue.push_back(dt);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void CoreESPTransport::removeClientFromQueue(CoreTransportClient* client, ESPClientAction action)
+void CoreESPTransport::removeClientFromQueue(CoreTransportClient* client, TransportClientAction action)
 {
   
   for(size_t i=0;i<clientsQueue.size();i++)
@@ -2099,7 +1979,7 @@ void CoreESPTransport::beginConnect(CoreTransportClient& client, const char* ip,
   {
     
     #ifdef WIFI_DEBUG
-      Serial.println(F("ESP: client already connected!"));
+      DEBUG_LOGLN(F("ESP: client already connected!"));
     #endif
     return;
     
@@ -2147,12 +2027,12 @@ void CoreMQTT::AddTopic(const char* topicIndex, const char* topicName, const cha
 {
 
   #ifdef MQTT_DEBUG
-    Serial.print(F("Add topic: "));
-    Serial.println(topicName);
-    Serial.println(moduleName);
-    Serial.println(sensorType);
-    Serial.println(sensorIndex);
-    Serial.println(topicType);
+    DEBUG_LOG(F("Add topic: "));
+    DEBUG_LOGLN(topicName);
+    DEBUG_LOGLN(moduleName);
+    DEBUG_LOGLN(sensorType);
+    DEBUG_LOGLN(sensorIndex);
+    DEBUG_LOGLN(topicType);
   #endif
     
   // добавляем новый топик
@@ -2161,23 +2041,30 @@ void CoreMQTT::AddTopic(const char* topicIndex, const char* topicName, const cha
 
   String dirName = F("MQTT");
   SDFat.mkdir(dirName.c_str()); // create directory
+  yield();
   
   SdFile f;
   if(f.open(fName.c_str(),FILE_WRITE | O_TRUNC))
   {
+    yield();
     f.println(topicName); // имя топика
+    yield();
     f.println(moduleName); // имя модуля
+    yield();
     f.println(sensorType); // тип датчика
+    yield();
     f.println(sensorIndex); // индекс датчика
+    yield();
     f.println(topicType); // тип топика
-    
+    yield();
     f.close();
+    yield();
   }
   #ifdef MQTT_DEBUG
   else
   {
-    Serial.print(F("Unable to create topic file: "));
-    Serial.println(fName);
+    DEBUG_LOG(F("Unable to create topic file: "));
+    DEBUG_LOGLN(fName);
   }
   #endif  
 }
@@ -2237,7 +2124,7 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
     {
       // это к нам опубликовали топик
       #ifdef MQTT_DEBUG
-        Serial.println(F("MQTT: PUBLISH topic found!!!"));
+        DEBUG_LOGLN(F("MQTT: PUBLISH topic found!!!"));
       #endif
 
       bool isQoS1 = (bCommand & 6) == MQTT_QOS1;
@@ -2258,14 +2145,21 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
           multiplier *= 128;
           
         if (multiplier > 0x200000)
+        {
+          #ifdef MQTT_DEBUG
+            DEBUG_LOGLN(F("MQTT: malformed 1."));
+          #endif          
           break; // malformed
+        }
           
         } while ((encodedByte & 128) != 0);
 
 
       if(curReadPos >= dataLen) // malformed
       {
-      //    DBGLN(F("MQTT: MALFORMED 1"));
+          #ifdef MQTT_DEBUG
+            DEBUG_LOGLN(F("MQTT: malformed 2."));
+          #endif          
         return;
       }
 
@@ -2275,7 +2169,9 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
 
       if(curReadPos >= dataLen) // malformed
       {
-      //    DBGLN(F("MQTT: MALFORMED 2"));
+          #ifdef MQTT_DEBUG
+            DEBUG_LOGLN(F("MQTT: malformed 3."));
+          #endif          
         return;
       }
             
@@ -2290,7 +2186,9 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
       {
         if(curReadPos >= dataLen) // malformed
         {
-       //     DBGLN(F("MQTT: MALFORMED 3"));
+          #ifdef MQTT_DEBUG
+            DEBUG_LOGLN(F("MQTT: malformed 4."));
+          #endif          
           return;
         }        
         topic += (char) packet[curReadPos];
@@ -2314,8 +2212,8 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
       if(payload->length())
       {
             #ifdef MQTT_DEBUG
-              Serial.print(F("MQTT: Payload are: "));
-              Serial.println(*payload);
+              DEBUG_LOG(F("MQTT: Payload are: "));
+              DEBUG_LOGLN(*payload);
             #endif
 
           // теперь склеиваем payload с топиком
@@ -2333,8 +2231,8 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
       if(topic.length())
       {
             #ifdef MQTT_DEBUG
-              Serial.print(F("MQTT: Topic are: "));
-              Serial.println(topic);
+              DEBUG_LOG(F("MQTT: Topic are: "));
+              DEBUG_LOGLN(topic);
             #endif
 
           const char* setCommandPtr = strstr_P(topic.c_str(),(const char*) F("SET/") );
@@ -2360,17 +2258,16 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
             } // for
 
               #ifdef MQTT_DEBUG
-                Serial.print(F("Normalized topic are: "));
-                Serial.println(topic);
+                DEBUG_LOG(F("Normalized topic are: "));
+                DEBUG_LOGLN(topic);
               #endif
 
               delete streamBuffer;
               streamBuffer = new String();
 
-              //ставим транспорт на паузу, чтобы избежать сайд-эффектов по yield
-              currentTransport->pause();
-                ModuleInterop.QueryCommand(isSetCommand ? ctSET : ctGET , topic, false);
-              currentTransport->resume();
+              yield();
+              ModuleInterop.QueryCommand(isSetCommand ? ctSET : ctGET , topic, false);
+              yield();
               
               if(PublishSingleton.Flags.Status)
                 *streamBuffer = OK_ANSWER;
@@ -2397,8 +2294,8 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
           else // unsupported topic
           {
               #ifdef MQTT_DEBUG
-                Serial.print(F("Unsupported topic: "));
-                Serial.println(topic);
+                DEBUG_LOG(F("Unsupported topic: "));
+                DEBUG_LOGLN(topic);
               #endif
           } // else
           
@@ -2406,7 +2303,7 @@ void CoreMQTT::processIncomingPacket(CoreTransportClient* client, uint8_t* packe
       else
       {
         #ifdef MQTT_DEBUG
-          Serial.println(F("Malformed topic name!!!"));
+          DEBUG_LOGLN(F("Malformed topic name!!!"));
         #endif
       }
 
@@ -2423,8 +2320,8 @@ void CoreMQTT::pushToReportQueue(String* toReport)
   *newReport = *toReport;
 
 #ifdef MQTT_DEBUG
-  Serial.print(F("MQTT: Want to report - "));
-  Serial.println(*newReport);
+  DEBUG_LOG(F("MQTT: Want to report - "));
+  DEBUG_LOGLN(*newReport);
 #endif  
 
   reportQueue.push_back(newReport);
@@ -2432,7 +2329,6 @@ void CoreMQTT::pushToReportQueue(String* toReport)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreMQTT::OnClientDataAvailable(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone)
 {
-  UNUSED(isDone);
   
   if(!currentClient || client != currentClient) // не наш клиент
     return;
@@ -2441,37 +2337,59 @@ void CoreMQTT::OnClientDataAvailable(CoreTransportClient& client, uint8_t* data,
 
   if(machineState == mqttWaitSendConnectPacketDone)
   {
-    machineState = mqttSendSubscribePacket;
+    if(isDone)
+      machineState = mqttSendSubscribePacket;
   }
   else
   if(machineState == mqttWaitSendSubscribePacketDone)
   {
-    machineState = mqttSendPublishPacket;
+    if(isDone)
+      machineState = mqttSendPublishPacket;
   }
   else
   if(machineState == mqttWaitSendPublishPacketDone)
   {
     // отсылали пакет публикации, тут к нам пришла обратка,
     // поскольку мы подписались на все топики для нашего клиента, на будущее
+    
+      for(size_t i=0;i<dataSize;i++)
+        packetBuffer.push_back(data[i]);
+          
+      if(!isDone) // ещё не все данные получены
+        return;
+
      machineState = mqttSendPublishPacket;
 
      #ifdef MQTT_DEBUG
-      Serial.println(F("MQTT: process incoming packet, machineState == mqttWaitSendPublishPacketDone"));
+      DEBUG_LOGLN(F("MQTT: process incoming packet..."));
      #endif
 
     // по-любому обрабатываем обратку
-    processIncomingPacket(&currentClient, data, dataSize);
+    processIncomingPacket(&currentClient, packetBuffer.pData(), packetBuffer.size());
+
+    packetBuffer.clear();
   }
   else
   {
      #ifdef MQTT_DEBUG
-      Serial.println(F("MQTT: process incoming packet on idle mode..."));
+      DEBUG_LOGLN(F("MQTT: process incoming packet on idle mode..."));
      #endif    
       // тут разбираем, что пришло от брокера. Если мы здесь, значит данные от брокера
-      // пришли в необрабатываемую ветку, т.е. это публикация прямо с брокера.
-      processIncomingPacket(&currentClient, data, dataSize);
+      // пришли в необрабатываемую ветку, т.е. это публикация прямо с брокера
+      
+      
+      for(size_t i=0;i<dataSize;i++)
+        packetBuffer.push_back(data[i]);
+          
+      if(!isDone) // ещё не все данные получены
+        return;
+      
+      processIncomingPacket(&currentClient, packetBuffer.pData(), packetBuffer.size());
+
+      packetBuffer.clear();
   }
-    
+
+  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreMQTT::OnClientDataWritten(CoreTransportClient& client, int16_t errorCode)
@@ -2487,10 +2405,11 @@ void CoreMQTT::OnClientDataWritten(CoreTransportClient& client, int16_t errorCod
   if(errorCode != CT_ERROR_NONE)
   {
     #ifdef MQTT_DEBUG
-      Serial.println(F("MQTT: Can't write to client!"));
+      DEBUG_LOGLN(F("MQTT: Can't write to client!"));
     #endif
     clearReportsQueue();
     clearPublishQueue();
+    packetBuffer.clear();
     machineState = mqttWaitReconnect;
 
     return;
@@ -2509,11 +2428,12 @@ void CoreMQTT::OnClientConnect(CoreTransportClient& client, bool connected, int1
   {
     // клиент не подсоединился, сбрасываем текущего клиента и вываливаемся в ожидание переподсоединения.
     #ifdef MQTT_DEBUG
-      Serial.println(F("MQTT: Disconnected from broker, try to reconnect..."));
+      DEBUG_LOGLN(F("MQTT: Disconnected from broker, try to reconnect..."));
     #endif
     
     clearReportsQueue();
     clearPublishQueue();
+    packetBuffer.clear();
     machineState = mqttWaitReconnect;
     timer = millis();    
   }
@@ -2639,6 +2559,7 @@ MQTTSettings CoreMQTT::getSettings()
     SdFile f;
     if(f.open(mqttSettingsFileName.c_str(),FILE_READ))
     {
+      yield();
       // первые две строки - адрес сервера и порт        
       FileUtils::readLine(f,result.serverAddress);
       String dummy;
@@ -2691,7 +2612,7 @@ void CoreMQTT::update()
         if(currentTransport->ready())
         {
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: Start connect!"));
+            DEBUG_LOGLN(F("MQTT: Start connect!"));
           #endif
             currentClient.connect(currentSettings.serverAddress.c_str(), currentSettings.port);
             machineState = mqttWaitConnection; 
@@ -2706,9 +2627,9 @@ void CoreMQTT::update()
         if(millis() - timer > toWait)
         {
           #ifdef MQTT_DEBUG
-            Serial.print(F("MQTT: unable to connect within "));
-            Serial.print(toWait/1000);
-            Serial.println(F(" seconds, try to reconnect..."));
+            DEBUG_LOG(F("MQTT: unable to connect within "));
+            DEBUG_LOG(String(toWait/1000));
+            DEBUG_LOGLN(F(" seconds, try to reconnect..."));
           #endif
           
           // долго ждали, переподсоединяемся
@@ -2725,7 +2646,7 @@ void CoreMQTT::update()
         if(millis() - timer > 10000)
         {
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: start reconnect!"));
+            DEBUG_LOGLN(F("MQTT: start reconnect!"));
           #endif
           clearReportsQueue();
           clearPublishQueue();
@@ -2739,7 +2660,7 @@ void CoreMQTT::update()
         if(currentClient.connected())
         {
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: start send connect packet!"));
+            DEBUG_LOGLN(F("MQTT: start send connect packet!"));
           #endif  
   
           String mqttBuffer;
@@ -2759,7 +2680,7 @@ void CoreMQTT::update()
           machineState = mqttWaitSendConnectPacketDone;
 
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: WRITE CONNECT PACKET TO CLIENT!"));
+            DEBUG_LOGLN(F("MQTT: WRITE CONNECT PACKET TO CLIENT!"));
           #endif
           
           // сформировали пакет CONNECT, теперь отсылаем его брокеру
@@ -2770,7 +2691,7 @@ void CoreMQTT::update()
         else
         {
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: client not connected in construct CONNECT packet mode!"));
+            DEBUG_LOGLN(F("MQTT: client not connected in construct CONNECT packet mode!"));
           #endif
           machineState = mqttWaitReconnect;
           timer = millis();          
@@ -2783,7 +2704,7 @@ void CoreMQTT::update()
       {
 
         #ifdef MQTT_DEBUG
-          Serial.println(F("MQTT: Subscribe to topics!"));
+          DEBUG_LOGLN(F("MQTT: Subscribe to topics!"));
         #endif
 
         if(currentClient.connected())
@@ -2800,7 +2721,7 @@ void CoreMQTT::update()
           machineState = mqttWaitSendSubscribePacketDone;
 
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: WRITE SUBSCRIBE PACKET TO CLIENT!"));
+            DEBUG_LOGLN(F("MQTT: WRITE SUBSCRIBE PACKET TO CLIENT!"));
           #endif
           
           // сформировали пакет SUBSCRIBE, теперь отсылаем его брокеру
@@ -2810,7 +2731,7 @@ void CoreMQTT::update()
         else
         {
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: client not connected in construct SUBSCRIBE packet mode!"));
+            DEBUG_LOGLN(F("MQTT: client not connected in construct SUBSCRIBE packet mode!"));
           #endif
           machineState = mqttWaitReconnect;
           timer = millis();          
@@ -2931,7 +2852,7 @@ void CoreMQTT::update()
                 machineState = mqttWaitSendPublishPacketDone;
 
                 #ifdef MQTT_DEBUG
-                  Serial.println(F("MQTT: WRITE PUBLISH PACKET TO CLIENT!"));
+                  DEBUG_LOGLN(F("MQTT: WRITE PUBLISH PACKET TO CLIENT!"));
                 #endif
 
                 // сформировали пакет PUBLISH, теперь отсылаем его брокеру
@@ -2942,7 +2863,7 @@ void CoreMQTT::update()
           else
           {
             #ifdef MQTT_DEBUG
-              Serial.println(F("MQTT: client not connected in construct PUBLISH packet mode!"));
+              DEBUG_LOGLN(F("MQTT: client not connected in construct PUBLISH packet mode!"));
             #endif
             machineState = mqttWaitReconnect;
             timer = millis();          
@@ -2959,7 +2880,7 @@ void CoreMQTT::update()
         if(millis() - timer > 20000)
         {
           #ifdef MQTT_DEBUG
-            Serial.println(F("MQTT: wait for send results timeout, reconnect!"));
+            DEBUG_LOGLN(F("MQTT: wait for send results timeout, reconnect!"));
           #endif
           // долго ждали результата записи в клиента, переподсоединяемся
           clearReportsQueue();
@@ -2986,6 +2907,7 @@ void CoreMQTT::getNextTopic(String& topicName, String& data)
 
   if(!SDFat.exists(topicFileName.c_str())) // нет топика
   {
+    yield();
     currentTopicNumber = 0; // переключаемся на первый топик
     return;
   }
@@ -2995,6 +2917,7 @@ void CoreMQTT::getNextTopic(String& topicName, String& data)
   
   if(!f.open(topicFileName.c_str(),FILE_READ)) // не получилось открыть файл
   {
+    yield();
     switchToNextTopic();
     return;          
   }
@@ -3028,12 +2951,13 @@ void CoreMQTT::getNextTopic(String& topicName, String& data)
   
   // не забываем закрыть файл
   f.close();
+  yield();
 
   if(topicType == F("1")) // топик со статусом контроллера
   {
    
     #ifdef MQTT_DEBUG
-      Serial.println(F("Status topic found - process command..."));
+      DEBUG_LOGLN(F("Status topic found - process command..."));
     #endif
         
      //Тут работаем с топиком статуса контроллера
@@ -3042,10 +2966,9 @@ void CoreMQTT::getNextTopic(String& topicName, String& data)
       // поэтому перед выполнением - меняем назад
       moduleName.replace('@','|');
 
-      // ставим текущий транспорт на паузу, чтобы не было сайд-эффектов обнлоления
-      currentTransport->pause();
-        ModuleInterop.QueryCommand(ctGET, moduleName, true);
-      currentTransport->resume();
+      yield();
+      ModuleInterop.QueryCommand(ctGET, moduleName, true);
+      yield();
 
       #ifdef MQTT_REPORT_AS_JSON
         convertAnswerToJSON(PublishSingleton.Text,&data);
@@ -3102,6 +3025,7 @@ void CoreMQTT::switchToNextTopic()
     topicFileName += String(currentTopicNumber);
     if(!SDFat.exists(topicFileName.c_str()))
     {
+      yield();
       currentTopicNumber = 0; // следующего файла нет, начинаем сначала
     }
   
@@ -3340,5 +3264,2154 @@ void CoreMQTT::begin(CoreTransport* transport)
   // ну и запомним, когда вызвали начало работы
   timer = millis();
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_SMS_MODULE
+//--------------------------------------------------------------------------------------------------------------------------------------
+#include "PDUClasses.h"
+//--------------------------------------------------------------------------------------------------------------------------------------
+extern "C" {
+static void __noincomingcall(const String& phoneNumber, bool isKnownNumber, bool& shouldHangUp) {}
+static void __nosmsreceived(const String& phoneNumber, const String& message, bool isKnownNumber) {}
+static void __nocusdreceived(const String& cusd){}
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void ON_INCOMING_CALL(const String& phoneNumber, bool isKnownNumber, bool& shouldHangUp) __attribute__ ((weak, alias("__noincomingcall")));
+void ON_SMS_RECEIVED(const String& phoneNumber,const String& message, bool isKnownNumber) __attribute__ ((weak, alias("__nosmsreceived")));
+void ON_CUSD_RECEIVED(const String& cusd) __attribute__ ((weak, alias("__nocusdreceived")));
+//--------------------------------------------------------------------------------------------------------------------------------------
+CoreSIM800Transport SIM800;
+//--------------------------------------------------------------------------------------------------------------------------------------
+CoreSIM800Transport::CoreSIM800Transport() : CoreTransport(SIM800_MAX_CLIENTS)
+{
+
+  recursionGuard = 0;
+  flags.waitCipstartConnect = false;
+  cipstartConnectClient = NULL;
+  workStream = NULL;
+
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::readFromStream()
+{
+  if(!workStream)
+    return;
+    
+  while(workStream->available())
+  {
+    receiveBuffer.push_back((uint8_t) workStream->read()); 
+  }
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::sendCommand(const String& command, bool addNewLine)
+{
+
+  size_t len = command.length();
+  for(size_t i=0;i<len;i++)
+  {
+    // записали байтик
+    workStream->write(command[i]);
+
+    // прочитали, что пришло от ESP
+    readFromStream();
+
+   #ifdef USE_WIFI_MODULE
+     // и модуль ESP тоже тут обновим
+     ESP.readFromStream();
+   #endif     
+  }
+    
+  if(addNewLine)
+  {
+    workStream->println();
+  }
+  
+  // прочитали, что пришло от SIM800
+  readFromStream();
+
+   #ifdef USE_WIFI_MODULE
+   // и модуль ESP тоже тут обновим
+   ESP.readFromStream();
+   #endif   
+
+  #ifdef GSM_DEBUG_MODE
+    DEBUG_LOG(F("SIM800: ==> "));
+    DEBUG_LOGLN(command);
+  #endif
+
+  machineState = sim800WaitAnswer; // говорим, что надо ждать ответа от SIM800
+  // запоминаем время отсылки последней команды
+  timer = millis();
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::GetAPNUserPass(String& user, String& pass)
+{
+    byte provider = MainController->GetSettings()->GetGSMProvider();
+    switch(provider)
+    {
+       case MTS:
+        user = MTS_USER;
+        pass = MTS_PASS;
+       break;
+
+       case Beeline:
+        user = BEELINE_USER;
+        pass = BEELINE_PASS;
+       break;
+
+       case Megafon:
+        user = MEGAFON_USER;
+        pass = MEGAFON_PASS;
+       break;
+
+       case Tele2:
+        user = TELE2_USER;
+        pass = TELE2_PASS;
+       break;
+
+       case Yota:
+        user = YOTA_USER;
+        pass = YOTA_PASS;
+       break;
+
+       case MTS_Bel:
+        user = MTS_BEL_USER;
+        pass = MTS_BEL_PASS;
+       break;
+
+       case Velcom_Bel:
+        user = VELCOM_BEL_USER;
+        pass = VELCOM_BEL_PASS;
+       break;
+
+       case Privet_Bel:
+        user = PRIVET_BEL_USER;
+        pass = PRIVET_BEL_PASS;
+       break;
+
+       case Life_Bel:
+        user = LIFE_BEL_USER;
+        pass = LIFE_BEL_PASS;
+       break;
+      
+    } // switch   
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+String CoreSIM800Transport::GetAPN()
+{
+    byte provider = MainController->GetSettings()->GetGSMProvider();
+
+        switch(provider)
+        {
+           case MTS:
+            return MTS_APN;
+
+           case Beeline:
+            return BEELINE_APN;
+
+           case Megafon:
+            return MEGAFON_APN;
+
+           case Tele2:
+            return TELE2_APN;
+
+           case Yota:
+            return YOTA_APN;
+          
+           case MTS_Bel:
+            return MTS_BEL_APN;
+          
+           case Velcom_Bel:
+            return VELCOM_BEL_APN;
+          
+           case Privet_Bel:
+            return PRIVET_BEL_APN;
+          
+           case Life_Bel:
+            return LIFE_BEL_APN;          
+        } // switch  
+
+   return F("");
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::sendCommand(SIM800Commands command)
+{
+  currentCommand = command;
+  
+  // тут посылаем команду в SIM800
+  switch(command)
+  {
+    case smaNone:
+    case smaCIPSTART:
+    case smaCIPSEND:
+    case smaWaitSendDone:
+    case smaCIPCLOSE:
+    case smaCMGS:
+    case smaWaitForSMSClearance:
+    case smaWaitSMSSendDone:
+    case smaCUSD:
+    break;
+
+    case smaCheckReady:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Check for modem READY..."));
+      #endif
+      sendCommand(F("AT+CPAS"));
+    }
+    break;
+
+    case smaCIPHEAD:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set IPD setting..."));
+      #endif
+      sendCommand(F("AT+CIPHEAD=1"));      
+    }
+    break;
+
+    case smaCIICR:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Activate GPRS connection..."));
+      #endif
+      sendCommand(F("AT+CIICR"));            
+    }
+    break;
+
+    case smaCIFSR:
+    {
+      sendCommand(F("AT+CIFSR"));      
+    }
+    break;
+
+    case smaCSTT:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Setup GPRS connection..."));
+      #endif
+
+      String apnUser, apnPass;
+      GetAPNUserPass(apnUser, apnPass);
+      
+      String comm = F("AT+CSTT=\"");
+      comm += GetAPN();
+      comm += F("\",\"");
+      comm += apnUser;
+      comm += F("\",\"");
+      comm += apnPass;
+      comm += F("\"");
+
+      sendCommand(comm);
+    }
+    break;
+
+    case smaCIPMODE:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set CIPMODE..."));
+      #endif
+      sendCommand(F("AT+CIPMODE=0"));            
+    }
+    break;
+
+    case smaCIPMUX:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set CIPMUX..."));
+      #endif
+      sendCommand(F("AT+CIPMUX=1"));            
+    }
+    break;
+
+    case smaEchoOff:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: echo OFF..."));
+      #endif
+      sendCommand(F("ATE0"));
+    }
+    break;
+
+    case smaDisableCellBroadcastMessages:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: disable cell broadcast messagess..."));
+      #endif
+      sendCommand(F("AT+CSCB=1"));
+    }
+    break;
+
+    case smaAON:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Turn AON ON..."));
+      #endif    
+        sendCommand(F("AT+CLIP=1"));  
+    }
+    break;
+
+    case smaPDUEncoding:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set PDU format..."));
+      #endif
+      sendCommand(F("AT+CMGF=0"));
+    }
+    break;
+
+    case smaUCS2Encoding:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set UCS2 format..."));
+      #endif
+      sendCommand(F("AT+CSCS=\"UCS2\""));
+    }
+    break;
+
+    case smaSMSSettings:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set SMS output mode..."));
+      #endif
+      sendCommand(F("AT+CNMI=2,2"));
+    }
+    break;
+
+    case smaWaitReg:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Check registration status..."));
+      #endif
+      sendCommand(F("AT+CREG?"));
+    }
+    break;
+
+    case smaCheckModemHang:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Check if modem available..."));
+      #endif
+      sendCommand(F("AT"));
+    }
+    break;
+
+    case smaHangUp:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Hang up...")); 
+      #endif     
+      sendCommand(F("ATH"));      
+    }
+    break;
+    
+  } // switch
+
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool CoreSIM800Transport::isKnownAnswer(const String& line, SIM800KnownAnswer& result)
+{
+  result = gsmNone;
+  
+  if(line == F("OK"))
+  {
+    result = gsmOK;
+    return true;
+  }
+  if(line == F("ERROR"))
+  {
+    result = gsmError;
+    return true;
+  }
+  if(line == F("FAIL"))
+  {
+    result = gsmFail;
+    return true;
+  }
+  if(line.endsWith(F("SEND OK")))
+  {
+    result = gsmSendOk;
+    return true;
+  }
+  if(line.endsWith(F("SEND FAIL")))
+  {
+    result = gsmSendFail;
+    return true;
+  }
+  if(line.endsWith(F("CONNECT OK")))
+  {
+    result = gsmConnectOk;
+    return true;
+  }
+  if(line.endsWith(F("CONNECT FAIL")))
+  {
+    result = gsmConnectFail;
+    return true;
+  }
+  if(line.endsWith(F("ALREADY CONNECT")))
+  {
+    result = gsmAlreadyConnect;
+    return true;
+  }
+  if(line.endsWith(F("CLOSE OK")))
+  {
+    result = gsmCloseOk;
+    return true;
+  }
+  
+
+  
+  return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::processIncomingCall(const String& line)
+{
+ // приходит строка вида
+  // +CLIP: "79182900063",145,,,"",0
+  
+   // входящий звонок, проверяем, приняли ли мы конец строки?
+    String ring = line.substring(8); // пропускаем команду +CLIP:, пробел и открывающую кавычку "
+
+    int16_t idx = ring.indexOf("\"");
+    if(idx != -1)
+      ring = ring.substring(0,idx);
+
+    if(ring.length() && ring[0] != '+')
+      ring = String(F("+")) + ring;
+
+  // ищем - есть ли у нас этот номер среди известных
+  bool isKnownNumber = false;
+
+  String knownNumber = MainController->GetSettings()->GetSmsPhoneNumber();
+
+  if(knownNumber.startsWith(ring))
+  {
+    isKnownNumber = true;
+  }
+
+  bool shouldHangUp = true;
+  
+  // вызываем событие
+  ON_INCOMING_CALL(ring,isKnownNumber,shouldHangUp);
+  
+ // добавляем команду "положить трубку" - она выполнится первой, поскольку очередь инициализации у нас имеет приоритет
+  if(shouldHangUp)
+    initCommandsQueue.push_back(smaHangUp);  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::processCMT(const String& pdu)
+{
+  if(pdu.length())
+  {
+    
+    PDUIncomingMessage sms = PDU.Decode(pdu);
+
+    if(sms.IsDecodingSucceed)
+    {
+      // СМС пришло, вызываем событие
+      String knownNumber = MainController->GetSettings()->GetSmsPhoneNumber();
+      
+      bool anyKnownNumbersFound = false;
+      if(knownNumber.startsWith(sms.SenderNumber))
+      {
+        anyKnownNumbersFound = true;
+      }
+      ON_SMS_RECEIVED(sms.SenderNumber,sms.Message, anyKnownNumbersFound);
+    }
+
+    
+  } // if(pdu.length())
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::sendQueuedCUSD()
+{
+  if(!cusdList.size())
+    return;
+
+  String* cusdToSend = cusdList[0];
+
+  for(size_t i=1;i<cusdList.size();i++)
+  {
+    cusdList[i-1] = cusdList[i];
+  }
+
+  cusdList.pop();
+
+  sendCommand(*cusdToSend);
+  delete cusdToSend;
+  currentCommand = smaCUSD;  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::sendQueuedSMS()
+{
+  if(!outgoingSMSList.size())
+    return;
+
+  delete smsToSend;
+  smsToSend = new String();
+  
+  int16_t messageLength = 0;
+
+  SIM800OutgoingSMS* sms = &(outgoingSMSList[0]);  
+ 
+  PDUOutgoingMessage encodedMessage = PDU.Encode(*(sms->phone),*(sms->message),sms->isFlash, smsToSend);
+  messageLength = encodedMessage.MessageLength;
+    
+  delete sms->phone;
+  delete sms->message;
+
+  if(outgoingSMSList.size() < 2)
+  {
+    outgoingSMSList.clear();
+  }
+  else
+  {
+    for(size_t i=1;i<outgoingSMSList.size();i++)
+    {
+      outgoingSMSList[i-1] = outgoingSMSList[i];
+    }
+    outgoingSMSList.pop();
+  }
+    
+  // тут отсылаем СМС
+  String command = F("AT+CMGS=");
+  command += String(messageLength);
+
+  flags.waitForDataWelcome = true;
+  sendCommand(command);
+  currentCommand = smaCMGS;
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
+{
+  if(flags.pduInNextLine) // в прошлой строке пришло +CMT, поэтому в текущей - содержится PDU
+  {
+      flags.pduInNextLine = false;
+
+      // разбираем, чего там пришло
+      processCMT(line);
+
+      timer = millis();
+      return; 
+  }
+
+  // смотрим, подсоединился ли клиент?
+   int16_t idx = line.indexOf(F(", CONNECT OK"));
+   if(idx != -1)
+   {
+      // клиент подсоединился
+      String s = line.substring(0,idx);
+      int16_t clientID = s.toInt();
+      if(clientID >=0 && clientID < SIM800_MAX_CLIENTS)
+      {
+        #ifdef GSM_DEBUG_MODE
+          DEBUG_LOG(F("SIM800: client connected - #"));
+          DEBUG_LOGLN(String(clientID));
+        #endif
+
+        // тут смотрим - посылали ли мы запрос на коннект?
+        if(flags.waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
+        {                
+          // есть клиент, для которого надо установить ID
+          cipstartConnectClient->bind(clientID);
+          flags.waitCipstartConnect = false;
+          cipstartConnectClient = NULL;
+          cipstartConnectClientID = NO_CLIENT_ID;              
+        } // if                 
+
+        // выставляем клиенту флаг, что он подсоединён
+        CoreTransportClient* client = getClient(clientID);              
+        notifyClientConnected(*client,true,CT_ERROR_NONE);
+      }
+   } // if
+
+   idx = line.indexOf(F(", CLOSE OK"));
+   if(idx == -1)
+    idx = line.indexOf(F(", CLOSED"));
+   if(idx == -1)
+    idx = line.indexOf(F("CONNECT FAIL"));
+    
+   if(idx != -1)
+   {
+    // клиент отсоединился
+      String s = line.substring(0,idx);
+      int16_t clientID = s.toInt();
+      if(clientID >=0 && clientID < SIM800_MAX_CLIENTS)
+      {
+        #ifdef GSM_DEBUG_MODE
+          DEBUG_LOG(F("SIM800: client disconnected - #"));
+          DEBUG_LOGLN(String(clientID));
+        #endif
+
+        // выставляем клиенту флаг, что он отсоединён
+        CoreTransportClient* client = getClient(clientID);
+        notifyClientConnected(*client,false,CT_ERROR_NONE);
+
+        if(flags.waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
+        {                
+          // есть клиент, для которого надо установить ID
+          cipstartConnectClient->bind(clientID);
+          notifyClientConnected(*cipstartConnectClient,false,CT_ERROR_NONE);
+          cipstartConnectClient->bind(NO_CLIENT_ID);
+          flags.waitCipstartConnect = false;
+          cipstartConnectClient = NULL;
+          cipstartConnectClientID = NO_CLIENT_ID;
+                  
+        } // if                           
+      }        
+    
+   } // if(idx != -1)
+
+  if(line.startsWith(F("+CLIP:")))
+  {
+    #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: +CLIP detected, parse!"));
+    #endif
+   
+    processIncomingCall(line);
+    
+    timer = millis();        
+    return; // поскольку мы сами отработали входящий звонок - выходим
+  }
+  else
+  if(line.startsWith(F("+CMT:")))
+  {
+      flags.pduInNextLine = true;
+      return;
+  }
+  else
+  if(line.startsWith(F("+CUSD:")))
+  {
+    // пришёл ответ на запрос CUSD
+    #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: +CUSD detected, parse!"));
+    #endif
+      
+    // дождались ответа, парсим
+    int quotePos = line.indexOf('"');
+    int lastQuotePos = line.lastIndexOf('"');
+    
+    if(quotePos != -1 && lastQuotePos != -1 && quotePos != lastQuotePos) 
+    {
+   
+      String cusdSMS = line.substring(quotePos+1,lastQuotePos);
+      
+      #ifdef GSM_DEBUG_MODE
+        DEBUG_LOG(F("ENCODED CUSD IS: ")); 
+        DEBUG_LOGLN(cusdSMS);
+      #endif
+
+      // тут декодируем CUSD
+      String decodedCUSD = PDU.getUTF8From16BitEncoding(cusdSMS);
+
+      #ifdef GSM_DEBUG_MODE
+        DEBUG_LOG(F("DECODED CUSD IS: ")); 
+        DEBUG_LOGLN(decodedCUSD);
+      #endif
+
+      ON_CUSD_RECEIVED(decodedCUSD);
+    
+    }
+    return;   
+  } // if(line.startsWith(F("+CUSD:")))
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool CoreSIM800Transport::checkIPD(const TransportReceiveBuffer& buff)
+{
+  if(buff.size() < 13) // минимальная длина для RECEIVE, на примере +RECEIVE,1,1:
+    return false;
+
+  if(buff[0] == '+' && buff[1] == 'R' && buff[2] == 'E' && buff[3] == 'C'  && buff[4] == 'E'
+   && buff[5] == 'I'  && buff[6] == 'V'  && buff[7] == 'E')
+  {
+    size_t to = min(buff.size(),30); // заглядываем вперёд на 30 символов, не больше
+    for(size_t i=8;i<to;i++)
+    {
+      if(buff[i] == ':') // буфер начинается на +RECEIVE и содержит дальше ':', т.е. за ним уже идут данные
+        return true;
+    }
+  }
+
+  return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::update()
+{
+
+  if(!workStream) // нет рабочего потока
+    return;
+
+  if(flags.onIdleTimer) // попросили подождать определённое время, в течение которого просто ничего не надо делать
+  {
+      if(millis() - idleTimer > idleTime)
+      {
+        flags.onIdleTimer = false;
+      }
+  }
+
+  // читаем из потока всё, что там есть
+  readFromStream();
+
+   #ifdef USE_WIFI_MODULE
+   // и модуль ESP тоже тут обновим
+   ESP.readFromStream();
+   #endif   
+
+  RecursionCounter recGuard(&recursionGuard);
+
+  if(recursionGuard > 1) // рекурсивный вызов - просто вычитываем из потока - и всё.
+  {
+    #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: RECURSION!"));
+    #endif    
+    return;
+  }
+  
+  bool hasAnswer = receiveBuffer.size();
+
+  if(!hasAnswer)
+  {
+      // нет ответа от SIM800, проверяем, завис ли он?
+
+      if(millis() - timer > GSM_MAX_ANSWER_TIME)
+      {
+        #ifdef GSM_DEBUG_MODE
+          DEBUG_LOGLN(F("SIM800: modem not answering, reboot!"));
+        #endif
+
+        #ifdef USE_GSM_REBOOT_PIN
+          // есть пин, который надо использовать при зависании
+          digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+        #endif
+
+        machineState = sim800Reboot;
+        timer = millis();
+        
+      } // if   
+  }
+  else // есть ответ
+  {    
+   // timer = millis();
+  }
+
+  // выставляем флаг, что мы хотя бы раз получили хоть чего-то от ESP
+  flags.isAnyAnswerReceived = flags.isAnyAnswerReceived || hasAnswer;
+
+  bool hasAnswerLine = false; // флаг, что мы получили строку ответа от модема    
+
+  String thisCommandLine;
+
+  // тут проверяем, есть ли чего интересующего в буфере?
+  if(checkIPD(receiveBuffer))
+  {
+      
+    // в буфере лежит +RECEIVE,ID,DATA_LEN:
+      int16_t idx = receiveBuffer.indexOf(','); // ищем первую запятую после +RECEIVE
+      uint8_t* ptr = receiveBuffer.pData();
+      ptr += idx+1;
+      // перешли за запятую, парсим ID клиента
+      String connectedClientID;
+      while(*ptr != ',')
+      {
+        connectedClientID += (char) *ptr;
+        ptr++;
+      }
+      ptr++; // за запятую
+      String dataLen;
+      while(*ptr != ':')
+      {
+        dataLen += (char) *ptr;
+        ptr++;
+      }
+  
+      // получили ID клиента и длину его данных, которые - пока в потоке, и надо их быстро попакетно вычитать
+      int ipdClientID = connectedClientID.toInt();
+      size_t ipdClientDataLength = dataLen.toInt();
+
+      #ifdef GSM_DEBUG_MODE
+        DEBUG_LOG(F("+RECEIVE DETECTED, CLIENT #"));
+        DEBUG_LOG(String(ipdClientID));
+        DEBUG_LOG(F(", LENGTH="));
+        DEBUG_LOGLN(String(ipdClientDataLength));
+      #endif
+
+      // удаляем +RECEIVE,ID,DATA_LEN:
+      receiveBuffer.remove(0,receiveBuffer.indexOf(':')+1);
+
+      // у нас есть длина данных к вычитке, плюс сколько-то их лежит в буфере уже.
+      // читать всё - мы не можем, т.к. данные могут быть гигантскими.
+      // следовательно, надо читать по пакетам.
+      CoreTransportClient* cl = getClient(ipdClientID);
+
+      if(receiveBuffer.size() >= ipdClientDataLength)
+      {
+        // на время события мы должны обеспечить неизменность буфера, т.к.
+        // в обработчике события может быть вызван yield, у указатель на память станет невалидным!
+        
+        uint8_t* thisBuffer = new uint8_t[ipdClientDataLength];
+        memcpy(thisBuffer,receiveBuffer.pData(),ipdClientDataLength);
+
+        receiveBuffer.remove(0,ipdClientDataLength);
+
+        if(!receiveBuffer.size())
+          receiveBuffer.clear();
+          
+        // весь пакет - уже в буфере
+        notifyDataAvailable(*cl, thisBuffer, ipdClientDataLength, true);
+        delete [] thisBuffer;
+                
+      }
+      else
+      {
+        // не хватает части пакета в буфере.
+        
+        // теперь смотрим, сколько у нас данных ещё не послано клиентам
+        size_t remainingDataLength = ipdClientDataLength;
+
+        // нам осталось послать remainingDataLength данных клиентам,
+        // побив их на пакеты длиной максимум TRANSPORT_MAX_PACKET_LENGTH
+
+        // вычисляем длину одного пакета
+        size_t packetLength = min(TRANSPORT_MAX_PACKET_LENGTH,remainingDataLength);
+
+        while(remainingDataLength > 0)
+        {
+            // читаем, пока не хватает данных для одного пакета
+            while(receiveBuffer.size() < packetLength)
+            {
+                #ifdef USE_WIFI_MODULE
+                  ESP.readFromStream();
+                #endif
+              
+                // данных не хватает, дочитываем
+                if(!workStream->available())
+                  continue;
+    
+                receiveBuffer.push_back((uint8_t) workStream->read());
+                
+            } // while
+
+            // вычитали один пакет, уведомляем клиентов, при этом может пополниться буфер,
+            // поэтому сохраняем пакет так, чтобы указатель на него был всегда валидным.
+            uint8_t* thisBuffer = new uint8_t[packetLength];
+            memcpy(thisBuffer,receiveBuffer.pData(),packetLength);
+
+            receiveBuffer.remove(0,packetLength);
+            if(!receiveBuffer.size())
+              receiveBuffer.clear();
+
+            notifyDataAvailable(*cl, thisBuffer, packetLength, (remainingDataLength - packetLength) == 0);
+            delete [] thisBuffer;
+            
+            remainingDataLength -= packetLength;
+            packetLength = min(TRANSPORT_MAX_PACKET_LENGTH,remainingDataLength);
+        } // while
+
+          
+      } // else
+    
+  } // if(checkIPD(receiveBuffer))
+  else if(flags.waitForDataWelcome && receiveBuffer[0] == '>')
+  {
+    flags.waitForDataWelcome = false;
+    thisCommandLine = '>';
+    hasAnswerLine = true;
+
+    receiveBuffer.remove(0,1);
+  }
+  else // любые другие ответы от SIM800
+  {
+    // ищем до первого перевода строки
+    size_t cntr = 0;
+    for(;cntr<receiveBuffer.size();cntr++)
+    {
+      if(receiveBuffer[cntr] == '\n')
+      {          
+        hasAnswerLine = true;
+        cntr++;
+        break;
+      }
+    } // for
+
+    if(hasAnswerLine) // нашли перевод строки в потоке
+    {
+      for(size_t i=0;i<cntr;i++)
+      {
+        if(receiveBuffer[i] != '\r' && receiveBuffer[i] != '\n')
+          thisCommandLine += (char) receiveBuffer[i];
+      } // for
+
+      receiveBuffer.remove(0,cntr);
+      
+    } // if(hasAnswerLine)
+  } // else
+
+  // если в приёмном буфере ничего нету - просто почистим память
+  if(!receiveBuffer.size())
+    receiveBuffer.clear();
+
+  if(hasAnswerLine && thisCommandLine.startsWith(F("AT+")))
+   {
+    // это эхо, игнорируем
+      thisCommandLine = "";
+      hasAnswerLine = false;
+   }
+
+
+  if(hasAnswerLine && !thisCommandLine.length()) // пустая строка, не надо обрабатывать
+    hasAnswerLine = false;
+
+   #ifdef GSM_DEBUG_MODE
+    if(hasAnswerLine)
+    {
+      DEBUG_LOG(F("<== SIM800: "));
+      DEBUG_LOGLN(thisCommandLine);
+    }
+   #endif
+
+    // тут анализируем ответ от ESP, если он есть, на предмет того - соединён ли клиент, отсоединён ли клиент и т.п.
+    // это нужно делать именно здесь, поскольку в этот момент в SIM800 может придти внешний коннект.
+    if(hasAnswerLine)
+    {
+      processKnownStatusFromSIM800(thisCommandLine);
+    } 
+
+    // при разборе ответа тут будет лежать тип ответа, чтобы часто не сравнивать со строкой
+    SIM800KnownAnswer knownAnswer = gsmNone;
+
+    if(!flags.onIdleTimer)
+    {
+    // анализируем состояние конечного автомата, чтобы понять, что делать
+    switch(machineState)
+    {
+        case sim800Idle: // ничего не делаем, можем работать с очередью команд и клиентами
+        {            
+            // смотрим - если есть хоть одна команда в очереди инициализации - значит, мы в процессе инициализации, иначе - можно работать с очередью клиентов
+            if(initCommandsQueue.size())
+            {
+                #ifdef GSM_DEBUG_MODE
+                  DEBUG_LOGLN(F("SIM800: process next init command..."));
+                #endif
+                currentCommand = initCommandsQueue[initCommandsQueue.size()-1];
+                initCommandsQueue.pop();
+                sendCommand(currentCommand);
+            } // if
+            else
+            {
+              // в очереди команд инициализации ничего нет, значит, можем выставить флаг, что мы готовы к работе с клиентами
+              flags.ready = true;
+
+              if(outgoingSMSList.size())
+              {
+                sendQueuedSMS();
+              }
+              else
+              if(cusdList.size())
+              {
+                sendQueuedCUSD();
+              }
+              else
+              if(clientsQueue.size())
+              {
+                  // получаем первого клиента в очереди
+                  TransportClientQueueData dt = clientsQueue[0];
+                  int16_t clientID = dt.client->socket;
+                  
+                  // смотрим, чего он хочет от нас
+                  switch(dt.action)
+                  {
+                    case actionDisconnect:
+                    {
+                      // хочет отсоединиться
+
+                      currentCommand = smaCIPCLOSE;
+                      String cmd = F("AT+CIPCLOSE=");
+                      cmd += clientID;
+                      sendCommand(cmd);                      
+                      
+                    }
+                    break; // actionDisconnect
+
+                    case actionConnect:
+                    {
+                        // мы разрешаем коннектиться только тогда, когда предыдущий коннект клиента уже обработан
+                        if(!cipstartConnectClient)
+                        {
+                          // хочет подсоединиться
+                          if(flags.gprsAvailable)
+                          {
+                            // здесь надо искать первый свободный слот для клиента
+                            CoreTransportClient* freeSlot = getClient(NO_CLIENT_ID);
+                            clientID = freeSlot ? freeSlot->socket : NO_CLIENT_ID;
+      
+                            flags.waitCipstartConnect = true;
+                            cipstartConnectClient = dt.client;
+                            cipstartConnectClientID = clientID;
+                            
+                            currentCommand = smaCIPSTART;
+                            String comm = F("AT+CIPSTART=");
+                            comm += clientID;
+                            comm += F(",\"TCP\",\"");
+                            comm += dt.ip;
+                            comm += F("\",");
+                            comm += dt.port;
+      
+                            delete [] clientsQueue[0].ip;
+                            clientsQueue[0].ip = NULL;
+                                            
+                            // и отсылаем её
+                            sendCommand(comm);
+                            
+                          } // gprsAvailable
+                          else
+                          {
+                            // нет GPRS, не можем устанавливать внешние соединения!!!
+                            removeClientFromQueue(dt.client);
+                            dt.client->bind(clientID);
+                            notifyClientConnected(*(dt.client),false,CT_ERROR_CANT_CONNECT);
+                            dt.client->release();                        
+                          }
+                          
+                       } // if(!cipstartConnectClient)
+                    }
+                    break; // actionConnect
+
+                    case actionWrite:
+                    {
+                      // хочет отослать данные
+
+                      currentCommand = smaCIPSEND;
+
+                      size_t dataSize;
+                      uint8_t* buffer = dt.client->getBuffer(dataSize);
+                      clientsQueue[0].data = buffer;
+                      clientsQueue[0].dataLength = dataSize;
+                      dt.client->releaseBuffer();
+                      
+                      String command = F("AT+CIPSEND=");
+                      command += clientID;
+                      command += F(",");
+                      command += dataSize;
+                      flags.waitForDataWelcome = true; // выставляем флаг, что мы ждём >
+                      
+                      sendCommand(command);                      
+                    }
+                    break; // actionWrite
+                  } // switch
+              }
+              else
+              {
+                timer = millis(); // обновляем таймер в режиме ожидания, поскольку мы не ждём ответа на команды
+
+                static uint32_t hangTimer = 0;
+                if(millis() - hangTimer > GSM_AVAILABLE_CHECK_TIME)
+                {
+                  #ifdef GSM_DEBUG_MODE
+                    DEBUG_LOGLN(F("SIM800: want to check modem availability..."));
+                  #endif
+                  hangTimer = millis();
+                  sendCommand(smaCheckModemHang);
+                  
+                } // if
+                
+              } // else
+            } // else inited
+        }
+        break; // sim800Idle
+
+        case sim800WaitAnswer: // ждём ответа от модема на посланную ранее команду (функция sendCommand переводит конечный автомат в эту ветку)
+        {
+          // команда, которую послали - лежит в currentCommand, время, когда её послали - лежит в timer.
+              if(hasAnswerLine)
+              {                
+                // есть строка ответа от модема, можем её анализировать, в зависимости от посланной команды (лежит в currentCommand)
+                switch(currentCommand)
+                {
+                  case smaNone:
+                  {
+                    // ничего не делаем
+                  }
+                  break; // cmdNone
+
+                  case smaCUSD:
+                  {
+                    // отсылали запрос CUSD
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                        DEBUG_LOGLN(F("SIM800: CUSD WAS SENT."));
+                      #endif
+                      machineState = sim800Idle;
+                    }                     
+                  }
+                  break; // smaCUSD
+
+                  case smaWaitSMSSendDone:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                        DEBUG_LOGLN(F("SIM800: SMS was sent."));
+                      #endif
+                      sendCommand(F("AT+CMGD=1,4"));
+                      currentCommand = smaWaitForSMSClearance;
+                    }                       
+                  }
+                  break; // smaWaitSMSSendDone
+
+                  case smaWaitForSMSClearance:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                        DEBUG_LOGLN(F("SIM800: SMS cleared."));
+                      #endif
+                      machineState = sim800Idle;
+                    }                       
+                    
+                  }
+                  break; // smaWaitForSMSClearance
+
+                  case smaCMGS:
+                  {
+                    // отсылаем SMS
+                    
+                          if(thisCommandLine == F(">")) 
+                          {
+                            
+                            // дождались приглашения, можно посылать    
+                            #ifdef GSM_DEBUG_MODE
+                                DEBUG_LOGLN(F("SIM800: Welcome received, continue sending..."));
+                            #endif
+
+                            sendCommand(*smsToSend,false);
+                            workStream->write(0x1A); // посылаем символ окончания посыла
+
+                            delete smsToSend;
+                            smsToSend = new String();
+
+                            currentCommand = smaWaitSMSSendDone;
+                          } 
+                          else 
+                          {
+                  
+                            #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOG(F("SIM800: BAD ANWER TO SMS COMMAND: WANT '>', RECEIVED: "));
+                              DEBUG_LOGLN(thisCommandLine);
+                           #endif
+
+                            delete smsToSend;
+                            smsToSend = new String();
+                            
+                            // пришло не то, что ждали - просто игнорируем отсыл СМС
+                             machineState = sim800Idle;
+                              
+                          }
+                  }
+                  break; // smaCMGS
+
+                  case smaCIPCLOSE:
+                  {
+                    // отсоединялись. Ответа не ждём, т.к. может вклиниться всё, что угодно, пока мы ждём ответа
+
+                    
+                      if(clientsQueue.size())
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                            DEBUG_LOGLN(F("SIM800: Client disconnected."));
+                        #endif
+
+                        TransportClientQueueData dt = clientsQueue[0];                        
+                        CoreTransportClient* thisClient = dt.client;
+                        removeClientFromQueue(thisClient);
+                                               
+                      } // if(clientsQueue.size()) 
+                      
+                        machineState = sim800Idle; // переходим к следующей команде
+
+                  }
+                  break; // smaCIPCLOSE
+
+                  case smaCIPSTART:
+                  {
+                    // соединялись
+                    
+                        if(isKnownAnswer(thisCommandLine,knownAnswer))
+                        {                                                                                                        
+                          if(knownAnswer == gsmConnectOk)
+                          {
+                            // законнектились удачно
+                            if(clientsQueue.size())
+                            {
+                               #ifdef GSM_DEBUG_MODE
+                                DEBUG_LOGLN(F("SIM800: Client connected."));
+                               #endif
+                               
+                               TransportClientQueueData dt = clientsQueue[0];
+                               removeClientFromQueue(dt.client);       
+                            }
+                            machineState = sim800Idle; // переходим к следующей команде
+                          } // gsmConnectOk
+                          else if(knownAnswer == gsmConnectFail)
+                          {
+                            // ошибка соединения
+                            if(clientsQueue.size())
+                            {
+                               #ifdef GSM_DEBUG_MODE
+                                DEBUG_LOGLN(F("SIM800: Client connect ERROR!"));
+                               #endif
+
+                              flags.waitCipstartConnect = false;
+                              cipstartConnectClient = NULL;                               
+                               
+                              TransportClientQueueData dt = clientsQueue[0];
+
+                              CoreTransportClient* thisClient = dt.client;
+                              removeClientFromQueue(thisClient);
+                               
+                              notifyClientConnected(*thisClient,false,CT_ERROR_CANT_CONNECT);
+                            }
+                            machineState = sim800Idle; // переходим к следующей команде
+                          } // gsmConnectFail
+                        } // isKnownAnswer                   
+                    
+                  }
+                  break; // cmdCIPSTART
+
+
+                  case smaWaitSendDone:
+                  {
+                    // дожидаемся конца отсыла данных от клиента в SIM800
+                      
+                      if(isKnownAnswer(thisCommandLine,knownAnswer))
+                      {                                                
+                        if(knownAnswer == gsmSendOk)
+                        {
+                          // send ok
+                          if(clientsQueue.size())
+                          {
+                             #ifdef GSM_DEBUG_MODE
+                                DEBUG_LOGLN(F("SIM800: data was sent."));
+                             #endif
+                             
+                             TransportClientQueueData dt = clientsQueue[0];
+                             
+                             CoreTransportClient* thisClient = dt.client;
+                             removeClientFromQueue(thisClient);
+
+                             // очищаем данные у клиента
+                             thisClient->clear();
+
+                             notifyDataWritten(*thisClient,CT_ERROR_NONE);
+                          }                     
+                        } // send ok
+                        else
+                        {
+                          // send fail
+                          if(clientsQueue.size())
+                          {
+                             #ifdef GSM_DEBUG_MODE
+                                DEBUG_LOGLN(F("SIM800: send data fail!"));
+                             #endif
+                             
+                             TransportClientQueueData dt = clientsQueue[0];
+
+                             CoreTransportClient* thisClient = dt.client;
+                             removeClientFromQueue(thisClient);
+                                                          
+                             // очищаем данные у клиента
+                             thisClient->clear();
+                             
+                             notifyDataWritten(*thisClient,CT_ERROR_CANT_WRITE);
+                             
+                          }                     
+                        } // else send fail
+  
+                        machineState = sim800Idle; // переходим к следующей команде
+                        
+                      } // if(isKnownAnswer(thisCommandLine,knownAnswer))
+                       
+
+                  }
+                  break; // smaWaitSendDone
+
+                  case smaCIPSEND:
+                  {
+                    // тут отсылали запрос на запись данных с клиента
+                    if(thisCommandLine == F(">"))
+                    {
+                       // дождались приглашения, можем писать в SIM800
+                       // тут пишем напрямую
+                       if(clientsQueue.size())
+                       {
+                          // говорим, что ждём окончания отсыла данных
+                          currentCommand = smaWaitSendDone;                          
+                          TransportClientQueueData dt = clientsQueue[0];                     
+
+                          #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: > received, start write from client to SIM800..."));
+                          #endif
+                          
+                          for(size_t kk=0;kk<dt.dataLength;kk++)
+                          {
+                            workStream->write(dt.data[kk]);
+                            readFromStream();
+
+                             #ifdef USE_WIFI_MODULE
+                             // и модуль ESP тоже тут обновим
+                             ESP.readFromStream();
+                             #endif                             
+                          }
+
+                          delete [] clientsQueue[0].data;
+                          delete [] clientsQueue[0].ip;
+                          clientsQueue[0].data = NULL;
+                          clientsQueue[0].ip = NULL;
+                          clientsQueue[0].dataLength = 0;
+
+                          // очищаем данные у клиента сразу после отсыла
+                           dt.client->clear();
+                       }
+                    } // if
+                    else
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(knownAnswer == gsmError || knownAnswer == gsmSendFail)
+                      {
+                           // всё плохо, не получилось ничего записать
+                          if(clientsQueue.size())
+                          {
+                             #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Client write ERROR!"));
+                             #endif
+                             
+                             TransportClientQueueData dt = clientsQueue[0];
+    
+                             CoreTransportClient* thisClient = dt.client;
+                             removeClientFromQueue(thisClient);
+    
+                             // очищаем данные у клиента
+                             thisClient->clear();
+    
+                             notifyDataWritten(*thisClient,CT_ERROR_CANT_WRITE);
+                            
+                          }
+                          
+                        machineState = sim800Idle; // переходим к следующей команде
+                      }                                           
+              
+                    } // else can't write
+                    
+                  }
+                  break; // smaCIPSEND
+                 
+                  case smaCheckReady: // ждём готовности модема, ответ на команду AT+CPAS?
+                  {
+                      if( thisCommandLine.startsWith( F("+CPAS:") ) ) 
+                      {
+                          // это ответ на команду AT+CPAS, можем его разбирать
+                          if(thisCommandLine == F("+CPAS: 0")) 
+                          {
+                            // модем готов, можем убирать команду из очереди и переходить к следующей
+                            #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Modem ready."));
+                            #endif
+                            
+                            machineState = sim800Idle; // и переходим на следующую
+                        }
+                        else 
+                        {
+                           #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Modem NOT ready, try again later..."));
+                           #endif
+                           
+                           idleTime = 2000; // повторим через 2 секунды
+                           flags.onIdleTimer = true;
+                           idleTimer = millis();
+                           // добавляем ещё раз эту команду
+                           initCommandsQueue.push_back(smaCheckReady);
+                           machineState = sim800Idle; // и пошлём ещё раз команду проверки готовности           
+                        }
+                      }                    
+                  }
+                  break; // cmdWantReady
+
+
+                  case smaHangUp:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                        DEBUG_LOGLN(F("SIM800: Call dropped."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }                    
+                  }
+                  break; // smaHangUp
+
+                  case smaCIPHEAD:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                        DEBUG_LOGLN(F("SIM800: CIPHEAD command processed."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }
+                  }
+                  break; // smaCIPHEAD
+
+                  case smaCIICR:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: CIICR command processed."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+
+                      if(knownAnswer == gsmOK)
+                      {
+                        // тут можем добавлять новые команды для GPRS
+                        idleTime = 1000; // обработаем ответ через 1 секунду
+                        flags.onIdleTimer = true;
+                        idleTimer = millis();
+                                                   
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: start checking GPRS connection..."));
+                        #endif
+                        initCommandsQueue.push_back(smaCIFSR);
+                        gprsCheckingAttempts = 0;
+                      }
+                    }
+                  }
+                  break; // smaCIICR
+
+                  case smaCIFSR:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      // если мы здесь - мы не получили IP-адреса, т.к. ответ - один из известных
+                      
+                      if(knownAnswer == gsmOK)
+                      {
+
+                        // Тут пробуем чуть позже ещё раз эту команду
+                        if(++gprsCheckingAttempts <=5)
+                        {
+                          #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: try to get GPRS IP address a little bit later..."));
+                          #endif
+                          
+                          idleTime = 5000; // обработаем ответ через 5 секунд
+                          flags.onIdleTimer = true;
+                          idleTimer = millis();
+                          initCommandsQueue.push_back(smaCIFSR);
+                          machineState = sim800Idle; // переходим к следующей команде  
+                        }
+                        else
+                        {
+                          #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Unable to get GPRS IP address!"));
+                          #endif
+                          // всё, исчерпали лимит на попытки получить IP-адрес
+                          machineState = sim800Idle; // переходим к следующей команде
+                          flags.gprsAvailable = false;
+                        }
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: GPRS connection fail!"));
+                        #endif
+                        flags.gprsAvailable = false;
+                        machineState = sim800Idle; // переходим к следующей команде
+                      }
+                    } // isKnownAnswer
+                    else
+                    if(thisCommandLine.length() && thisCommandLine.indexOf(".") != -1)
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOG(F("SIM800: GPRS IP address found - "));                      
+                              DEBUG_LOGLN(thisCommandLine);
+                      #endif
+                      
+                      flags.gprsAvailable = true;
+                      machineState = sim800Idle; // переходим к следующей команде          
+                    }
+                  }
+                  break; // smaCIFSR
+
+                  case smaCSTT:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: CSTT command processed."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+
+                      if(knownAnswer == gsmOK)
+                      {
+                        // тут можем добавлять новые команды для GPRS
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: start GPRS connection..."));
+                        #endif
+                        initCommandsQueue.push_back(smaCIICR);
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Can't start GPRS connection!"));
+                        #endif
+                      }
+                    }                    
+                  }
+                  break; // smaCSTT
+
+                  case smaCIPMODE:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: CIPMODE command processed."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }
+                  }
+                  break; // smaCIPMODE
+                  
+                  case smaCIPMUX:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: CIPMUX command processed."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }
+                  }
+                  break; // smaCIPMUX
+
+
+                  case smaEchoOff:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Echo OFF command processed."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Echo OFF command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }
+                  }
+                  break; // smaEchoOff
+
+                  case smaDisableCellBroadcastMessages:
+                  {                    
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Broadcast SMS disabled."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Broadcast SMS command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }
+                  }
+                  break; // smaDisableCellBroadcastMessages
+
+                  case smaAON:
+                  {                    
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: AON is ON."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: AON command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }
+                  }
+                  break; // smaAON
+
+                  case smaPDUEncoding:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: PDU format is set."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: PDU format command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }                    
+                  }
+                  break; // smaPDUEncoding
+
+                  case smaUCS2Encoding:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: UCS2 encoding is set."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: UCS2 encoding command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }                                        
+                  }
+                  break; // smaUCS2Encoding
+
+                  case smaSMSSettings:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: SMS settings is set."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: SMS settings command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }                                        
+                  }
+                  break; // smaSMSSettings
+
+                  case smaWaitReg:
+                  {
+                     if(thisCommandLine.indexOf(F("+CREG: 0,1")) != -1)
+                        {
+                          // зарегистрированы в GSM-сети
+                             flags.isModuleRegistered = true;
+                             #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: Modem registered in GSM!"));
+                             #endif
+                             machineState = sim800Idle;
+                        } // if
+                        else
+                        {
+                          // ещё не зарегистрированы
+                            flags.isModuleRegistered = false;
+                            idleTime = 5000; // повторим через 5 секунд
+                            flags.onIdleTimer = true;
+                            idleTimer = millis();
+                            // добавляем ещё раз эту команду
+                            initCommandsQueue.push_back(smaWaitReg);
+                            machineState = sim800Idle;
+                        } // else                    
+                  }
+                  break; // smaWaitReg
+                  
+                  case smaCheckModemHang:
+                  {                    
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: modem answered and available."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+                      
+                    } // if(isKnownAnswer
+
+                  }
+                  break; // smaCheckModemHang
+                                    
+                } // switch
+
+                
+              } // if(hasAnswerLine)
+              
+         
+        }
+        break; // sim800WaitAnswer
+
+        case sim800Reboot:
+        {
+          // ждём перезагрузки модема
+          uint32_t powerOffTime = 
+          #ifdef USE_GSM_REBOOT_PIN
+            GSM_REBOOT_TIME
+          #else
+          0
+          #endif
+          ;
+          
+          if(millis() - timer > powerOffTime)
+          {
+            #ifdef USE_GSM_REBOOT_PIN
+              #ifdef GSM_DEBUG_MODE
+                DEBUG_LOGLN(F("SIM800: turn power ON!"));
+              #endif
+              digitalWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
+            #endif
+
+            #ifdef USE_SIM800_POWERKEY
+                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+            #endif
+
+            machineState = sim800WaitInit;
+            timer = millis();
+            
+          } // if
+        }
+        break; // smaReboot
+
+        case sim800WaitInit:
+        {
+          uint32_t waitTime = 
+          #ifdef USE_SIM800_POWERKEY
+          SIM800_WAIT_POWERKEY_AFTER_POWER_ON
+          #else
+          0
+          #endif
+          ;
+            
+          if(millis() - timer > waitTime)
+          { 
+            #ifdef GSM_DEBUG_MODE
+              DEBUG_LOGLN(F("SIM800: Power ON completed!"));
+            #endif
+            
+              #ifdef USE_SIM800_POWERKEY
+              
+               #ifdef GSM_DEBUG_MODE
+                  DEBUG_LOGLN(F("SIM800: use POWERKEY!"));
+               #endif
+                                
+                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+                delay(SIM800_POWERKEY_PULSE_DURATION);        
+                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
+                
+              #endif            
+
+            // теперь ждём загрузки модема
+            idleTime = GSM_WAIT_AFTER_REBOOT_TIME; // подождём чуть-чуть...
+            flags.onIdleTimer = true;
+           
+            machineState = sim800WaitBootBegin;
+            idleTimer = millis();
+                
+
+          } // 
+        }
+        break; // sim800WaitInit
+
+        case sim800WaitBootBegin:
+        {
+          #ifdef GSM_DEBUG_MODE
+                DEBUG_LOGLN(F("SIM800: inited after reboot!"));
+          #endif
+          
+          sendCommand(F("AT"));
+          machineState = sim800WaitBoot;          
+        }
+        break; // sim800WaitBootBegin
+
+        case sim800WaitBoot:
+        {
+          if(hasAnswerLine)
+          {
+            #ifdef USE_GSM_REBOOT_PIN
+              // используем управление питанием, ждём загрузки модема
+              if(thisCommandLine == F("Call Ready") || thisCommandLine == F("SMS Ready"))
+              {
+                #ifdef GSM_DEBUG_MODE
+                  DEBUG_LOGLN(F("SIM800: BOOT FOUND, INIT!"));
+                #endif
+                restart();
+              }
+            #else
+              // управление питанием не используем, здесь не надо ждать загрузки модема - достаточно дождаться ответа на команду
+              if(isKnownAnswer(thisCommandLine,knownAnswer))
+              {
+                #ifdef GSM_DEBUG_MODE
+                  DEBUG_LOGLN(F("SIM800: ANSWERED, INIT!"));
+                #endif
+                restart();
+              }
+               
+            #endif
+            
+          } // if(hasAnswerLine)
+             
+        }
+        break; // sim800WaitBoot
+      
+      } // switch
+
+    } // if(!flags.onIdleTimer)
+
+
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::begin()
+{
+
+  #ifdef GSM_DEBUG_MODE
+   DEBUG_LOGLN(F("SIM800: begin."));
+  #endif
+    
+  workStream = &GSM_SERIAL;
+  GSM_SERIAL.begin(GSM_BAUDRATE);
+
+  if(&(GSM_SERIAL) == &Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if(&(GSM_SERIAL) == &Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if(&(GSM_SERIAL) == &Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if(&(GSM_SERIAL) == &Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  } 
+  
+
+  restart();
+
+  #ifdef USE_GSM_REBOOT_PIN
+  
+    #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: power OFF!"));
+    #endif
+    // есть пин, который надо использовать при зависании
+    pinMode(GSM_REBOOT_PIN,OUTPUT);
+    digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+  #endif
+
+  #ifdef USE_SIM800_POWERKEY
+      pinMode(SIM800_POWERKEY_PIN,OUTPUT);
+  #endif
+  
+  machineState = sim800Reboot;
+
+  #ifdef GSM_DEBUG_MODE
+    DEBUG_LOGLN(F("SIM800: started."));
+  #endif
+
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::sendCUSD(const String& cusd)
+{
+  if(!ready())
+    return;
+
+  #ifdef GSM_DEBUG_MODE
+    DEBUG_LOG(F("SIM800: CUSD REQUESTED: "));
+    DEBUG_LOGLN(cusd);
+  #endif
+
+
+  unsigned int bp = 0;
+  String out;
+  
+  PDU.UTF8ToUCS2(cusd, bp, &out);
+
+  String* completeCommand = new String(F("AT+CUSD=1,\""));
+  *completeCommand += out.c_str();
+  *completeCommand += F("\"");
+
+   cusdList.push_back(completeCommand);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool CoreSIM800Transport::sendSMS(const String& phoneNumber, const String& message, bool isFlash)
+{
+  if(!ready())
+    return false;
+    
+    SIM800OutgoingSMS queuedSMS;
+    
+    queuedSMS.isFlash = isFlash;   
+    queuedSMS.phone = new String(phoneNumber.c_str());    
+    queuedSMS.message = new String(message.c_str());    
+
+    outgoingSMSList.push_back(queuedSMS);
+
+  return true;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::restart()
+{
+  // очищаем входной буфер
+  receiveBuffer.clear();
+
+  delete smsToSend;
+  smsToSend = new String();
+
+  // очищаем очередь клиентов, заодно им рассылаем события
+  clearClientsQueue(true);  
+
+  // т.к. мы ничего не инициализировали - говорим, что мы не готовы предоставлять клиентов
+  flags.ready = false;
+  flags.isAnyAnswerReceived = false;
+  flags.waitForDataWelcome = false;
+  flags.onIdleTimer = false;
+  flags.isModuleRegistered = false;
+  flags.gprsAvailable = false;
+  
+  timer = millis();
+
+  flags.waitCipstartConnect = false; // не ждёт соединения внешнего клиента
+  cipstartConnectClient = NULL;  
+
+  currentCommand = smaNone;
+  machineState = sim800Idle;
+
+  // инициализируем очередь командами по умолчанию
+ createInitCommands(true);
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::createInitCommands(bool addResetCommand)
+{  
+  // очищаем очередь команд
+  clearInitCommands();
+
+  // если указаны параметры APN - при старте поднимаем GPRS
+  String apn = GetAPN();
+  if(apn.length())
+  {
+    initCommandsQueue.push_back(smaCSTT);
+  }
+  
+  initCommandsQueue.push_back(smaCIPMUX);
+  initCommandsQueue.push_back(smaCIPMODE);
+  initCommandsQueue.push_back(smaWaitReg); // ждём регистрации
+  
+  initCommandsQueue.push_back(smaCIPHEAD);
+  initCommandsQueue.push_back(smaSMSSettings); // настройки вывода SMS
+  initCommandsQueue.push_back(smaUCS2Encoding); // кодировка сообщений
+  initCommandsQueue.push_back(smaPDUEncoding); // формат сообщений
+  initCommandsQueue.push_back(smaAON); // включение АОН
+  initCommandsQueue.push_back(smaDisableCellBroadcastMessages); // выключение броадкастовых SMS
+  initCommandsQueue.push_back(smaCheckReady); // проверка готовности    
+  initCommandsQueue.push_back(smaEchoOff); // выключение эха
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::clearInitCommands()
+{
+  initCommandsQueue.clear();
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::clearClientsQueue(bool raiseEvents)
+{
+ // тут попросили освободить очередь клиентов.
+  // для этого нам надо выставить каждому клиенту флаг того, что он свободен,
+  // плюс - сообщить, что текущее действие над ним не удалось.  
+
+    for(size_t i=0;i<clientsQueue.size();i++)
+    {
+        TransportClientQueueData dt = clientsQueue[i];
+        delete [] dt.data;
+        delete [] dt.ip;
+
+        // если здесь в очереди есть хоть один клиент с неназначенным ID (ждёт подсоединения) - то в события он не придёт,
+        // т.к. там сравнивается по назначенному ID. Поэтому мы назначаем ID клиенту в первый свободный слот.
+        if(dt.client->socket == NO_CLIENT_ID)
+        {
+          CoreTransportClient* cl = getClient(NO_CLIENT_ID);
+          if(cl)
+            dt.client->bind(cl->socket);
+        }
+        
+        if(raiseEvents)
+        {
+          switch(dt.action)
+          {
+            case actionDisconnect:
+                // при дисконнекте всегда считаем, что ошибок нет
+                notifyClientConnected(*(dt.client),false,CT_ERROR_NONE);
+            break;
+  
+            case actionConnect:
+                // если было запрошено соединение клиента с адресом - говорим, что соединиться не можем
+                notifyClientConnected(*(dt.client),false,CT_ERROR_CANT_CONNECT);
+            break;
+  
+            case actionWrite:
+              // если попросили записать данные - надо сообщить подписчикам, что не можем записать данные
+              notifyDataWritten(*(dt.client),CT_ERROR_CANT_WRITE);
+              notifyClientConnected(*(dt.client),false,CT_ERROR_NONE);
+            break;
+          } // switch
+          
+
+        } // if(raiseEvents)
+        
+    } // for
+
+  clientsQueue.clear();
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool CoreSIM800Transport::isClientInQueue(CoreTransportClient* client, TransportClientAction action)
+{
+  for(size_t i=0;i<clientsQueue.size();i++)
+  {
+    if(clientsQueue[i].client == client && clientsQueue[i].action == action)
+      return true;
+  }
+
+  return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::addClientToQueue(CoreTransportClient* client, TransportClientAction action, const char* ip, uint16_t port)
+{
+  while(isClientInQueue(client, action))
+  {
+    removeClientFromQueue(client,action);
+  }
+
+    TransportClientQueueData dt;
+    dt.client = client;
+    dt.action = action;
+    
+    dt.ip = NULL;
+    if(ip)
+    {
+      dt.ip = new char[strlen(ip)+1];
+      strcpy(dt.ip,ip);
+    }
+    dt.port = port;
+
+    clientsQueue.push_back(dt);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::removeClientFromQueue(CoreTransportClient* client, TransportClientAction action)
+{
+  
+  for(size_t i=0;i<clientsQueue.size();i++)
+  {
+    if(clientsQueue[i].client == client && clientsQueue[i].action == action)
+    {
+      delete [] clientsQueue[i].ip;
+      delete [] clientsQueue[i].data;
+      
+        for(size_t j=i+1;j<clientsQueue.size();j++)
+        {
+          clientsQueue[j-1] = clientsQueue[j];
+        }
+        
+        clientsQueue.pop();
+        break;
+    } // if
+    
+  } // for  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::removeClientFromQueue(CoreTransportClient* client)
+{
+  for(size_t i=0;i<clientsQueue.size();i++)
+  {
+    if(clientsQueue[i].client == client)
+    {
+      delete [] clientsQueue[i].ip;
+      delete [] clientsQueue[i].data;
+      
+        for(size_t j=i+1;j<clientsQueue.size();j++)
+        {
+          clientsQueue[j-1] = clientsQueue[j];
+        }
+        
+        clientsQueue.pop();
+        break;
+    } // if
+    
+  } // for
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::beginWrite(CoreTransportClient& client)
+{
+
+  // добавляем клиента в очередь на запись
+  addClientToQueue(&client, actionWrite);
+
+  // клиент добавлен, теперь при обновлении транспорта мы начнём работать с записью в поток с этого клиента
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::beginConnect(CoreTransportClient& client, const char* ip, uint16_t port)
+{
+  if(client.connected())
+  {
+    
+    #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: client already connected!"));
+    #endif
+    return;
+    
+  }
+  
+  // добавляем клиента в очередь на соединение
+  addClientToQueue(&client, actionConnect, ip, port);
+
+  // клиент добавлен, теперь при обновлении транспорта мы начнём работать с соединением клиента
+  
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::beginDisconnect(CoreTransportClient& client)
+{
+  if(!client.connected())
+  {
+    return;
+  }
+
+  // добавляем клиента в очередь на соединение
+  addClientToQueue(&client, actionDisconnect);
+
+  // клиент добавлен, теперь при обновлении транспорта мы начнём работать с отсоединением клиента
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool CoreSIM800Transport::ready()
+{
+  return flags.ready && flags.isAnyAnswerReceived && flags.isModuleRegistered; // если мы полностью инициализировали SIM800 - значит, можем работать
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_SMS_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
 

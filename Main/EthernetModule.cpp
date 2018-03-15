@@ -38,7 +38,7 @@ void EthernetModule::Update(uint16_t dt)
   {
 
    #ifdef ETHERNET_DEBUG
-    Serial.println(F("[LAN] Start server using DHCP... "));
+    DEBUG_LOGLN(F("[LAN] Start server using DHCP... "));
    #endif 
 
     // пытаемся по DHCP получить конфигурацию
@@ -46,7 +46,7 @@ void EthernetModule::Update(uint16_t dt)
     {
 
      #ifdef ETHERNET_DEBUG
-      Serial.println(F("[LAN] DHCP failed, start with defailt IP 192.168.0.177 "));
+      DEBUG_LOGLN(F("[LAN] DHCP failed, start with defailt IP 192.168.0.177 "));
      #endif      
       // стартуем пока с настройками по умолчанию
       Ethernet.begin(local_mac, default_ip);
@@ -55,8 +55,8 @@ void EthernetModule::Update(uint16_t dt)
     lanServer.begin();    
 
   #ifdef ETHERNET_DEBUG
-    Serial.print(F("[LAN] server started at "));
-    Serial.println(Ethernet.localIP());
+    DEBUG_LOG(F("[LAN] server started at "));
+    DEBUG_LOGLN(Ethernet.localIP());
   #endif
 
   WORK_STATUS.PinMode(10,OUTPUT,false);

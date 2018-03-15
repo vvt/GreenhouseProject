@@ -125,6 +125,8 @@ void UTFT_Buttons_Rus::drawButton(int buttonID)
 	if (buttons[buttonID].flags & BUTTON_BITMAP)
 	{
 		_UTFT->drawBitmap(buttons[buttonID].pos_x, buttons[buttonID].pos_y, buttons[buttonID].width, buttons[buttonID].height, buttons[buttonID].data);
+   yield();
+   
 		if (!(buttons[buttonID].flags & BUTTON_NO_BORDER))
 		{
 			if ((buttons[buttonID].flags & BUTTON_DISABLED))
@@ -277,6 +279,7 @@ int UTFT_Buttons_Rus::checkButtons(OnCheckButtonsFunc func)
 					_UTFT->drawRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
 				else
 					_UTFT->drawRoundRect(buttons[result].pos_x, buttons[result].pos_y, buttons[result].pos_x+buttons[result].width, buttons[result].pos_y+buttons[result].height);
+          
           yield();
 			}
      if(func)

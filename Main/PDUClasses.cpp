@@ -100,7 +100,8 @@ void PDUMessageEncoder::UTF8ToUCS2(const String& s, unsigned int& bytesProcessed
     
   } // while
 
-  *output += '\0';
+  //TODO: ПОД ВОПРОСОМ - НАДО ЛИ ЭТО ДЕЛАТЬ! Т.К. ЕСЛИ ЭТО ДЕЛАТЬ - В СТРОКЕ ПОЯВЛЯЕТСЯ ЛИШНИЙ 0!!!
+  //*output += '\0';
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -174,10 +175,6 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
   recipient.reserve(reserveLen);
   recipient = ToHex(phoneNumLen) + F("91") + encodedPhoneNum;
   
-  #ifdef GSM_DEBUG_MODE
-    Serial.print(F("recipient: ")); Serial.println(recipient);
-  #endif
-
   unsigned int bytesProcessed = 0;
   
   if(!incomingMessageInUCS2Format) // если входящее сообщение не в UCS2 - кодируем его
@@ -201,11 +198,6 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
   }
     
   String strBytesProcessed = ToHex(bytesProcessed*2);
-
-  #ifdef GSM_DEBUG_MODE
-    Serial.print(F("bytes processed: ")); Serial.println(bytesProcessed);
-    Serial.print(F("message: ")); Serial.println(*(result.Message));
-  #endif
   
   // длина headers - 6 байт, фиксирована
   // длина recipient - максимум 20 байт
@@ -268,17 +260,9 @@ PDUOutgoingMessage PDUMessageEncoder::Encode(const String& recipientPhoneNum, co
 
   for(unsigned int i=0;i<strBytesProcessed.length();i++)
     result.Message->setCharAt(curWritePos++,strBytesProcessed[i]);
-    
-   #ifdef GSM_DEBUG_MODE
-    Serial.print(F("completeMessage: ")); Serial.println(*(result.Message));
-  #endif   
 
   result.MessageLength = result.Message->length()/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
-  //result.MessageLength = strlen(result.Message->c_str())/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт.
-
-   #ifdef GSM_DEBUG_MODE
-    Serial.print(F("hlen: ")); Serial.println(result.MessageLength);
-  #endif   
+  //result.MessageLength = strlen(result.Message->c_str())/2 - 1; // без учёта длины смс-центра, мы его не указываем (пишем "00"),значит - минус 1 байт. 
 
   return result; 
 }
@@ -528,7 +512,7 @@ int PDUMessageDecoder::UCS2ToUTF8 (unsigned long ucs2, unsigned char * utf8)
     return 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-PDUIncomingMessage PDUMessageDecoder::Decode(const String& ucs2Message, const String& allowedSenderNumber)
+PDUIncomingMessage PDUMessageDecoder::Decode(const String& ucs2Message)
 {
   PDUIncomingMessage result;
   result.IsDecodingSucceed = true;
@@ -606,14 +590,6 @@ PDUIncomingMessage PDUMessageDecoder::Decode(const String& ucs2Message, const St
      // сохраняем номер телефона отправителя
       result.SenderNumber = sender_number;
 
-      //if(sender_number != allowedSenderNumber) // не с нашего номера
-      if(!allowedSenderNumber.startsWith(sender_number)) // не с нашего номера
-      {
-        result.IsDecodingSucceed = false;
-        return result; 
-      }
-
-
       // тут декодируем сообщение...
       start += senderAddrLen;
       
@@ -684,13 +660,6 @@ PDUIncomingMessage PDUMessageDecoder::Decode(const String& ucs2Message, const St
     start += sender_addressLength;
 
     result.SenderNumber = sender_number;
-
-    if(sender_number != allowedSenderNumber) // не с нашего номера
-    {
-      result.IsDecodingSucceed = false;
-      return result; 
-    }
-
 
     //String tp_PID = workStr.substring(start,start+2);
     start +=2;

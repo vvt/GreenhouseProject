@@ -29,6 +29,11 @@ void CipsendHandler::add(size_t dataLength,uint8_t linkID)
   data.push_back(dt);
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void CipsendHandler::clear()
+{
+  data.clear();
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void CipsendHandler::update()
 {
   if(CriticalSection::Triggered() || !data.size())
@@ -43,6 +48,7 @@ void CipsendHandler::update()
   data.pop();
 
    Serial << '>'; // выводим приглашение
+   Serial.flush();
    
    // читаем данные
    size_t readed = 0;
@@ -72,6 +78,7 @@ void CipsendHandler::update()
    if(!Clients[dt.linkID].connected())
    {
     Serial << sendFail;
+    Serial.flush();
     delete [] data;
     return;    
    }   
@@ -80,6 +87,7 @@ void CipsendHandler::update()
    {
      delete [] data;
      Serial << sendFail;
+     Serial.flush();
      return;
    }
 
@@ -94,6 +102,7 @@ void CipsendHandler::update()
    delete [] data;
   
    Serial << sendOK;
+   Serial.flush();
 
   
 }
@@ -162,13 +171,26 @@ void EventsList::update()
     for(size_t i=0;i<thisMessages.size();i++)
     {
       Serial.write(thisMessages[i].data,thisMessages[i].dataLength);
+      Serial.flush();
       delete [] thisMessages[i].data;
     }
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void EventsList::clear()
+{
+   for(size_t i=0;i<messages.size();i++)
+  {
+    delete [] messages[i].data;
+  }
+
+  messages.clear(); 
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void EventsList::begin()
 {
+  clear();
+  
   onStationModeConnectedHandler = WiFi.onStationModeConnected(&onStationConnected);
   onStationModeDisconnectedHandler = WiFi.onStationModeDisconnected(&onStationDisconnected);
   onStationModeGotIPHandler = WiFi.onStationModeGotIP(&onStationGotIP);
@@ -184,6 +206,7 @@ void EventsList::raise(const char* data, size_t dataLength)
   if(!CriticalSection::Triggered())
   {
     Serial.write(data,dataLength);
+    Serial.flush();
     return;
   }
   

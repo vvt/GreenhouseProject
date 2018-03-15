@@ -9,7 +9,7 @@
 #endif
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef WATER_DEBUG
-  #define WTR_LOG(s) { Serial.print((s)); }
+  #define WTR_LOG(s) DEBUG_LOG((s))
 #else
   #define WTR_LOG(s) (void) 0
 #endif
@@ -23,11 +23,11 @@ void WateringChannel::SignalToHardware()
     byte state = flags.isON ? WATER_RELAY_ON : WATER_RELAY_OFF;
 
     WTR_LOG(F("[WTR] - channel "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F(" write to pin #"));
-    WTR_LOG( WATER_RELAYS[flags.index] );
+    WTR_LOG( String(WATER_RELAYS[flags.index]) );
     WTR_LOG(F(", state = "));
-    WTR_LOG(state);
+    WTR_LOG(String(state));
     WTR_LOG(F("\r\n"));
 
    #if WATER_DRIVE_MODE == DRIVE_DIRECT
@@ -66,7 +66,7 @@ void WateringChannel::Setup(byte index)
     flags.wateringTimer = /*flags.wateringDelta =*/ 0;
   
     WTR_LOG(F("[WTR] - setup channel "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F("; OFF relay...\r\n"));
 
     #if WATER_DRIVE_MODE == DRIVE_DIRECT
@@ -90,7 +90,7 @@ void WateringChannel::LoadState()
 {
 
     WTR_LOG(F("Load state: channel - "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F("\r\n"));
   
     GlobalSettings* settings = MainController->GetSettings();
@@ -118,7 +118,7 @@ void WateringChannel::LoadState()
 void WateringChannel::SaveState(unsigned long wateringTimer)
 {
     WTR_LOG(F("Save state: channel - "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F("\r\n"));
   
     GlobalSettings* settings = MainController->GetSettings();
@@ -151,7 +151,7 @@ void WateringChannel::On()
   if(IsChanged()) // состояние изменилось
   {
     WTR_LOG(F("[WTR] - state for channel "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F(" changed, relay ON...\r\n"));
         
     SignalToHardware(); // записываем новое состояние в пин
@@ -166,7 +166,7 @@ void WateringChannel::Off()
   if(IsChanged()) // состояние изменилось
   {
     WTR_LOG(F("[WTR] - state for channel "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F(" changed, relay OFF...\r\n"));
         
     SignalToHardware(); // записываем новое состояние в пин
@@ -311,7 +311,7 @@ void WateringChannel::DoLoadState(byte addressOffset)
     flags.lastSavedStateMinute = t.minute;
   
     WTR_LOG(F("[WTR] - load state for channel "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F(" from EEPROM...\r\n"));
 
     unsigned long savedWorkTime = 0xFFFFFFFF;
@@ -361,7 +361,7 @@ void WateringChannel::DoSaveState(byte addressOffset,unsigned long wateringTimer
     uint8_t today = t.dayOfWeek; // текущий день недели 
     
     WTR_LOG(F("[WTR] - save state for channel "));
-    WTR_LOG(flags.index);
+    WTR_LOG(String(flags.index));
     WTR_LOG(F(" to EEPROM...\r\n"));
 
      GlobalSettings* settings = MainController->GetSettings();
@@ -692,7 +692,7 @@ void WateringModule::TurnChannelsOn() // включает все каналы
 void WateringModule::TurnChannelOff(byte channelIndex) // выключает канал
 {
   WTR_LOG(F("[WTR] - turn channel "));
-  WTR_LOG(channelIndex);
+  WTR_LOG(String(channelIndex));
   WTR_LOG(F(" OFF\r\n"));
   
   #if WATER_RELAYS_COUNT > 0
@@ -706,7 +706,7 @@ void WateringModule::TurnChannelOff(byte channelIndex) // выключает к�
 void WateringModule::TurnChannelOn(byte channelIndex) // включает канал
 {
   WTR_LOG(F("[WTR] - turn channel "));
-  WTR_LOG(channelIndex);
+  WTR_LOG(String(channelIndex));
   WTR_LOG(F(" ON\r\n"));
     
   #if WATER_RELAYS_COUNT > 0

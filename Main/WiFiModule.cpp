@@ -50,7 +50,7 @@ void WiFiModule::sendDataToThingSpeak()
   *streamBuffer += F("\r\n\r\n");
 
   #ifdef WIFI_DEBUG
-    Serial.println(*streamBuffer);
+    DEBUG_LOGLN(*streamBuffer);
   #endif
 
   // теперь пишем в клиент
@@ -169,7 +169,7 @@ void WiFiModule::OnClientConnect(CoreTransportClient& client, bool connected, in
       if(connected)
       {
             #ifdef WIFI_DEBUG
-              Serial.println(F("ThingSpeak connected!"));
+              DEBUG_LOGLN(F("ThingSpeak connected!"));
             #endif
             // успешно соединились
             sendDataToThingSpeak();        
@@ -177,7 +177,7 @@ void WiFiModule::OnClientConnect(CoreTransportClient& client, bool connected, in
       else
       {
          #ifdef WIFI_DEBUG
-          Serial.println(F("ThingSpeak disconnected."));
+          DEBUG_LOGLN(F("ThingSpeak disconnected."));
         #endif
         EnsureIoTProcessed(thingSpeakDataWritten);
         thingSpeakDataWritten = false;
@@ -214,6 +214,11 @@ void WiFiModule::OnClientConnect(CoreTransportClient& client, bool connected, in
 
 
   // если мы здесь - это неизвестный клиент
+  if(!connected)
+  {
+    // раз клиент отсоединился - нам больше не нужны его данные
+    externalClientData.clear();
+  }
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_WIFI_MODULE_AS_HTTP_PROVIDER
@@ -238,14 +243,10 @@ void WiFiModule::processGardenbossData(uint8_t* data, size_t dataSize, bool isLa
       if(ch == '\n') // есть строка
       {
           #ifdef WIFI_DEBUG
-            Serial.print(F("HTTP: line catched="));
-            Serial.println(*httpData);
+            DEBUG_LOG(F("HTTP: line catched="));
+            DEBUG_LOGLN(*httpData);
           #endif
-          // избавляемся от сайд-эффектов, когда какая-либо команда, переданная на выполнение, может вызвать yield и,
-          // как следствие - обновление ESP. Поэтому мы ставим ESP на паузу перед выполнением конкретной команды
-          ESP.pause();
-            httpHandler->OnAnswerLineReceived(*httpData,enough);
-          ESP.resume();
+          httpHandler->OnAnswerLineReceived(*httpData,enough);
           delete httpData;
           httpData = new String();
       }
@@ -255,7 +256,7 @@ void WiFiModule::processGardenbossData(uint8_t* data, size_t dataSize, bool isLa
       if(enough)
       {
         #ifdef WIFI_DEBUG
-          Serial.println(F("HTTP: Handler reports DONE!"));
+          DEBUG_LOGLN(F("HTTP: Handler reports DONE!"));
         #endif
         canCallHTTPEvent = false;
   
@@ -272,20 +273,16 @@ void WiFiModule::processGardenbossData(uint8_t* data, size_t dataSize, bool isLa
       if(canCallHTTPEvent)
       {
           #ifdef WIFI_DEBUG
-            Serial.print(F("HTTP: line catched on LAST DATA="));
-            Serial.println(*httpData);
+            DEBUG_LOG(F("HTTP: line catched on LAST DATA="));
+            DEBUG_LOGLN(*httpData);
           #endif
-        // ещё можно вызывать событие
-        // и тут во избежание сайд-эффектов блокируем обновление ESP
-        
-        ESP.pause();
-          httpHandler->OnAnswerLineReceived(*httpData,enough);
-        ESP.resume();
+          
+        httpHandler->OnAnswerLineReceived(*httpData,enough);
         
         if(enough)
         {
             #ifdef WIFI_DEBUG
-              Serial.println(F("HTTP: Handler reports DONE ON LAST DATA!"));
+              DEBUG_LOGLN(F("HTTP: Handler reports DONE ON LAST DATA!"));
             #endif
             canCallHTTPEvent = false;
       
@@ -311,7 +308,7 @@ void WiFiModule::OnClientDataWritten(CoreTransportClient& client, int16_t errorC
         if(errorCode != CT_ERROR_NONE)
         {
           #ifdef WIFI_DEBUG
-            Serial.println(F("ThingSpeak data write ERROR!"));
+            DEBUG_LOGLN(F("ThingSpeak data write ERROR!"));
           #endif
           thingSpeakDataWritten = false;
           EnsureIoTProcessed(false);
@@ -335,7 +332,7 @@ void WiFiModule::OnClientDataWritten(CoreTransportClient& client, int16_t errorC
         if(errorCode != CT_ERROR_NONE)
         {
           #ifdef WIFI_DEBUG
-            Serial.println(F("HTTP: can't write to gardenboss.ru!"));
+            DEBUG_LOGLN(F("HTTP: can't write to gardenboss.ru!"));
           #endif
           EnsureHTTPProcessed(ERROR_HTTP_REQUEST_FAILED);
           httpClient.disconnect();        
@@ -351,68 +348,27 @@ void WiFiModule::OnClientDataWritten(CoreTransportClient& client, int16_t errorC
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-void* memFind(const void *haystack, size_t n, const void *needle, size_t m)
-{
-        const unsigned char *y = (const unsigned char *)haystack;
-        const unsigned char *x = (const unsigned char *)needle;
-
-        size_t j, k, l;
-
-        if (m > n || !m || !n)
-                return NULL;
-
-        if (1 != m) {
-                if (x[0] == x[1]) {
-                        k = 2;
-                        l = 1;
-                } else {
-                        k = 1;
-                        l = 2;
-                }
-
-                j = 0;
-                while (j <= n - m) {
-                        if (x[1] != y[j + 1]) {
-                                j += k;
-                        } else {
-                                if (!memcmp(x + 2, y + j + 2, m - 2)
-                                    && x[0] == y[j])
-                                        return (void *)&y[j];
-                                j += l;
-                        }
-                }
-        } else
-                do {
-                        if (*y == *x)
-                                return (void *)y;
-                        y++;
-                } while (--n);
-
-        return NULL;
-}
-//--------------------------------------------------------------------------------------------------------------------------------------
 void WiFiModule::ProcessUnknownClientQuery(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone)
 {
-   // считаем, что с вебморды не будет приходить данных больше, чем 512 байт, поэтому реагируем только на isDone,
-   // т.е. на признак окончания данных
+  for(size_t i=0;i<dataSize;i++)
+    externalClientData.push_back(data[i]);
+
    if(!isDone)
    {
-      #ifdef WIFI_DEBUG
-        Serial.println(F("ESP: can't process composite data!"));
-      #endif
+      // ещё не вся команда пришла в клиент
       return;
    }
     
    String ctGetPrefix = F("CTGET=");
    String ctSetPrefix = F("CTSET=");
 
-   const char* isGetFound = (const char*) memFind(data,dataSize,ctGetPrefix.c_str(),ctGetPrefix.length());
-   const char* isSetFound = (const char*) memFind(data,dataSize,ctSetPrefix.c_str(),ctSetPrefix.length());
+   const char* isGetFound = (const char*) MemFind(externalClientData.pData(),externalClientData.size(),ctGetPrefix.c_str(),ctGetPrefix.length());
+   const char* isSetFound = (const char*) MemFind(externalClientData.pData(),externalClientData.size(),ctSetPrefix.c_str(),ctSetPrefix.length());
 
    if(isGetFound || isSetFound)
    {
       const char* readPtr = isGetFound ? isGetFound : isSetFound;
-      const char* endOfData = (const char*) (data + dataSize);
+      const char* endOfData = (const char*) (externalClientData.pData() + externalClientData.size());
 
       String command;
       while(readPtr < endOfData)
@@ -424,9 +380,12 @@ void WiFiModule::ProcessUnknownClientQuery(CoreTransportClient& client, uint8_t*
         readPtr++;
       } // while
 
+      // всё, нам больше не нужны данные с внешнего клиента
+      externalClientData.clear();
+
       #ifdef WIFI_DEBUG
-        Serial.print(F("ESP: incoming command are: "));
-        Serial.println(command);
+        DEBUG_LOG(F("ESP: incoming command are: "));
+        DEBUG_LOGLN(command);
       #endif
 
       // теперь выполняем команду
@@ -437,14 +396,7 @@ void WiFiModule::ProcessUnknownClientQuery(CoreTransportClient& client, uint8_t*
       {
               
         cmd.SetIncomingStream(&fakeStream); 
-
-        // ВО ВРЕМЯ ВЫПОЛНЕНИЯ КОМАНДЫ МОЖЕТ ОПЯТЬ ОБНОВИТЬСЯ МОДУЛЬ ESP,
-        // Т.К. МОДУЛЬ, КОТОРОМУ АДРЕСОВАНА КОМАНДА, МОЖЕТ ВЫЗВАТЬ yield.
-        // В РЕЗУЛЬТАТЕ ЧЕГО МЫ ПОЛУЧИМ НЕПРЕДСКАЗУЕМОЕ ПОВЕДЕНИЕ.
-        // ПОЭТОМУ НА МОМЕНТ ОБРАБОТКИ МЫ ЗАПРЕЩАЕМ ОБНОВЛЕНИЕ ESP.
-        ESP.pause();
-          MainController->ProcessModuleCommand(cmd);
-        ESP.resume();
+        MainController->ProcessModuleCommand(cmd);
 
         // тут выгребаем всё из буфера результатов обработки команды - и пересылаем клиенту
        client.write((uint8_t*) fakeStream.buffer.c_str(),fakeStream.buffer.length());
@@ -452,7 +404,9 @@ void WiFiModule::ProcessUnknownClientQuery(CoreTransportClient& client, uint8_t*
       } // if(cParser->ParseCommand(command, cmd))
     
    } // if(isGetFound || isSetFound)
-
+   
+   // просто очищаем буфер, он нам не нужен
+   externalClientData.clear();
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void WiFiModule::OnClientDataAvailable(CoreTransportClient& client, uint8_t* data, size_t dataSize, bool isDone)
@@ -461,7 +415,7 @@ void WiFiModule::OnClientDataAvailable(CoreTransportClient& client, uint8_t* dat
     if(thingSpeakClient && client == thingSpeakClient)
     {
       #ifdef WIFI_DEBUG
-        Serial.println(F("DATA AVAILABLE FOR THINGSPEAK !!!"));
+        DEBUG_LOGLN(F("DATA AVAILABLE FOR THINGSPEAK !!!"));
       #endif
       if(isDone)
       {
@@ -477,7 +431,7 @@ void WiFiModule::OnClientDataAvailable(CoreTransportClient& client, uint8_t* dat
    if(httpClient && client == httpClient) // данные для клиента gardenboss.ru
    {
       #ifdef WIFI_DEBUG
-        Serial.println(F("DATA AVAILABLE FOR GARDENBOSS.RU !!!"));
+        DEBUG_LOGLN(F("DATA AVAILABLE FOR GARDENBOSS.RU !!!"));
       #endif
 
       processGardenbossData(data, dataSize, isDone);
@@ -540,8 +494,7 @@ void WiFiModule::Update(uint16_t dt)
 { 
   UNUSED(dt);
   
-  if(!ESP.paused())
-    ESP.update();
+  ESP.update();
   
   #ifdef USE_WIFI_MODULE_AS_MQTT_CLIENT
     mqtt.update();

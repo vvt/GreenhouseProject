@@ -448,6 +448,7 @@ class UniRS485Gate // класс для работы универсальных 
     void sendControllerStatePacket();
 
     void waitTransmitComplete();
+    void writeToStream(Stream* s, const uint8_t* buffer, size_t len);
     void enableSend();
     void enableReceive();
     byte crc8(const byte *addr, byte len);

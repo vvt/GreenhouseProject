@@ -450,27 +450,36 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
             
             // 1 байт - флаги о том, какие датчики есть
              pStream->write(WorkStatus::ToHex(flags));
+             yield(); // немного даём поработать другим модулям
             
             // 1 байт - длина ID модуля
               moduleName = mod->GetID();
               uint8_t mnamelen = moduleName.length();
               pStream->write(WorkStatus::ToHex(mnamelen));
-            // далее идёт имя модуля
+              yield(); // немного даём поработать другим модулям
+             // далее идёт имя модуля
               pStream->write(moduleName.c_str());
-            
+              yield(); // немного даём поработать другим модулям
+
             
               // затем идут данные из модуля, сначала - показания температуры, если они есть
               PrintSensorsValues(tempCount,StateTemperature,mod,pStream);
+              yield(); // немного даём поработать другим модулям
               // затем идёт кол-во датчиков влажности, если они есть
               PrintSensorsValues(humCount,StateHumidity,mod,pStream);
+              yield(); // немного даём поработать другим модулям
               // затем идут показания датчиков освещенности, если они есть
               PrintSensorsValues(lightCount,StateLuminosity,mod,pStream);
+              yield(); // немного даём поработать другим модулям
               // затем идут моментальные показания датчиков расхода воды, если они есть
               PrintSensorsValues(waterflowCountInstant,StateWaterFlowInstant,mod,pStream);
+              yield(); // немного даём поработать другим модулям
               // затем идут накопительные показания датчиков расхода воды, если они есть
               PrintSensorsValues(waterflowCount,StateWaterFlowIncremental,mod,pStream);
+              yield(); // немного даём поработать другим модулям
               // затем идут датчики влажности почвы, если они есть
               PrintSensorsValues(soilMoistureCount,StateSoilMoisture,mod,pStream);
+              yield(); // немного даём поработать другим модулям
               // затем идут датчики pH, если они есть
               PrintSensorsValues(phCount,StatePH,mod,pStream);
             
@@ -549,9 +558,9 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = "";
 
           // выполняем команды
-          ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false);//,false);
-          ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false);//,false);
-          ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false);//,false);
+          ModuleInterop.QueryCommand(ctSET, F("STATE|MODE|AUTO"),false);
+          ModuleInterop.QueryCommand(ctSET, F("WATER|MODE|AUTO"),false);
+          ModuleInterop.QueryCommand(ctSET, F("LIGHT|MODE|AUTO"),false);
 
           // говорим, что выполнили
           PublishSingleton = REG_SUCC;
@@ -758,7 +767,9 @@ bool  ZeroStreamListener::ExecCommand(const Command& command, bool wantAnswer)
  if(canPublish) // можем публиковать
   MainController->Publish(this,command);
  else
-  PublishSingleton = F(""); // просто очищаем общий буфер
+ {
+  PublishSingleton.Reset();
+ }
     
   return PublishSingleton.Flags.Status;
 }

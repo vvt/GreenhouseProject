@@ -3,15 +3,23 @@
 #include "TinyVector.h"
 //--------------------------------------------------------------------------------------------------------------------------------
 #ifdef LOGGING_DEBUG_MODE
-  #define LOG_DEBUG_WRITE(s) Serial.println((s))
+  #define LOG_DEBUG_WRITE(s) DEBUG_LOGLN((s))
 #endif 
 //--------------------------------------------------------------------------------------------------------------------------------
-#define WRITE_TO_FILE(f,str) f.write((const uint8_t*) str.c_str(),str.length())
-#define WRITE_TO_LOG(str) WRITE_TO_FILE(logFile,str)
-#define WRITE_TO_ACTION_LOG(str) WRITE_TO_FILE(actionFile,str)
+#define WRITE_TO_LOG(str) writeToFile(logFile,str)
+#define WRITE_TO_ACTION_LOG(str) writeToFile(actionFile,str)
 //--------------------------------------------------------------------------------------------------------------------------------
 String LogModule::_COMMA;
 String LogModule::_NEWLINE;
+//--------------------------------------------------------------------------------------------------------------------------------
+void LogModule::writeToFile(SdFile& f, const String& data)
+{
+  for(size_t i=0;i<data.length();i++)
+  {
+    f.write(data[i]);
+    yield();
+  }
+}
 //--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::Setup()
 {
@@ -697,7 +705,7 @@ if(MainController->HasSDCard())//hasSD)
             } // if(fRead)
 
             #ifdef USE_DS3231_REALTIME_CLOCK
-                DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
+                DS3231Time tm = MainController->GetClock().getTime();
                 CreateNewLogFile(tm); // создаём новый файл
             #endif
             
@@ -764,7 +772,7 @@ if(MainController->HasSDCard())//hasSD)
             } // if(fRead)
 
             #if defined(USE_DS3231_REALTIME_CLOCK) && defined(LOG_ACTIONS_ENABLED)
-                DS3231Time tm = /*rtc*/MainController->GetClock().getTime();
+                DS3231Time tm = MainController->GetClock().getTime();
                 CreateActionsFile(tm); // создаём новый файл действий
             #endif
             

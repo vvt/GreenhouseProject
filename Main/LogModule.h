@@ -23,6 +23,8 @@ class LogModule : public AbstractModule // модуль логгирования
 
   int8_t lastDOW;
 
+  void writeToFile(SdFile& f, const String& data);
+
   SdFile logFile; // текущий файл для логгирования
   SdFile actionFile; // файл с записями о произошедших действиях
   String currentLogFileName; // текущее имя файла, с которым мы работаем сейчас

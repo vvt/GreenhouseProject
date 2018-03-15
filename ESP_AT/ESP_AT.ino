@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
 // СКОРОСТЬ РАБОТЫ С ПОРТОМ !!!
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
-#define UART_SPEED 115200
+#define UART_SPEED 57600
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <ESP8266WiFi.h>
 #include "SerialCommand.h"
@@ -28,7 +28,7 @@ WiFiMode_t cwMode = WIFI_OFF;
 uint8_t statusHelper = 0;
 //uint32_t segmentID = 0;
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
-SerialCommand commandStream;
+SerialCommand* commandStream = NULL;
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
 template <typename T> inline void echo(const char* command, T last,void (*function)(void) = NULL)
 {
@@ -39,6 +39,18 @@ template <typename T> inline void echo(const char* command, T last,void (*functi
     function();
 
   Serial << last << ENDLINE;
+  
+  Serial.flush();
+}
+//----------------------------------------------------------------------------------------------------------------------------------------------------------
+void stopServer()
+{
+  if(!server)
+    return;
+
+  server->stop();
+  delete server;
+  server = NULL;    
 }
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
 void unQuote(String& str)
@@ -78,6 +90,12 @@ void ATE1(const char* command)
 void RESTART(const char* command)
 {
   echo(command, AT_OK);
+
+  stopServer();
+
+  delete commandStream;
+  commandStream = NULL;
+
   ESP.restart();
 }
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -87,14 +105,14 @@ void GMR(const char* command)
   echo(command, AT_OK,[](){
       Serial << ESP.getCoreVersion() << ENDLINE;
       Serial << ESP.getSdkVersion() << ENDLINE;
-      Serial << __DATE__ << " " __TIME__ << ENDLINE;
+      Serial << __DATE__ << " " << __TIME__ << ENDLINE;
     });
 }
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
 void CWMODE_CUR(const char* command)
 {
    CRITICAL_SECTION;
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -128,7 +146,7 @@ void CWSAP_CUR(const char* command)
 {
    CRITICAL_SECTION;
    
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -136,7 +154,7 @@ void CWSAP_CUR(const char* command)
    }
 
    softAPName = arg;
-   arg = commandStream.next();
+   arg = commandStream->next();
 
    if(!arg)
    {
@@ -145,7 +163,7 @@ void CWSAP_CUR(const char* command)
    }
 
    softAPPassword = arg;
-   arg = commandStream.next();
+   arg = commandStream->next();
 
    if(!arg)
    {
@@ -154,7 +172,7 @@ void CWSAP_CUR(const char* command)
    }
 
    softAPchannelNum = atoi(arg);
-   arg = commandStream.next();
+   arg = commandStream->next();
 
    if(!arg)
    {
@@ -209,7 +227,7 @@ void CWJAP_CUR(const char* command)
     return;
   }
 
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -217,7 +235,7 @@ void CWJAP_CUR(const char* command)
    }
 
    apName = arg;
-   arg = commandStream.next();
+   arg = commandStream->next();
 
    if(!arg)
    {
@@ -340,7 +358,7 @@ void CIPMODE(const char* command)
 {
   CRITICAL_SECTION;
 
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -355,7 +373,7 @@ void CIPMUX(const char* command)
 {
   CRITICAL_SECTION;
 
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -366,21 +384,11 @@ void CIPMUX(const char* command)
   
 }
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
-void stopServer()
-{
-  if(!server)
-    return;
-
-  server->stop();
-  delete server;
-  server = NULL;    
-}
-//----------------------------------------------------------------------------------------------------------------------------------------------------------
 void CIPSERVER(const char* command)
 {
   CRITICAL_SECTION;
 
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -389,7 +397,7 @@ void CIPSERVER(const char* command)
 
    cipserverMode = atoi(arg);
    
-   arg = commandStream.next();
+   arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -425,7 +433,7 @@ void PING(const char* command)
 {
    CRITICAL_SECTION;
 
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg || !WiFi.isConnected())
    {
     echo(command, AT_ERROR);
@@ -496,7 +504,7 @@ void CIPCLOSE(const char* command)
 {
   CRITICAL_SECTION;
 
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_OK);
@@ -538,7 +546,7 @@ void CIPSTART(const char* command)
     return;    
   }
   
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -558,7 +566,7 @@ void CIPSTART(const char* command)
     return;    
   }
 
-   arg = commandStream.next();
+   arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -568,7 +576,7 @@ void CIPSTART(const char* command)
    String connectionType = arg;
    unQuote(connectionType);
 
-   arg = commandStream.next();
+   arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -578,7 +586,7 @@ void CIPSTART(const char* command)
    String remoteIP = arg;
    unQuote(remoteIP);
 
-   arg = commandStream.next();
+   arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -607,7 +615,7 @@ void CIPSENDBUF(const char* command)
 {
   CRITICAL_SECTION;
   
-   char* arg = commandStream.next();
+   char* arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -627,7 +635,7 @@ void CIPSENDBUF(const char* command)
     return;
   }
 
-   arg = commandStream.next();
+   arg = commandStream->next();
    if(!arg)
    {
     echo(command, AT_ERROR);
@@ -650,7 +658,7 @@ void CIPSENDBUF(const char* command)
    echo(command, AT_OK);
 
    // вот тут приглашение выводить нельзя, поскольку у нас команда могла дойти
-   // только тогда, когда уже Events отработали и выклюнули в поток что-то типа +IPD
+   // только тогда, когда уже Events отработали и выплюнули в поток что-то типа +IPD
    // В этом случае принимающая сторона должна отработать +IPD,
    // а мы, в свою очередь - должны отправить приглашение только тогда, когда
    // уже ничего не делается.
@@ -851,61 +859,87 @@ void unknownCommand(const char* command)
 void setup() 
 {
   Serial.begin(UART_SPEED);
-
   #ifdef _DEBUG
     Serial.setDebugOutput(true);
   #endif
 
+  DBGLN(F("Serial ready."));
+
+  server = NULL;
+  cwMode = WIFI_OFF;
+  echoOn = true;
+  memset(ClientConnectStatus,0,sizeof(ClientConnectStatus));
+
+  DBGLN(F("Create Serial listener..."));
+  commandStream = new SerialCommand;
+  DBGLN(F("Serial listener created."));
+  
+  DBGLN(F("Begin cipsend handler..."));
+  Cipsend.clear();
+  DBGLN(F("Cipsend handler inited."));
+
+  DBGLN(F("Begin events..."));
   Events.begin();
+  DBGLN(F("Events inited."));
   
  // WiFi.setOutputPower(20);
+ DBGLN(F("Turn OFF persistent mode..."));
   WiFi.persistent(false);
+  DBGLN(F("Persistent mode OFF."));
+
+  DBGLN(F("Turn Wi-Fi OFF..."));
   WiFi.mode(WIFI_OFF);   // this is a temporary line, to be removed after SDK update to 1.5.4
+  DBGLN(F("Wi-Fi turned OFF."));
   //WiFi.setAutoConnect(false);
   //WiFi.setAutoReconnect(false);
 
-  commandStream.setDefaultHandler(unknownCommand);
-
-  commandStream.addCommand("AT",AT);
-  commandStream.addCommand("ATE0",ATE0);
-  commandStream.addCommand("ATE1",ATE1);
-  commandStream.addCommand("AT+RST",RESTART);
-  commandStream.addCommand("AT+GMR",GMR);
-  commandStream.addCommand("AT+CWMODE_CUR",CWMODE_CUR);
-  commandStream.addCommand("AT+CWMODE_DEF",CWMODE_CUR);
-  commandStream.addCommand("AT+CWSAP_CUR",CWSAP_CUR);
-  commandStream.addCommand("AT+CWSAP_DEF",CWSAP_CUR);
-  commandStream.addCommand("AT+CWQAP",CWQAP);
-  commandStream.addCommand("AT+CIPMODE",CIPMODE);
-  commandStream.addCommand("AT+CIPMUX",CIPMUX);
-  commandStream.addCommand("AT+CIPSERVER",CIPSERVER);
-  commandStream.addCommand("AT+CWJAP_CUR",CWJAP_CUR);
-  commandStream.addCommand("AT+CWJAP_DEF",CWJAP_CUR);
-  commandStream.addCommand("AT+CWJAP?",CWJAP_TEST);
-  commandStream.addCommand("AT+PING",PING);
-  commandStream.addCommand("AT+CIPSTAMAC?",getCIPSTAMAC);
-  commandStream.addCommand("AT+CIPAPMAC?",getCIPAPMAC);
-  commandStream.addCommand("AT+CIFSR",getCIFSR);
-  commandStream.addCommand("AT+CIPCLOSE",CIPCLOSE);
-  commandStream.addCommand("AT+CIPSTART",CIPSTART);
-  commandStream.addCommand("AT+CIPSENDBUF",CIPSENDBUF);
-  commandStream.addCommand("AT+CIPSEND",CIPSENDBUF);
+  DBGLN(F("Setup known commands..."));
   
+  commandStream->setDefaultHandler(unknownCommand);
+
+  commandStream->addCommand("AT",AT);
+  commandStream->addCommand("ATE0",ATE0);
+  commandStream->addCommand("ATE1",ATE1);
+  commandStream->addCommand("AT+RST",RESTART);
+  commandStream->addCommand("AT+GMR",GMR);
+  commandStream->addCommand("AT+CWMODE_CUR",CWMODE_CUR);
+  commandStream->addCommand("AT+CWMODE_DEF",CWMODE_CUR);
+  commandStream->addCommand("AT+CWSAP_CUR",CWSAP_CUR);
+  commandStream->addCommand("AT+CWSAP_DEF",CWSAP_CUR);
+  commandStream->addCommand("AT+CWQAP",CWQAP);
+  commandStream->addCommand("AT+CIPMODE",CIPMODE);
+  commandStream->addCommand("AT+CIPMUX",CIPMUX);
+  commandStream->addCommand("AT+CIPSERVER",CIPSERVER);
+  commandStream->addCommand("AT+CWJAP_CUR",CWJAP_CUR);
+  commandStream->addCommand("AT+CWJAP_DEF",CWJAP_CUR);
+  commandStream->addCommand("AT+CWJAP?",CWJAP_TEST);
+  commandStream->addCommand("AT+PING",PING);
+  commandStream->addCommand("AT+CIPSTAMAC?",getCIPSTAMAC);
+  commandStream->addCommand("AT+CIPAPMAC?",getCIPAPMAC);
+  commandStream->addCommand("AT+CIFSR",getCIFSR);
+  commandStream->addCommand("AT+CIPCLOSE",CIPCLOSE);
+  commandStream->addCommand("AT+CIPSTART",CIPSTART);
+  commandStream->addCommand("AT+CIPSENDBUF",CIPSENDBUF);
+  commandStream->addCommand("AT+CIPSEND",CIPSENDBUF);
+  
+  DBGLN(F("Known commands inited."));
   
 
   printReady(Serial);
+  Serial.flush();
 
 
 }
 //----------------------------------------------------------------------------------------------------------------------------------------------------------
 void loop() 
 {
+  
   // здесь мы уже обработали входящую команду, если это запрос на подсоединение -
   // слот клиента будет занят
-  commandStream.readSerial();
+  commandStream->readSerial();
 
   // теперь отрабатываем соединения от сервера
-  if(!commandStream.waitingCommand())
+  if(!commandStream->waitingCommand())
     handleIncomingConnections();
 
   // выводим статус соединений
@@ -915,7 +949,7 @@ void loop()
   handleClientsData();
 
   // и выводим их через события
-  if(!commandStream.waitingCommand())
+  if(!commandStream->waitingCommand())
     Events.update();
 
   Cipsend.update();
