@@ -489,6 +489,7 @@ void IdlePageMenuItem::draw(DrawContext* dc)
   int left = (frame_width - strW)/2 + CONTENT_PADDING;
 
   dc->drawStr(left, cur_top, sensorData.c_str());
+  yield();
 
   // теперь рисуем строку подписи
   cur_top += HINT_FONT_HEIGHT;
@@ -496,6 +497,7 @@ void IdlePageMenuItem::draw(DrawContext* dc)
   left = (frame_width - strW)/2 + CONTENT_PADDING;
 
   dc->drawStr(left, cur_top, displayString);
+  yield();
 
      #ifdef USE_DS3231_REALTIME_CLOCK
 
@@ -511,6 +513,7 @@ void IdlePageMenuItem::draw(DrawContext* dc)
         left = (frame_width - strW)/2 + CONTENT_PADDING;
         
         dc->drawStr(left, cur_top, dt_buff);
+        yield();
         
       #endif // USE_DS3231_REALTIME_CLOCK 
 
@@ -521,6 +524,7 @@ WindowMenuItem::WindowMenuItem() : AbstractLCDMenuItem(WINDOW_ICON,LCD_WINDOWS_C
 {
   
 }
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowMenuItem::init(LCDMenu* parent)
 {
   AbstractLCDMenuItem::init(parent);
@@ -549,6 +553,7 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             windowsFlags.isWindowsOpen = true;
             //Тут посылаем команду на открытие окон
             ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);
+            yield();
           }
           break;
           
@@ -557,6 +562,7 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             windowsFlags.isWindowsOpen = false;
             //Тут посылаем команду на закрытие окон
             ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);
+            yield();
           }
           break;
           
@@ -568,6 +574,8 @@ bool WindowMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
               ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|AUTO"),false);
             else
               ModuleInterop.QueryCommand(ctSET,F("STATE|MODE|MANUAL"),false);
+
+            yield();
           }
           break;
         
@@ -643,6 +651,7 @@ void WindowMenuItem::draw(DrawContext* dc)
     }
   int left = i*CONTENT_PADDING + i*one_icon_box_width + one_icon_left_spacing;
   dc->drawXBMP(left, cur_top, MENU_BITMAP_SIZE, MENU_BITMAP_SIZE, cur_icon);
+  yield();
 
   // теперь рисуем текст иконки
   u8g_uint_t strW = dc->getStrWidth(captions[i]);
@@ -653,6 +662,7 @@ void WindowMenuItem::draw(DrawContext* dc)
   // рисуем заголовок
   cur_top += MENU_BITMAP_SIZE + HINT_FONT_HEIGHT;
   dc->drawStr(left, cur_top, captions[i]);
+  yield();
 
   if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
@@ -734,8 +744,6 @@ void WateringChannelsMenuItem::draw(DrawContext* dc)
   dc->drawStr(left,cur_top,tmp.c_str());
   yield();
 
-  
-  
   if(i < 1)
   {
     // теперь рисуем текст под полем ввода, только для первого итема
@@ -759,6 +767,7 @@ void WateringChannelsMenuItem::draw(DrawContext* dc)
       cur_top += HINT_FONT_BOX_PADDING*2;
     
     dc->drawHLine(left,cur_top,strW);
+    yield();
   }
   
  } // for
@@ -796,6 +805,7 @@ bool WateringChannelsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             String cmd = F("WATER|ON|");
             cmd += currentSelectedChannel;
             ModuleInterop.QueryCommand(ctSET,cmd,false);
+            yield();
 
              menu->wantRedraw(); // изменили внутреннее состояние, просим перерисоваться
           }
@@ -807,6 +817,7 @@ bool WateringChannelsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             String cmd = F("WATER|OFF|");
             cmd += currentSelectedChannel;
             ModuleInterop.QueryCommand(ctSET,cmd,false);
+            yield();
 
              menu->wantRedraw(); // изменили внутреннее состояние, просим перерисоваться
           }
@@ -917,6 +928,7 @@ void WindowsChannelsMenuItem::draw(DrawContext* dc)
       cur_top += HINT_FONT_BOX_PADDING*2;
     
     dc->drawHLine(left,cur_top,strW);
+    yield();
   }
   
  } // for
@@ -956,6 +968,7 @@ bool WindowsChannelsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             cmd += F("|OPEN");
             
             ModuleInterop.QueryCommand(ctSET,cmd,false);
+            yield();
 
              menu->wantRedraw(); // изменили внутреннее состояние, просим перерисоваться
           }
@@ -968,6 +981,7 @@ bool WindowsChannelsMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             cmd += currentSelectedChannel;
             cmd += F("|CLOSE");
             ModuleInterop.QueryCommand(ctSET,cmd,false);
+            yield();
 
              menu->wantRedraw(); // изменили внутреннее состояние, просим перерисоваться
           }
@@ -1045,6 +1059,7 @@ void WateringMenuItem::draw(DrawContext* dc)
     }
   int left = i*CONTENT_PADDING + i*one_icon_box_width + one_icon_left_spacing;
   dc->drawXBMP(left, cur_top, MENU_BITMAP_SIZE, MENU_BITMAP_SIZE, cur_icon);
+  yield();
 
   // теперь рисуем текст иконки
   u8g_uint_t strW = dc->getStrWidth(captions[i]);
@@ -1055,14 +1070,15 @@ void WateringMenuItem::draw(DrawContext* dc)
   // рисуем заголовок
   cur_top += MENU_BITMAP_SIZE + HINT_FONT_HEIGHT;
   dc->drawStr(left, cur_top, captions[i]);
+  yield();
 
   if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
     dc->drawHLine(left,cur_top,strW);
+    yield();
   }
-  yield();
  } // for
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -1105,6 +1121,7 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             waterFlags.isWateringOn = true;
             //Тут посылаем команду на включение полива
             ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);
+            yield();
           }
           break;
           
@@ -1113,6 +1130,7 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             waterFlags.isWateringOn = false;
             //Тут посылаем команду на выключение полива
             ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);
+            yield();
           }
           break;
           
@@ -1124,6 +1142,8 @@ bool WateringMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
               ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|AUTO"),false);
             else
               ModuleInterop.QueryCommand(ctSET,F("WATER|MODE|MANUAL"),false);
+
+            yield();
           }
           break;
         
@@ -1197,6 +1217,7 @@ void LuminosityMenuItem::draw(DrawContext* dc)
     }
   int left = i*CONTENT_PADDING + i*one_icon_box_width + one_icon_left_spacing;
   dc->drawXBMP(left, cur_top, MENU_BITMAP_SIZE, MENU_BITMAP_SIZE, cur_icon);
+  yield();
 
   // теперь рисуем текст иконки
   u8g_uint_t strW = dc->getStrWidth(captions[i]);
@@ -1207,14 +1228,16 @@ void LuminosityMenuItem::draw(DrawContext* dc)
   // рисуем заголовок
   cur_top += MENU_BITMAP_SIZE + HINT_FONT_HEIGHT;
   dc->drawStr(left, cur_top, captions[i]);
+  yield();
 
   if(/*needToDrawCursor*/ (flags & 2) && i == cursorPos)
   {
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
     dc->drawHLine(left,cur_top,strW);
+    yield();
   }
-  yield();
+
  } // for
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -1256,6 +1279,7 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             lumFlags.isLightOn = true;
             //Тут посылаем команду на включение досветки
             ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);
+            yield();
           }
           break;
           
@@ -1264,6 +1288,7 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
             lumFlags.isLightOn = false;
             //Тут посылаем команду на выключение досветки
             ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);
+            yield();
           }
           break;
           
@@ -1275,6 +1300,8 @@ bool LuminosityMenuItem::OnEncoderPositionChanged(int dir, LCDMenu* menu)
               ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|AUTO"),false);
             else
               ModuleInterop.QueryCommand(ctSET,F("LIGHT|MODE|MANUAL"),false);
+
+            yield();
           }
           break;
         
@@ -1366,6 +1393,7 @@ void SettingsMenuItem::draw(DrawContext* dc)
     // рисуем курсор в текущей позиции
     cur_top += HINT_FONT_BOX_PADDING;
     dc->drawHLine(left,cur_top,strW);
+    yield();
   }
   
  } // for
@@ -1847,8 +1875,6 @@ void LCDMenu::draw()
 {
 if(!flags.needRedraw || !flags.backlightIsOn) // не надо ничего перерисовывать
   return;
-
-#define LCD_YIELD yield()
     
  size_t sz = items.size();
  AbstractLCDMenuItem* selItem = items[selectedMenuItem];
@@ -1857,30 +1883,30 @@ if(!flags.needRedraw || !flags.backlightIsOn) // не надо ничего пе
  firstPage();  
   do 
   {
-   LCD_YIELD;
+   yield();
     // рисуем бокс
     drawFrame(0,MENU_BITMAP_SIZE-1,FRAME_WIDTH,FRAME_HEIGHT+1);
     
     // рисуем пункты меню верхнего уровня
     for(size_t i=0;i<sz;i++)
     {
-      LCD_YIELD;
+      yield();
       drawXBMP( i*MENU_BITMAP_SIZE, 0, MENU_BITMAP_SIZE, MENU_BITMAP_SIZE, items[i]->GetIcon());
     }
     
     // теперь рисуем фрейм вокруг выбранного пункта меню
     drawFrame(selectedMenuItem*MENU_BITMAP_SIZE,0,MENU_BITMAP_SIZE,MENU_BITMAP_SIZE);
-    LCD_YIELD;
+    yield();
     
     // теперь рисуем прямоугольник с заливкой внизу от контента
     drawBox(0,FRAME_HEIGHT + MENU_BITMAP_SIZE - (HINT_FONT_HEIGHT + HINT_FONT_BOX_PADDING),FRAME_WIDTH,HINT_FONT_HEIGHT + HINT_FONT_BOX_PADDING);
-    LCD_YIELD;
+    yield();
     
     setColorIndex(0);
 
     // теперь убираем линию под выбранным пунктом меню
     drawLine(selectedMenuItem*MENU_BITMAP_SIZE+1,MENU_BITMAP_SIZE-1,selectedMenuItem*MENU_BITMAP_SIZE+MENU_BITMAP_SIZE-2,MENU_BITMAP_SIZE-1);
-    LCD_YIELD;
+    yield();
     
     // теперь рисуем название пункта меню
     
@@ -1889,10 +1915,12 @@ if(!flags.needRedraw || !flags.backlightIsOn) // не надо ничего пе
     // рисуем подсказку, выровненную по правому краю
     u8g_uint_t strW = getStrWidth(capt);    
     drawStr(FRAME_WIDTH - HINT_FONT_BOX_PADDING - strW,FRAME_HEIGHT + MENU_BITMAP_SIZE - HINT_FONT_BOX_PADDING,capt);
+    yield();
     
     #else
     // рисуем подсказку, выровненную по левому краю
     drawStr(HINT_FONT_BOX_PADDING,FRAME_HEIGHT + MENU_BITMAP_SIZE - HINT_FONT_BOX_PADDING,capt);
+    yield();
     
     #endif
 
@@ -1900,7 +1928,7 @@ if(!flags.needRedraw || !flags.backlightIsOn) // не надо ничего пе
 
     // теперь просим пункт меню отрисоваться на экране
     selItem->draw(this);
-    LCD_YIELD;  
+    yield();  
   
   
   } while( nextPage() ); 

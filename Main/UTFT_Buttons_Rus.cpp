@@ -269,6 +269,7 @@ int UTFT_Buttons_Rus::checkButtons(OnCheckButtonsFunc func)
 				if ((touch_x >= buttons[i].pos_x) and (touch_x <= (buttons[i].pos_x + buttons[i].width)) and (touch_y >= buttons[i].pos_y) and (touch_y <= (buttons[i].pos_y + buttons[i].height)))
 					result = i;
 			}
+     yield();
 		}
 		if (result != -1)
 		{

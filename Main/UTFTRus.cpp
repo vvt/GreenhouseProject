@@ -167,7 +167,6 @@ int UTFTRus::print(const char* st,int x, int y, int deg, bool computeStringLengt
       if(!computeStringLengthOnly)
       {
         pDisplay->printChar(ch, x + (ch_pos * (pDisplay->cfont.x_size)), y);
-        yield();
       }
     } 
     else 
@@ -175,12 +174,13 @@ int UTFTRus::print(const char* st,int x, int y, int deg, bool computeStringLengt
       if(!computeStringLengthOnly)
       {
         pDisplay->rotateChar(ch, x, y, ch_pos, deg);
-        yield();
       }
     }
     ++ch_pos;
   } // for  
 
+  yield();
+  
   return ch_pos;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------

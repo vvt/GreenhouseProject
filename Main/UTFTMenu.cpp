@@ -214,13 +214,7 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
  if(screenButtons)
  {
     int pressed_button = screenButtons->checkButtons(BuzzerOn);
-/*
-    if(pressed_button != -1)
-    {
-      // есть клик на кнопку
-      menuManager->buzzer(); // пискнули
-    }
-*/    
+  
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -302,7 +296,6 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
             }
 
           screenButtons->drawButton(buttonID);
-          yield();
           menuManager->updateBuzzer();
         }
        
@@ -314,13 +307,11 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
      {
         screenButtons->setButtonBackColor(3,MODE_ON_COLOR);
         screenButtons->relabelButton(3,AUTO_MODE_LABEL,!inited || (wateringAutoMode != lastWateringAutoMode));
-        yield();
      }
      else
      {
         screenButtons->setButtonBackColor(3,MODE_OFF_COLOR);      
         screenButtons->relabelButton(3,MANUAL_MODE_LABEL,!inited || (wateringAutoMode != lastWateringAutoMode));
-        yield();
      }
 
       // сохраняем состояние каналов полива
@@ -328,10 +319,8 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
      lastWateringAutoMode = wateringAutoMode;
      inited = true;
      
-
- 
-     
  } // if(screenButtons)
+ 
  #endif // WATER_RELAYS_COUNT > 0
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -407,13 +396,7 @@ void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
  if(screenButtons)
  {
     int pressed_button = screenButtons->checkButtons(BuzzerOn);
-/*
-    if(pressed_button != -1)
-    {
-      // есть клик на кнопку
-      menuManager->buzzer(); // пискнули
-    }
-*/    
+   
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -460,31 +443,24 @@ void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
         screenButtons->setButtonFontColor(2,!lightIsOn ? CHANNELS_BUTTONS_TEXT_COLOR : CHANNEL_BUTTONS_TEXT_COLOR);
         
         screenButtons->drawButton(1);
-        yield();
         screenButtons->drawButton(2);
-        yield();
     }
      
      if(lightAutoMode)
      {
         screenButtons->setButtonBackColor(3,MODE_ON_COLOR);
         screenButtons->relabelButton(3,AUTO_MODE_LABEL,!inited || (lightAutoMode != lastLightAutoMode));
-        yield();
      }
      else
      {
         screenButtons->setButtonBackColor(3,MODE_OFF_COLOR);      
         screenButtons->relabelButton(3,MANUAL_MODE_LABEL,!inited || (lightAutoMode != lastLightAutoMode));
-        yield();
      }
 
       // сохраняем состояние досветки
      lastLightIsOn = lightIsOn;
      lastLightAutoMode = lightAutoMode;
-     inited = true;
-     
-
- 
+     inited = true; 
      
  } // if(screenButtons)
 }
@@ -590,13 +566,7 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
  if(screenButtons)
  {
     int pressed_button = screenButtons->checkButtons(BuzzerOn);
-/*
-    if(pressed_button != -1)
-    {
-      // есть клик на кнопку
-      menuManager->buzzer(); // пискнули
-    }
-*/    
+ 
     if(pressed_button == backButton)
     {
       menuManager->switchToScreen("IDLE");
@@ -693,14 +663,12 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
           }
           // включаем кнопку
           screenButtons->enableButton(buttonID, wantRedrawChannel);
-          yield();
        }
        else
        {
           anyChannelActive = true;
          // окно движется, блокируем кнопку
          screenButtons->disableButton(buttonID, wantRedrawChannel);
-         yield();
        }
        
      } // for
@@ -711,16 +679,12 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
      if(anyChannelActive)
      {
       screenButtons->disableButton(1, wantRedrawAllChannelsButtons);
-      yield();
       screenButtons->disableButton(2, wantRedrawAllChannelsButtons);
-      yield();
      }
      else
      {
       screenButtons->enableButton(1, wantRedrawAllChannelsButtons);
-      yield();
       screenButtons->enableButton(2, wantRedrawAllChannelsButtons);      
-      yield();
      }
 
      bool windowsAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
@@ -728,13 +692,11 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
      {
         screenButtons->setButtonBackColor(3,MODE_ON_COLOR);
         screenButtons->relabelButton(3,AUTO_MODE_LABEL,!inited || (windowsAutoMode != lastWindowsAutoMode));
-        yield();
      }
      else
      {
         screenButtons->setButtonBackColor(3,MODE_OFF_COLOR);      
         screenButtons->relabelButton(3,MANUAL_MODE_LABEL,!inited || (windowsAutoMode != lastWindowsAutoMode));
-        yield();
      }
 
       // сохраняем состояние окон
@@ -742,9 +704,6 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
      lastAnyChannelActive = anyChannelActive;
      lastWindowsAutoMode = windowsAutoMode;
      inited = true;
-     
-
- 
      
  } // if(screenButtons)
  #endif // SUPPORTED_WINDOWS > 0
@@ -884,7 +843,6 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
 {
  UNUSED(dt);
 
- 
  if(screenButtons)
  {
     int pressed_button = screenButtons->checkButtons(BuzzerOn);
@@ -972,9 +930,6 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
     }    
        
     inited = true;
-     
-
- 
      
  } // if(screenButtons)
 }
@@ -1401,6 +1356,7 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   menuManager->getRusPrinter()->print(toDraw,curLeft,curTop);
   menuManager->updateBuzzer();  
 
+  yield();
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1453,8 +1409,6 @@ void TFTIdleScreen::updateStatuses(TFTMenu* menuManager)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTIdleScreen::setup(TFTMenu* menuManager)
 {
-
-  
   screenButtons = new UTFT_Buttons_Rus(menuManager->getDC(), menuManager->getTouch(),menuManager->getRusPrinter());
   screenButtons->setTextFont(BigRusFont);
   screenButtons->setButtonColors(TFT_BUTTON_COLORS);
@@ -1582,7 +1536,6 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 #ifdef USE_TEMP_SENSORS
   if(pressed_button == windowsButton)
   {
-   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("WINDOW");
     return;
   }
@@ -1591,7 +1544,6 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 #ifdef USE_WATERING_MODULE
   if(pressed_button == waterButton)
   {
-   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("WATER");
     return;
   }
@@ -1600,7 +1552,6 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 #ifdef USE_LUMINOSITY_MODULE
   if(pressed_button == lightButton)
   {
-   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("LIGHT");
     return;
   }
@@ -1608,13 +1559,11 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 
   if(pressed_button == optionsButton)
   {
-   // menuManager->buzzer(); // пискнули
     menuManager->switchToScreen("OPTIONS");
     return;
   }
 
   updateStatuses(menuManager); // update statuses now
-
 
   #if TFT_SENSOR_BOXES_COUNT > 0
   
@@ -1679,6 +1628,7 @@ void TFTIdleScreen::draw(TFTMenu* menuManager)
     sensors[i]->drawCaption(menuManager,sensorInfo->sensorLabel);
     drawSensorData(menuManager,sensors[i],i,true); // тут перерисовываем показания по-любому
     sensorsTimer = 0; // сбрасываем таймер перерисовки показаний датчиков
+
   }
 
   menuManager->updateBuzzer();
@@ -1887,6 +1837,7 @@ void TFTMenu::update(uint16_t dt)
   // обновляем текущий экран
   TFTScreenInfo* currentScreenInfo = &(screens[currentScreenIndex]);
   currentScreenInfo->screen->update(this,dt);
+  yield();
   
   
 }
@@ -1900,11 +1851,13 @@ void TFTMenu::switchToScreen(const char* screenName)
     TFTScreenInfo* si = &(screens[i]);
     if(!strcmp(si->screenName,screenName))
     {
-      tftDC->fillScr(TFT_BACK_COLOR); // clear screen first
+      tftDC->fillScr(TFT_BACK_COLOR); // clear screen first      
       yield();
       currentScreenIndex = i;
       si->screen->update(this,0);
+      yield();
       si->screen->draw(this);
+      yield();
       resetIdleTimer(); // сбрасываем таймер ничегонеделанья
       break;
     }
