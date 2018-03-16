@@ -253,22 +253,24 @@ void TempSensors::WriteToShiftRegister() // ПИШЕМ В СДВИГОВЫЙ Р�
     //Тут пишем в сдвиговый регистр
 
     // сначала разрешаем установить состояние на выходах
-    digitalWrite(WINDOWS_SHIFT_OE_PIN,LOW);
+    WORK_STATUS.PinWrite(WINDOWS_SHIFT_OE_PIN,LOW);
     
     // Отключаем вывод на регистре
-    digitalWrite(WINDOWS_SHIFT_LATCH_PIN, LOW);
+    WORK_STATUS.PinWrite(WINDOWS_SHIFT_LATCH_PIN, LOW);
 
     // проталкиваем все байты один за другим, начиная со старшего к младшему
       uint8_t i=shiftRegisterDataSize;
     
+      #if (WINDOWS_SHIFT_DATA_PIN < VIRTUAL_PIN_START_NUMBER) && (WINDOWS_SHIFT_CLOCK_PIN < VIRTUAL_PIN_START_NUMBER)
       do
       {    
         // проталкиваем байт в регистр
-        shiftOut(WINDOWS_SHIFT_DATA_PIN, WINDOWS_SHIFT_CLOCK_PIN, MSBFIRST, shiftRegisterData[--i]);
+          shiftOut(WINDOWS_SHIFT_DATA_PIN, WINDOWS_SHIFT_CLOCK_PIN, MSBFIRST, shiftRegisterData[--i]);
       } while(i > 0);
+      #endif
 
       // "защелкиваем" регистр, чтобы байт появился на его выходах
-      digitalWrite(WINDOWS_SHIFT_LATCH_PIN, HIGH);
+      WORK_STATUS.PinWrite(WINDOWS_SHIFT_LATCH_PIN, HIGH);
     
    } // if
   
@@ -403,19 +405,19 @@ void TempSensors::Setup()
 
     // настраиваем пины для сдвигового регистра на выход
     WORK_STATUS.PinMode(WINDOWS_SHIFT_LATCH_PIN,OUTPUT);
-    digitalWrite(WINDOWS_SHIFT_LATCH_PIN, LOW);
+    WORK_STATUS.PinWrite(WINDOWS_SHIFT_LATCH_PIN, LOW);
     
     WORK_STATUS.PinMode(WINDOWS_SHIFT_DATA_PIN,OUTPUT);
-    digitalWrite(WINDOWS_SHIFT_DATA_PIN, LOW);
+    WORK_STATUS.PinWrite(WINDOWS_SHIFT_DATA_PIN, LOW);
     
     WORK_STATUS.PinMode(WINDOWS_SHIFT_CLOCK_PIN,OUTPUT);
-    digitalWrite(WINDOWS_SHIFT_CLOCK_PIN, LOW);
+    WORK_STATUS.PinWrite(WINDOWS_SHIFT_CLOCK_PIN, LOW);
 
     // переводим все выводы в High-Z состояние (они и так уже в нём, 
     // поскольку пин, управляющий OE, подтянут к питанию,
     // но мы не будем мелочиться :) ).
     WORK_STATUS.PinMode(WINDOWS_SHIFT_OE_PIN,OUTPUT);
-    digitalWrite(WINDOWS_SHIFT_OE_PIN,HIGH);
+    WORK_STATUS.PinWrite(WINDOWS_SHIFT_OE_PIN,HIGH);
     
    
     // настраиваем кол-во байт, в котором мы будем держать состояние каналов для сдвигового регистра.

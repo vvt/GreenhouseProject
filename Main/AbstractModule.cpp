@@ -221,7 +221,7 @@ void WorkStatus::PinMode(byte pinNumber,byte mode, bool setMode)
   }
     
 
-   if(setMode)
+   if(setMode && (pinNumber < VIRTUAL_PIN_START_NUMBER))
     pinMode(pinNumber,mode);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
