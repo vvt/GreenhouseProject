@@ -231,6 +231,8 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
       ModuleInterop.QueryCommand(ctSET,command,false);
       yield();
 
+      menuManager->resetIdleTimer();
+
       return;
     }
 
@@ -238,6 +240,7 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
     {
       // включить все каналы
       ModuleInterop.QueryCommand(ctSET,F("WATER|ON"),false);
+      menuManager->resetIdleTimer();
       yield();
       return;
     }
@@ -246,6 +249,7 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
     {
       // выключить все каналы
       ModuleInterop.QueryCommand(ctSET,F("WATER|OFF"),false);
+      menuManager->resetIdleTimer();
       yield();
       return;
     }
@@ -264,6 +268,7 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
       command += channelNum;
       
       ModuleInterop.QueryCommand(ctSET,command,false);
+      menuManager->resetIdleTimer();
       yield();
 
       return;
@@ -410,6 +415,7 @@ void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
       lightAutoMode = !lightAutoMode;
       String command = lightAutoMode ? F("LIGHT|MODE|AUTO") : F("LIGHT|MODE|MANUAL");
       ModuleInterop.QueryCommand(ctSET,command,false);
+      menuManager->resetIdleTimer();
       yield();
 
       return;
@@ -419,6 +425,7 @@ void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
     {
       // включить досветку
       ModuleInterop.QueryCommand(ctSET,F("LIGHT|ON"),false);
+      menuManager->resetIdleTimer();
       yield();
       return;
     }
@@ -427,6 +434,7 @@ void TFTLightScreen::update(TFTMenu* menuManager,uint16_t dt)
     {
       // выключить досветку
       ModuleInterop.QueryCommand(ctSET,F("LIGHT|OFF"),false);
+      menuManager->resetIdleTimer();
       yield();
       return;
     }
@@ -580,6 +588,7 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
       windowsAutoMode = !windowsAutoMode;
       String command = windowsAutoMode ? F("STATE|MODE|AUTO") : F("STATE|MODE|MANUAL");
       ModuleInterop.QueryCommand(ctSET,command,false);
+      menuManager->resetIdleTimer();
       yield();
 
       return;
@@ -589,6 +598,7 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
     {
       // открыть все окна
       ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|OPEN"),false);
+      menuManager->resetIdleTimer();
       yield();
       return;
     }
@@ -597,6 +607,7 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
     {
       // закрыть все окна
       ModuleInterop.QueryCommand(ctSET,F("STATE|WINDOW|ALL|CLOSE"),false);
+      menuManager->resetIdleTimer();
       yield();
       return;
     }
@@ -613,6 +624,7 @@ void TFTWindowScreen::update(TFTMenu* menuManager,uint16_t dt)
 
       command += isWindowOpen ? F("CLOSE") : F("OPEN");
       ModuleInterop.QueryCommand(ctSET,command,false);
+      menuManager->resetIdleTimer();
       yield();
 
       return;
@@ -861,7 +873,7 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       openTemp--;
       MainController->GetSettings()->SetOpenTemp(openTemp);
       drawValueInBox(menuManager,openTempBox,openTemp);  
-
+      menuManager->resetIdleTimer();
       return;
     }
     
@@ -873,7 +885,7 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       openTemp++;
       MainController->GetSettings()->SetOpenTemp(openTemp);
       drawValueInBox(menuManager,openTempBox,openTemp);  
-
+      menuManager->resetIdleTimer();
       return;
     }
     
@@ -885,7 +897,7 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       closeTemp--;
       MainController->GetSettings()->SetCloseTemp(closeTemp);
       drawValueInBox(menuManager,closeTempBox,closeTemp);  
-
+      menuManager->resetIdleTimer();
       return;
     }
 
@@ -897,7 +909,7 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       closeTemp++;
       MainController->GetSettings()->SetCloseTemp(closeTemp);
       drawValueInBox(menuManager,closeTempBox,closeTemp);  
-
+      menuManager->resetIdleTimer();
       return;
     }
 
@@ -911,7 +923,7 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       ulInterval *= 1000;
       MainController->GetSettings()->SetOpenInterval(ulInterval);
       drawValueInBox(menuManager,intervalBox,interval);  
-
+      menuManager->resetIdleTimer();
       return;
     }
     
@@ -925,7 +937,7 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       ulInterval *= 1000;
       MainController->GetSettings()->SetOpenInterval(ulInterval);
       drawValueInBox(menuManager,intervalBox,interval);  
-
+      menuManager->resetIdleTimer();
       return;
     }    
        
