@@ -65,15 +65,15 @@ void MemInit()
 #if EEPROM_USED_MEMORY == EEPROM_BUILTIN
   // не надо инициализировать дополнительно
 #elif EEPROM_USED_MEMORY == EEPROM_AT24C32
-   memoryBank = new AT24C32();
+   memoryBank = new AT24C32(EEPROM_MEMORY_INDEX);
 #elif EEPROM_USED_MEMORY == EEPROM_AT24C64
-  memoryBank = new AT24C64();
+  memoryBank = new AT24C64(EEPROM_MEMORY_INDEX);
 #elif EEPROM_USED_MEMORY == EEPROM_AT24C128
- memoryBank = new AT24C128();
+ memoryBank = new AT24C128(EEPROM_MEMORY_INDEX);
 #elif EEPROM_USED_MEMORY == EEPROM_AT24C256
- memoryBank = new AT24C256();
+ memoryBank = new AT24C256(EEPROM_MEMORY_INDEX);
 #elif EEPROM_USED_MEMORY == EEPROM_AT24C512
-  memoryBank = new AT24C512();
+  memoryBank = new AT24C512(EEPROM_MEMORY_INDEX);
 #endif  
 }
 //--------------------------------------------------------------------------------------------------------------------------------
