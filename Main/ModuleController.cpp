@@ -11,6 +11,20 @@ PublishStruct PublishSingleton;
 ModuleController* MainController = NULL;
 SdFat SDFat;
 //--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_DS3231_REALTIME_CLOCK
+void setFileDateTime(uint16_t* date, uint16_t* time) 
+{
+  DS3231Clock rtc = MainController->GetClock();
+  DS3231Time tm = rtc.getTime();
+
+  // return date using FAT_DATE macro to format fields
+  *date = FAT_DATE(tm.year, tm. month, tm. dayOfMonth);
+
+  // return time using FAT_TIME macro to format fields
+  *time = FAT_TIME(tm.hour, tm. minute, tm. second);
+}
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 void FileUtils::RemoveFiles(const String& dirName, bool recursive)
 {
   const char* dirP = dirName.c_str();
@@ -193,7 +207,9 @@ void ModuleController::Setup()
 
 #ifdef USE_DS3231_REALTIME_CLOCK
 _rtc.begin();
+SdFile::dateTimeCallback(setFileDateTime);
 #endif
+
 
 #if  defined(USE_WIFI_MODULE) || defined(USE_LOG_MODULE) || defined(USE_SMS_MODULE) || (defined(SENSORS_SETTINGS_ON_SD_ENABLED) && defined(USE_LCD_MODULE))
 
