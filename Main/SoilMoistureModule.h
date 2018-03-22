@@ -1,15 +1,23 @@
-#ifndef _SOIL_MOISTURE_MODULE_H
-#define _SOIL_MOISTURE_MODULE_H
-
+#pragma once
+//--------------------------------------------------------------------------------------------------------------------------------------
 #include "AbstractModule.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_SOIL_MOISTURE_MODULE
-
+//--------------------------------------------------------------------------------------------------------------------------------------
+enum
+{
+  SOIL_WAIT_INTERVAL,
+  SOIL_WAIT_POWER
+};
+//--------------------------------------------------------------------------------------------------------------------------------------
 class SoilMoistureModule : public AbstractModule // модуль датчиков влажности почвы
 {
   private:
   
     uint16_t lastUpdateCall;
+    uint8_t machineState;
+
+    void readFromSensors();
   
   public:
     SoilMoistureModule() : AbstractModule("SOIL"), lastUpdateCall(SOIL_MOISTURE_UPDATE_INTERVAL-387) {}
@@ -21,4 +29,4 @@ class SoilMoistureModule : public AbstractModule // модуль датчико�
 };
 #endif // USE_SOIL_MOISTURE_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------
-#endif
+
