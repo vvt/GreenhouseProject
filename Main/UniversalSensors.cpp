@@ -119,7 +119,18 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
               #ifdef RS485_DEBUG
                 DEBUG_LOGLN(F("RS485: Open windows!"));        
               #endif
-              ModuleInterop.QueryCommand(ctSET, F("STATE|WINDOW|ALL|OPEN"),false);          
+
+              String cmd = F("STATE|WINDOW|ALL|OPEN");
+              
+              if(cePacket->commands[i].param2 > 0)
+              {
+                // запросили открыть на проценты
+                cmd += '|';
+                cmd += cePacket->commands[i].param2;
+                cmd += "%";
+              }
+              
+              ModuleInterop.QueryCommand(ctSET, cmd,false);          
           }
           break;
           
@@ -140,6 +151,14 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
               String cmd = F("STATE|WINDOW|");
               cmd += cePacket->commands[i].param1;
               cmd += F("|OPEN");
+
+              if(cePacket->commands[i].param2 > 0)
+              {
+                // запросили открыть на проценты
+                cmd += '|';
+                cmd += cePacket->commands[i].param2;
+                cmd += "%";
+              }
               ModuleInterop.QueryCommand(ctSET, cmd,false);          
           }
           break;          
