@@ -24,6 +24,12 @@
 //----------------------------------------------------------------------------------------------------------------
 //#define _DEBUG // раскомментировать для отладочного режима (плюётся в Serial, RS485, ясное дело, в таком режиме не работает)
 //----------------------------------------------------------------------------------------------------------------
+// раскомментировать, если нужно использовать одну кнопку для комплементарных команд, например, "вкл/выкл полив".
+// в режиме комплементарных команд после первого нажатия на кнопку команда, привязанная к кнопке, меняется на комплементарную,
+// например: если к кнопке привязана команда emCommandOpenWindows, то после клика на кнопку к ней станет привязана команда emCommandCloseWindows,
+// т.е. при первом нажатии на кнопку окна откроются, при втором - закроются.
+//#define USE_DUAL_STATE_BUTTONS
+//----------------------------------------------------------------------------------------------------------------
 // настройки кнопок и привязки их к командам
 //----------------------------------------------------------------------------------------------------------------
 BUTTON commands[7] = {
@@ -427,7 +433,65 @@ void updateButtons()
 
       currentState[i].whichCommand = commands[i].whichCommand;
       currentState[i].param1 = commands[i].param1;
-      currentState[i].param2 = commands[i].param2;    
+      currentState[i].param2 = commands[i].param2;
+
+      #ifdef USE_DUAL_STATE_BUTTONS
+      
+        switch(commands[i].whichCommand)
+        {
+          case emCommandNone:
+          break;
+
+          case emCommandOpenWindows:
+            commands[i].whichCommand = emCommandCloseWindows;
+          break;
+
+          case emCommandCloseWindows:
+            commands[i].whichCommand = emCommandOpenWindows;
+          break;
+
+          case emCommandOpenWindow:
+            commands[i].whichCommand = emCommandCloseWindow;
+          break;
+
+          case emCommandCloseWindow:
+            commands[i].whichCommand = emCommandOpenWindow;
+          break;
+
+          case emCommandWaterOn:
+            commands[i].whichCommand = emCommandWaterOff;
+          break;
+          
+          case emCommandWaterOff:
+            commands[i].whichCommand = emCommandWaterOn;
+          break;
+          
+          case emCommandWaterChannelOn:
+            commands[i].whichCommand = emCommandWaterChannelOff;
+          break;
+          
+          case emCommandWaterChannelOff:
+            commands[i].whichCommand = emCommandWaterChannelOn;
+          break;
+          
+          case emCommandLightOn:
+            commands[i].whichCommand = emCommandLigntOff;
+          break;
+          
+          case emCommandLigntOff:
+            commands[i].whichCommand = emCommandLightOn;
+          break;
+          
+          case emCommandPinOn:
+            commands[i].whichCommand = emCommandPinOff;
+          break;
+          
+          case emCommandPinOff:
+            commands[i].whichCommand = emCommandPinOn;
+          break;
+          
+        } // switch
+      #endif // USE_DUAL_STATE_BUTTONS
         
     } // if
   } // for
