@@ -255,7 +255,16 @@ void UniRS485Gate::executeCommands(const RS485Packet& packet)
               cmd += F("|OFF");
               ModuleInterop.QueryCommand(ctSET, cmd,false);          
           }
-          break;            
+          break;
+
+          case emCommandAutoMode:
+          {
+              #ifdef RS485_DEBUG
+                DEBUG_LOGLN(F("RS485: AUTO MODE!"));        
+              #endif
+              ModuleInterop.QueryCommand(ctSET, F("0|AUTO"),false);               
+          }
+          break;
                   
       } // switch
     
