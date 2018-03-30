@@ -799,7 +799,7 @@
 // sensor data in format { module_name, sensor_type, sensor_index, sensor_label }
 // определение датчиков для TFT, в формате {модуль, тип_показаний, индекс_датчика, подпись_датчика}
 // количество - равное TFT_SENSOR_BOXES_COUNT !!!
-#define TFT_SENSORS {"STATE",StateTemperature,0,"Снаружи"}, {"STATE",StateTemperature,1,"Внутри 1"}, {"STATE",StateTemperature,2,"Внутри 2"}, {"HUMIDITY",StateHumidity,0,"Si7021"}, {"HUMIDITY",StateHumidity,1,"DHT22"}, {"LIGHT",StateLuminosity,0,"Освещённость"}
+#define TFT_SENSORS {"STATE",StateTemperature,1,"Снаружи теплицы"}, {"STATE",StateTemperature,0,"Внутри секции 1"}, {"STATE",StateTemperature,2,"Внутри секции 2"}, {"HUMIDITY",StateHumidity,0,"Влажность Si7021"}, {"HUMIDITY",StateHumidity,1,"Влажность DHT22"}, {"LIGHT",StateLuminosity,0,"Освещённость"}
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // decimal separator, comma (charComma) by default. Use charDot for dot.
 // разделитель целой и дробной части показаний, по умолчанию - запятая (charComma). Используйте charDot для точки.
