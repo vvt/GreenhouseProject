@@ -18,7 +18,7 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LCD_MODULE
 
-#include "U8glib.h"
+#include <U8glib.h>
 #include "rus6x10.h" // подключаем нужный шрифт
 #include "TinyVector.h"
 #include "PushButton.h"
