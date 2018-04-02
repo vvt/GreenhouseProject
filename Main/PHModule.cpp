@@ -38,15 +38,21 @@ void PCF8574::begin()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t PCF8574::read8()
 {
-  Wire.beginTransmission(_address);
-  Wire.requestFrom(_address, 1);
+ // Wire.beginTransmission(_address);
+  if(Wire.requestFrom(_address, 1) == 1)
+  {
     
 #if (ARDUINO <  100)
    _data = Wire.receive();
 #else
    _data = Wire.read();
 #endif
-  _error = Wire.endTransmission();
+  }
+  else
+  {
+    //_error = Wire.endTransmission();
+    _error = -100;
+  }
   return _data;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------

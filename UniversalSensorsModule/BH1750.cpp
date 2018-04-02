@@ -39,7 +39,7 @@ long BH1750Support::GetCurrentLuminosity()
 
   long curLuminosity = NO_LUMINOSITY_DATA;
 
-  Wire.beginTransmission(deviceAddress); // начинаем опрос датчика освещенности
+ //// Wire.beginTransmission(deviceAddress); // начинаем опрос датчика освещенности
  if(Wire.requestFrom(deviceAddress, 2) == 2)// ждём два байта
  {
   // читаем два байта
@@ -49,7 +49,7 @@ long BH1750Support::GetCurrentLuminosity()
   curLuminosity = curLuminosity/1.2; // конвертируем в люксы
  }
 
-  Wire.endTransmission();
+ //// Wire.endTransmission();
 
 
   return curLuminosity;
