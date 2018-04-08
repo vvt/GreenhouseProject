@@ -1667,6 +1667,15 @@ void TFTMenu::setup()
   tftDC = new UTFT(TFT_MODEL,TFT_RS_PIN,TFT_WR_PIN,TFT_CS_PIN,TFT_RST_PIN);
   tftTouch = new URTouch(TFT_TOUCH_CLK_PIN,TFT_TOUCH_CS_PIN,TFT_TOUCH_DIN_PIN,TFT_TOUCH_DOUT_PIN,TFT_TOUCH_IRQ_PIN);
 
+  #ifdef TFT_EXTRA_RESET
+    pinMode(TFT_RST_PIN,OUTPUT);
+    digitalWrite(TFT_RST_PIN,HIGH);
+    delay(10);
+    digitalWrite(TFT_RST_PIN,LOW);
+    delay(10);
+    digitalWrite(TFT_RST_PIN,HIGH);        
+  #endif
+
   #if TFT_INIT_DELAY > 0
   delay(TFT_INIT_DELAY);
   #endif
