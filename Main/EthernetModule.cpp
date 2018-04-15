@@ -56,7 +56,7 @@ void EthernetModule::Update(uint16_t dt)
 
   #ifdef ETHERNET_DEBUG
     DEBUG_LOG(F("[LAN] server started at "));
-    DEBUG_LOGLN(Ethernet.localIP());
+    DEBUG_LOGLN(String(Ethernet.localIP()));
   #endif
 
   WORK_STATUS.PinMode(10,OUTPUT,false);
