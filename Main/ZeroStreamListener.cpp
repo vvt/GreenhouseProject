@@ -23,6 +23,11 @@
 #ifdef USE_NRF_GATE
   UniNRFGate nrfGate;
 #endif
+
+#ifdef USE_LORA_GATE
+  UniLoRaGate loraGate;
+#endif
+
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void(* resetFunc) (void) = 0;
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -41,7 +46,10 @@ void ZeroStreamListener::Setup()
 #ifdef USE_NRF_GATE
   nrfGate.Setup();
 #endif  
-  
+
+#ifdef USE_LORA_GATE
+  loraGate.Setup();
+#endif  
  }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void ZeroStreamListener::Update(uint16_t dt)
@@ -92,6 +100,10 @@ void ZeroStreamListener::Update(uint16_t dt)
 
 #ifdef USE_NRF_GATE
   nrfGate.Update(dt);
+#endif    
+
+#ifdef USE_LORA_GATE
+  loraGate.Update(dt);
 #endif    
 
 }

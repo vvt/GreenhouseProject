@@ -30,6 +30,10 @@
 // nRF debug mode (Don't use configuration software, only Port Monitor!)
 //#define NRF_DEBUG
 //--------------------------------------------------------------------------------------------------------------------------------
+// отладочный режим LoRa, (КОНФИГУРАТОР НЕ ЗАПУСКАТЬ, ТОЛЬКО МОНИТОР ПОРТА!)
+// LoRa debug mode (Don't use configuration software, only Port Monitor!)
+//#define LORA_DEBUG
+//--------------------------------------------------------------------------------------------------------------------------------
 // отладочный режим RS-485, (КОНФИГУРАТОР НЕ ЗАПУСКАТЬ, ТОЛЬКО МОНИТОР ПОРТА!)
 // RS-485 debug mode (Don't use configuration software, only Port Monitor!)
 //#define RS485_DEBUG 

@@ -11,7 +11,7 @@ Project WIKI is located <a href="https://github.com/Porokhnya/GreenhouseProject/
   <li>Publish MQTT-topics;</li>
   <li>Can be controlled via SMS and MQTT;</li>
   <li>Able to use different gates to WAN/LAN: GSM/GPRS (SIM800), Wi-Fi (ESP8266), LAN (W5100);</li>
-  <li>Able to work with sensors using different ways - connected directly to microcontroller, through RS-485, 1-Wire, nRF;</li>
+  <li>Able to work with sensors using different ways - connected directly to microcontroller, through RS-485, 1-Wire, nRF, LoRa;</li>
   <li>Able to be configured by using smart rules - is the key feature of the firmware, where user can provide and manage the needed firmware behaviour;</li>
   <li>Work with different display models - Nextion, LCD 128x64, 7" TFT on Arduino Due;</li>
   <li>Work with different microcontrollers: Arduino Mega, Arduino Due and any PCB, based on it;</li>
@@ -19,7 +19,7 @@ Project WIKI is located <a href="https://github.com/Porokhnya/GreenhouseProject/
   <li>Work with many sensors of many types (humidity, temperature, water flow and so on);</li>
   <li>Compute deltas within two sensors, even different hardware types (for example, compute temperature delta between DS18B20 and DHT22);</li>
   <li>Work with reservation lists;</li>
-  <li>Work with universal modules - is the key feature of the firmware, when the sensors connected to the universal module PCB, and can be queried through RS-485, 1-Wire, nRF;</li>
+  <li>Work with universal modules - is the key feature of the firmware, when the sensors connected to the universal module PCB, and can be queried through RS-485, 1-Wire, nRF, LoRa;</li>
   <li>Gather logs to many locations: local file on SD-card, web-based interface, GardenBoss.ru and so on;</li>
   <li>Alarm support: when the rule is raised by its conditions - you will receive alarm SMS;</li>
   <li>And many, many tasty features...</li>

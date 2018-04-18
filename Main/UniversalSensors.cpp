@@ -2548,6 +2548,8 @@ bool UniRegistrationLine::SetScratchpadData(UniRawScratchpad* src)
   return true;
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
+#define RADIO_PAYLOAD_SIZE 30 // размер нашего пакета для передачи по радиоканалам
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_NRF_GATE
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <RF24.h>
@@ -2556,7 +2558,6 @@ RF24 radio(NRF_CE_PIN,NRF_CSN_PIN);
 uint64_t controllerStatePipe = 0xF0F0F0F0E0LL; // труба, в которую  мы пишем состояние контроллера
 // трубы, которые мы слушаем на предмет показаний с датчиков
 const uint64_t readingPipes[5] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0E2LL, 0xF0F0F0F0E3LL, 0xF0F0F0F0E4LL, 0xF0F0F0F0E5LL };
-#define PAYLOAD_SIZE 30 // размер нашего пакета
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef NRF_DEBUG
 int serial_putc( char c, FILE * ) {
@@ -2759,7 +2760,7 @@ void UniNRFGate::Update(uint16_t dt)
         radio.stopListening();
     
         // пишем наш скратч в эфир
-        radio.write(&packet,PAYLOAD_SIZE);
+        radio.write(&packet,RADIO_PAYLOAD_SIZE);
     
         // включаем прослушку
         radio.startListening();
@@ -2778,7 +2779,7 @@ void UniNRFGate::Update(uint16_t dt)
   {
      static UniRawScratchpad nrfScratch;
      // читаем скратч
-     radio.read(&nrfScratch,PAYLOAD_SIZE);
+     radio.read(&nrfScratch,RADIO_PAYLOAD_SIZE);
 
      #ifdef NRF_DEBUG
       DEBUG_LOGLN(F("Received the scratch via radio..."));
@@ -2946,7 +2947,7 @@ void UniNRFGate::initNRF()
     radio.setPALevel(RF24_PA_MAX);
     radio.setChannel(UniDispatcher.GetRFChannel());
     radio.setRetries(15,15);
-    radio.setPayloadSize(PAYLOAD_SIZE); // у нас 30 байт на пакет
+    radio.setPayloadSize(RADIO_PAYLOAD_SIZE); // у нас 30 байт на пакет
     radio.setCRCLength(RF24_CRC_16);
     radio.setAutoAck(
       #ifdef NRF_AUTOACK_INVERTED
@@ -2973,5 +2974,327 @@ void UniNRFGate::initNRF()
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif // USE_NRF_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_LORA_GATE
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#include "LoRa.h"
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+UniLoRaGate::UniLoRaGate()
+{
+  bFirstCall = true;
+  loRaInited = false;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+bool UniLoRaGate::isInOnlineQueue(byte sensorType,byte sensorIndex, byte& result_index)
+{
+  for(size_t i=0;i<sensorsOnlineQueue.size();i++)
+    if(sensorsOnlineQueue[i].sensorType == sensorType && sensorsOnlineQueue[i].sensorIndex == sensorIndex)
+    {
+      result_index = i;
+      return true;
+    }
+  return false;
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniLoRaGate::Setup()
+{
+  #ifdef USE_LORA_REBOOT_PIN
+    WORK_STATUS.PinMode(LORA_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(LORA_REBOOT_PIN,LORA_POWER_ON);
+  #endif
+  
+  initLoRa();
+  memset(&packet,0,sizeof(packet));
+  ControllerState st = WORK_STATUS.GetState();
+  // копируем состояние контроллера к нам
+  memcpy(&(packet.state),&st,sizeof(ControllerState));
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniLoRaGate::Update(uint16_t dt)
+{
+  if(!loRaInited)
+    return;
+
+  static uint16_t onlineCheckTimer = 0;
+  onlineCheckTimer += dt;
+  if(onlineCheckTimer > 5000)
+  {
+    onlineCheckTimer = 0;
+
+    //Тут, раз в пять секунд - мы должны проверять, не истёк ли интервал
+    // получения показаний с датчиков, показания с которых были получены ранее.
+    // если интервал истёк - мы должны выставить датчику показания "нет данных"
+    // и удалить его из очереди.
+
+    byte count_passes = sensorsOnlineQueue.size();
+    byte cur_idx = count_passes-1;
+
+    unsigned long nowTime = millis();
+
+    // проходим от хвоста до головы
+    while(count_passes)
+    {
+      LoRaQueueItem* qi = &(sensorsOnlineQueue[cur_idx]);
+
+      // вычисляем интервал в миллисекундах
+      unsigned long query_interval = qi->queryInterval*1000;
+      
+      // смотрим, не истёк ли интервал с момента последнего опроса
+      if((nowTime - qi->gotLastDataAt) > (query_interval+3000) )
+      {
+        
+        // датчик не откликался дольше, чем интервал между опросами плюс дельта в 3 секунды,
+        // надо ему выставить показания "нет данных"
+          byte sType = qi->sensorType;
+          byte sIndex = qi->sensorIndex;
+        
+          UniDispatcher.AddUniSensor((UniSensorType)sType,sIndex);
+
+            // проверяем тип датчика, которому надо выставить "нет данных"
+            switch(qi->sensorType)
+            {
+              case uniTemp:
+              {
+                // температура
+                Temperature t;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&t);
+                } // if
+              }
+              break;
+
+              case uniHumidity:
+              {
+                // влажность
+                Humidity h;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&h);
+
+                  if(states.State2)
+                    states.State2->Update(&h);
+                } // if                        
+              }
+              break;
+
+              case uniLuminosity:
+              {
+                // освещённость
+                long lum = NO_LUMINOSITY_DATA;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&lum);
+                } // if                        
+                
+                
+              }
+              break;
+
+              case uniSoilMoisture: // влажность почвы
+              case uniPH: // показания pH
+              {
+                
+                Humidity h;
+                // получаем состояния
+                UniSensorState states;
+                if(UniDispatcher.GetRegisteredStates((UniSensorType)sType,sIndex,states))
+                {
+                  if(states.State1)
+                    states.State1->Update(&h);
+                } // if                        
+                
+              }
+              break;
+              
+            } // switch
+
+        // теперь удаляем оффлайн-датчик из очереди
+        sensorsOnlineQueue.pop();
+        
+      } // if((nowTime
+      
+      count_passes--;
+      cur_idx--;
+    } // while
+    
+   
+  } // if onlineCheckTimer
+
+  static uint16_t controllerStateTimer = 0;
+  controllerStateTimer += dt;
+
+  // чтобы часто не проверять состояние контроллера
+  if(controllerStateTimer > LORA_CONTROLLER_STATE_CHECK_FREQUENCY)
+  {
+    controllerStateTimer = 0;
+    
+      // получаем текущее состояние контроллера
+      ControllerState st = WORK_STATUS.GetState();
+      if(bFirstCall || memcmp(&st,&(packet.state),sizeof(ControllerState)))
+      {
+        bFirstCall = false;
+        // состояние контроллера изменилось, посылаем его в эфир
+         memcpy(&(packet.state),&st,sizeof(ControllerState));
+         packet.controller_id = UniDispatcher.GetControllerID();
+         packet.crc8 = OneWire::crc8((const byte*) &packet,sizeof(packet)-1);
+    
+         #ifdef LORA_DEBUG
+         DEBUG_LOGLN(F("LoRa: Controller state changed, send it..."));
+         #endif // LORA_DEBUG
+      
+        LoRa.beginPacket();
+    
+        // пишем наш скратч в эфир
+        LoRa.write((uint8_t*) &packet,RADIO_PAYLOAD_SIZE);
+    
+        // включаем прослушку
+        LoRa.endPacket();
+        LoRa.receive();
+    
+        #ifdef LORA_DEBUG
+        DEBUG_LOGLN(F("LoRa: Controller state sent."));
+        #endif // LORA_DEBUG
+            
+      } // if
+      
+  } // if(controllerStateTimer > LORA_CONTROLLER_STATE_CHECK_FREQUENCY
+
+  // тут читаем данные из LoRa
+  int packetSize = LoRa.parsePacket();
+  if(packetSize >= RADIO_PAYLOAD_SIZE)
+  {
+     static UniRawScratchpad loRaScratch;
+     // читаем скратч
+     LoRa.readBytes((uint8_t*) &loRaScratch,RADIO_PAYLOAD_SIZE);
+
+     #ifdef LORA_DEBUG
+      DEBUG_LOGLN(F("LoRa: Received the scratch via radio..."));
+     #endif
+
+     byte checksum = OneWire::crc8((const byte*)&loRaScratch,sizeof(UniRawScratchpad)-1);
+     if(checksum == loRaScratch.crc8)
+     {
+      #ifdef LORA_DEBUG
+      DEBUG_LOGLN(F("LoRa: Checksum OK"));
+     #endif
+
+      // проверяем, наш ли пакет
+      if(loRaScratch.head.controller_id == UniDispatcher.GetControllerID())
+      {
+      #ifdef LORA_DEBUG
+      DEBUG_LOGLN(F("LoRa: Packet for us :)"));
+      #endif  
+          // наш пакет, продолжаем
+          AbstractUniClient* client = UniFactory.GetClient(&loRaScratch);
+          client->Register(&loRaScratch);
+          client->Update(&loRaScratch,true,ssRadio);
+
+          //Тут мы должны для всех датчиков модуля добавить в онлайн-очередь
+          // время последнего получения значений и интервал между опросами модуля,
+          // если таких данных ещё нету у нас.
+
+              UniSensorsScratchpad* ourScrath = (UniSensorsScratchpad*) &(loRaScratch.data);       
+                   
+              for(byte i=0;i<MAX_UNI_SENSORS;i++)
+              {
+                byte type = ourScrath->sensors[i].type;
+                if(type == NO_SENSOR_REGISTERED) // нет типа датчика 
+                  continue;
+            
+                UniSensorType ut = (UniSensorType) type;
+                
+                if(ut == uniNone || ourScrath->sensors[i].index == NO_SENSOR_REGISTERED) // нет типа датчика
+                  continue;
+            
+                // имеем тип датчика, можем проверять, есть ли он у нас в онлайновых
+                byte result_index = 0;
+                if(isInOnlineQueue(type,ourScrath->sensors[i].index,result_index))
+                {
+                  // он уже был онлайн, надо сбросить таймер опроса
+                  LoRaQueueItem* qi = &(sensorsOnlineQueue[result_index]);
+                  qi->gotLastDataAt = millis();
+                }
+                else
+                {
+                  // датчик не был в онлайн очереди, надо его туда добавить
+                  LoRaQueueItem qi;
+                  qi.sensorType = type;
+                  qi.sensorIndex = ourScrath->sensors[i].index;
+                  qi.queryInterval = ourScrath->query_interval_min*60 + ourScrath->query_interval_sec;
+                  qi.gotLastDataAt = millis();
+
+                  sensorsOnlineQueue.push_back(qi);
+                } // else
+                
+              } // for
+
+
+          
+
+      #ifdef LORA_DEBUG
+      DEBUG_LOGLN(F("LoRa: Controller data updated."));
+      #endif  
+
+      }
+      #ifdef LORA_DEBUG
+      else 
+      {
+        DEBUG_LOG(F("LoRa: Unknown controller "));
+        DEBUG_LOGLN(String(loRaScratch.head.controller_id));
+      }
+      #endif       
+       
+      
+     } // checksum
+      #ifdef LORA_DEBUG
+      else
+      DEBUG_LOGLN(F("LoRa: Checksum FAIL"));
+     #endif
+    
+    
+  } // available
+  
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+void UniLoRaGate::initLoRa()
+{
+  // инициализируем LoRa
+  LoRa.setPins(LORA_SS_PIN,LORA_RESET_PIN,-1);
+  loRaInited = LoRa.begin(LORA_FREQUENCY);
+
+  if(loRaInited)
+  {
+
+  WORK_STATUS.PinMode(LORA_SS_PIN,OUTPUT,false);
+  WORK_STATUS.PinMode(LORA_RESET_PIN,OUTPUT,false);
+  WORK_STATUS.PinMode(MOSI,OUTPUT,false);
+  WORK_STATUS.PinMode(MISO,INPUT,false);
+  WORK_STATUS.PinMode(SCK,OUTPUT,false);
+
+  LoRa.setTxPower(LORA_TX_POWER);
+  LoRa.receive(); // начинаем слушать
+
+  #ifdef LORA_DEBUG
+  DEBUG_LOGLN(F("LoRa: inited."));
+  #endif    
+
+  } // loRaInited
+  #ifdef LORA_DEBUG
+  else
+  DEBUG_LOGLN(F("LoRa: INIT FAIL !!!"));
+  #endif
+}
+//-------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_LORA_GATE
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 
