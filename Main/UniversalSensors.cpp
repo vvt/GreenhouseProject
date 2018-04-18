@@ -2565,7 +2565,9 @@ int serial_putc( char c, FILE * ) {
 }
 
 void printf_begin(void) {
+  #if TARGET_BOARD != DUE_BOARD
   fdevopen( &serial_putc, 0 );
+  #endif
   Serial.println(F("Init nRF..."));
 }
 #endif // NRF_DEBUG
