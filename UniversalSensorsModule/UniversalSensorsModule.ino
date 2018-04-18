@@ -1517,21 +1517,42 @@ void sendDataViaLoRa()
     Serial.println(F("Send sensors data via LoRa..."));
   #endif
 
-  // подсчитываем контрольную сумму
-  scratchpadS.crc8 = OneWireSlave::crc8((const byte*)&scratchpadS,sizeof(scratchpadS)-1);      
+  bool sendDone = false;
 
-  LoRa.beginPacket();
-  LoRa.write((byte*)&scratchpadS,sizeof(scratchpadS)); // пишем в эфир
-  LoRa.endPacket();
-  
+    for(int i=0;i<5;i++) // пытаемся послать 5 раз
+    {
+        // подсчитываем контрольную сумму
+        scratchpadS.crc8 = OneWireSlave::crc8((const byte*)&scratchpadS,sizeof(scratchpadS)-1);  
+        LoRa.beginPacket();
+        LoRa.write((byte*)&scratchpadS,sizeof(scratchpadS)); // пишем в эфир
+        if(LoRa.endPacket()) // пишем в него
+        {
+          sendDone = true;
+          break;
+        }
+        else
+        {
+          delay(random(10));
+        }
+    } // for
+
+    if(!sendDone)
+    {
+      #ifdef _DEBUG
+        Serial.println(F("NO RECEIVING SIDE FOUND!"));
+      #endif      
+    }
+    else
+    {
+      #ifdef _DEBUG
+        Serial.println(F("Sensors data sent."));
+      #endif
+    }
+    
   LoRa.receive();
 
   // рандомная задержка
   delay(random(50));
-
-  #ifdef _DEBUG
-    Serial.println(F("LoRa: sensors data was sent."));
-  #endif
 
 }
 //----------------------------------------------------------------------------------------------------------------
