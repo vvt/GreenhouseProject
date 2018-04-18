@@ -1521,10 +1521,13 @@ void sendDataViaLoRa()
   scratchpadS.crc8 = OneWireSlave::crc8((const byte*)&scratchpadS,sizeof(scratchpadS)-1);      
 
   LoRa.beginPacket();
-  LoRa.write((byte*)&scratchpadS,sizeof(scratchpadS)); // пишем в эфик
+  LoRa.write((byte*)&scratchpadS,sizeof(scratchpadS)); // пишем в эфир
   LoRa.endPacket();
   
   LoRa.receive();
+
+  // рандомная задержка
+  delay(random(50));
 
   #ifdef _DEBUG
     Serial.println(F("LoRa: sensors data was sent."));
