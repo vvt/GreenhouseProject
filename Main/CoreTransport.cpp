@@ -3470,6 +3470,15 @@ void CoreSIM800Transport::sendCommand(SIM800Commands command)
     }
     break;
 
+    case smaCIPSHUT:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Deactivate GPRS connection..."));
+      #endif
+      sendCommand(F("AT+CIPSHUT"));      
+    }
+    break;
+
     case smaCIICR:
     {
       #ifdef GSM_DEBUG_MODE
@@ -3684,8 +3693,11 @@ bool CoreSIM800Transport::isKnownAnswer(const String& line, SIM800KnownAnswer& r
     result = gsmCloseOk;
     return true;
   }
-  
-
+   if(line.endsWith(F("SHUT OK")))
+  {
+    result = gsmShutOk;
+    return true;
+  }  
   
   return false;
 }
@@ -4747,6 +4759,21 @@ void CoreSIM800Transport::update()
                   }
                   break; // smaCIPHEAD
 
+                  case smaCIPSHUT:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(knownAnswer == gsmShutOk || knownAnswer == gsmError)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                          DEBUG_LOGLN(F("SIM800: CIPSHUT command processed."));
+                        #endif
+                        machineState = sim800Idle; // переходим к следующей команде
+                      }
+                    }
+                  }
+                  break; // smaCIPSHUT                  
+
                   case smaCIICR:
                   {
                     if(isKnownAnswer(thisCommandLine,knownAnswer))
@@ -5344,7 +5371,9 @@ void CoreSIM800Transport::createInitCommands(bool addResetCommand)
   {
     initCommandsQueue.push_back(smaCSTT);
   }
-  
+
+  initCommandsQueue.push_back(smaCIPSHUT);
+
   initCommandsQueue.push_back(smaCIPMUX);
   initCommandsQueue.push_back(smaCIPMODE);
   initCommandsQueue.push_back(smaWaitReg); // ждём регистрации

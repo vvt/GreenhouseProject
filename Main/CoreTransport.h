@@ -422,7 +422,8 @@ typedef enum
   smaGPRSMultislotClass,
 #ifdef GSM_PULL_GPRS_BY_PING  
   smaPING,
-#endif  
+#endif
+  smaCIPSHUT  
 } SIM800Commands;
 //--------------------------------------------------------------------------------------------------------------------------------------
 typedef Vector<SIM800Commands> SIM800CommandsList;
@@ -450,6 +451,7 @@ typedef enum
   gsmConnectFail,
   gsmAlreadyConnect,
   gsmCloseOk,
+  gsmShutOk,
   
 } SIM800KnownAnswer;
 //--------------------------------------------------------------------------------------------------------------------------------------
