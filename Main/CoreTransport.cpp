@@ -3942,7 +3942,7 @@ void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
     return;   
   } // if(line.startsWith(F("+CUSD:")))
   else
-  if(line.startsWith(F("+PDP:DEACT")))
+  if(line.startsWith(F("+PDP: DEACT")))
   {
       #ifdef GSM_DEBUG_MODE
         DEBUG_LOGLN(F("SIM800: GPRS connection broken, restart!")); 
