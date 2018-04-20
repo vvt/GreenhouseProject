@@ -890,6 +890,14 @@ void SMSModule::OnClientDataAvailable(CoreTransportClient& client, uint8_t* data
    {
       #ifdef GSM_DEBUG_MODE
         DEBUG_LOGLN(F("DATA AVAILABLE FOR GARDENBOSS.RU !!!"));
+        /*
+        DEBUG_LOGLN(F("DATA IS: "));
+        for(size_t i=0;i<dataSize;i++)
+        {
+          Serial.print((char)data[i]);
+        }
+        Serial.println();
+        */
       #endif
 
       processGardenbossData(data, dataSize, isDone);
@@ -1303,6 +1311,14 @@ bool  SMSModule::ExecCommand(const Command& command, bool wantAnswer)
           PublishSingleton = STAT_COMMAND; 
           PublishSingleton << PARAM_DELIMITER << REG_SUCC;
         }
+        #ifdef GSM_DEBUG_MODE
+        else if(t == F("DUMP"))
+        {
+          SIM800.dumpReceiveBuffer();
+          PublishSingleton.Flags.Status = true;
+          PublishSingleton = t;
+        }
+        #endif
         else if(t == F("PROV")) // запросили провайдера GSM
         {
           PublishSingleton.Flags.Status = true;

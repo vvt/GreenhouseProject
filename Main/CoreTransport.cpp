@@ -3287,7 +3287,7 @@ CoreSIM800Transport::CoreSIM800Transport() : CoreTransport(SIM800_MAX_CLIENTS)
   recursionGuard = 0;
   flags.waitCipstartConnect = false;
   cipstartConnectClient = NULL;
-  workStream = NULL;
+  workStream = NULL;  
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -3578,6 +3578,15 @@ void CoreSIM800Transport::sendCommand(SIM800Commands command)
     }
     break;
 
+    case smaGPRSMultislotClass:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Set GPRS multislot class..."));
+      #endif
+      sendCommand(F("AT+CGMSCLASS=4"));
+    }
+    break;    
+
     case smaWaitReg:
     {
       #ifdef GSM_DEBUG_MODE
@@ -3593,8 +3602,25 @@ void CoreSIM800Transport::sendCommand(SIM800Commands command)
       DEBUG_LOGLN(F("SIM800: Check if modem available..."));
       #endif
       sendCommand(F("AT"));
+      //sendCommand(F("AT+CIPPING=\"google.com\",2,32,2,64"));
+      //sendCommand(F("AT+CGATT?"));
     }
     break;
+
+    #ifdef GSM_PULL_GPRS_BY_PING
+    case smaPING:
+    {
+      #ifdef GSM_DEBUG_MODE
+      DEBUG_LOGLN(F("SIM800: Start PING..."));
+      #endif
+      String cmd = F("AT+CIPPING=\"");
+      cmd += GSM_PING_HOST;
+      cmd += F("\",2,32,2,64");
+      sendCommand(cmd);
+    }
+    break;
+    #endif // GSM_PULL_GPRS_BY_PING
+    
 
     case smaHangUp:
     {
@@ -3915,6 +3941,16 @@ void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
     }
     return;   
   } // if(line.startsWith(F("+CUSD:")))
+  else
+  if(line.startsWith(F("+PDP:DEACT")))
+  {
+      #ifdef GSM_DEBUG_MODE
+        DEBUG_LOGLN(F("SIM800: GPRS connection broken, restart!")); 
+      #endif
+
+      rebootModem();
+      
+  } // if(line.startsWith(F("+PDP:DEACT")))
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool CoreSIM800Transport::checkIPD(const TransportReceiveBuffer& buff)
@@ -3934,6 +3970,35 @@ bool CoreSIM800Transport::checkIPD(const TransportReceiveBuffer& buff)
   }
 
   return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef GSM_DEBUG_MODE
+void CoreSIM800Transport::dumpReceiveBuffer()
+{
+  Serial.print(F("SIM800 RECEIVE BUFFER, SIZE="));
+  Serial.println(receiveBuffer.size());
+  
+  for(size_t i=0;i<receiveBuffer.size();i++)
+  {
+    Serial.print(WorkStatus::ToHex(receiveBuffer[i]));
+    Serial.print(" ");
+  }
+
+ Serial.println();
+  
+}
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------------
+void CoreSIM800Transport::rebootModem()
+{
+    #ifdef USE_GSM_REBOOT_PIN
+      // есть пин, который надо использовать при зависании
+      digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+    #endif
+
+    machineState = sim800Reboot;
+    timer = millis();
+  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreSIM800Transport::update()
@@ -3980,19 +4045,8 @@ void CoreSIM800Transport::update()
           DEBUG_LOGLN(F("SIM800: modem not answering, reboot!"));
         #endif
 
-        #ifdef USE_GSM_REBOOT_PIN
-          // есть пин, который надо использовать при зависании
-          digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
-        #endif
-
-        machineState = sim800Reboot;
-        timer = millis();
-        
+        rebootModem();        
       } // if   
-  }
-  else // есть ответ
-  {    
-   // timer = millis();
   }
 
   // выставляем флаг, что мы хотя бы раз получили хоть чего-то от ESP
@@ -4153,9 +4207,23 @@ void CoreSIM800Transport::update()
 
   if(hasAnswerLine && thisCommandLine.startsWith(F("AT+")))
    {
+    #ifdef GSM_DEBUG_MODE
+      DEBUG_LOG(F("Ignored echo: "));
+      DEBUG_LOGLN(thisCommandLine);    
+    #endif    
     // это эхо, игнорируем
       thisCommandLine = "";
       hasAnswerLine = false;
+   }
+
+   if(hasAnswerLine && flags.ignoreNextEmptyLine)
+   {
+      flags.ignoreNextEmptyLine = false;
+      if(thisCommandLine == " ")
+      {
+        hasAnswerLine = false;
+        thisCommandLine = "";
+      }   
    }
 
 
@@ -4295,7 +4363,7 @@ void CoreSIM800Transport::update()
                       command += dataSize;
                       flags.waitForDataWelcome = true; // выставляем флаг, что мы ждём >
                       
-                      sendCommand(command);                      
+                      sendCommand(command);                
                     }
                     break; // actionWrite
                   } // switch
@@ -4314,6 +4382,20 @@ void CoreSIM800Transport::update()
                   sendCommand(smaCheckModemHang);
                   
                 } // if
+                else
+                {
+                  #ifdef GSM_PULL_GPRS_BY_PING
+                    static uint32_t pingTimer = 0;
+                    if(millis() - pingTimer > GSM_PING_INTERVAL)
+                    {
+                        #ifdef GSM_DEBUG_MODE
+                          DEBUG_LOGLN(F("SIM800: PING GPRS!"));
+                        #endif
+                        pingTimer = millis();
+                        sendCommand(smaPING);                      
+                    }
+                  #endif // GSM_PULL_GPRS_BY_PING
+                } // else
                 
               } // else
             } // else inited
@@ -4550,8 +4632,11 @@ void CoreSIM800Transport::update()
                           TransportClientQueueData dt = clientsQueue[0];                     
 
                           #ifdef GSM_DEBUG_MODE
-                              DEBUG_LOGLN(F("SIM800: > received, start write from client to SIM800..."));
+                              DEBUG_LOG(F("SIM800: > received, start write from client to SIM800, DATA LENGTH: "));
+                              DEBUG_LOGLN(String(dt.dataLength));
                           #endif
+
+                          flags.ignoreNextEmptyLine = true;
                           
                           for(size_t kk=0;kk<dt.dataLength;kk++)
                           {
@@ -4563,7 +4648,7 @@ void CoreSIM800Transport::update()
                              ESP.readFromStream();
                              #endif                             
                           }
-
+                          
                           delete [] clientsQueue[0].data;
                           delete [] clientsQueue[0].ip;
                           clientsQueue[0].data = NULL;
@@ -4921,6 +5006,27 @@ void CoreSIM800Transport::update()
                   }
                   break; // smaSMSSettings
 
+                  case smaGPRSMultislotClass:
+                  {
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      if(gsmOK == knownAnswer)
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: GPRS multislot class is set."));
+                        #endif
+                      }
+                      else
+                      {
+                        #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: GPRS multislot class command FAIL!"));
+                        #endif
+                      }
+                      machineState = sim800Idle; // переходим к следующей команде
+                    }                                        
+                  }
+                  break; // smaGPRSMultislotClass                  
+
                   case smaWaitReg:
                   {
                      if(thisCommandLine.indexOf(F("+CREG: 0,1")) != -1)
@@ -4959,6 +5065,22 @@ void CoreSIM800Transport::update()
 
                   }
                   break; // smaCheckModemHang
+
+                  #ifdef GSM_PULL_GPRS_BY_PING
+                  case smaPING:
+                  {                    
+                    if(isKnownAnswer(thisCommandLine,knownAnswer))
+                    {
+                      #ifdef GSM_DEBUG_MODE
+                              DEBUG_LOGLN(F("SIM800: PING done."));
+                      #endif
+                      machineState = sim800Idle; // переходим к следующей команде
+                      
+                    } // if(isKnownAnswer
+
+                  }
+                  break; // smaPING
+                  #endif // GSM_PULL_GPRS_BY_PING
                                     
                 } // switch
 
@@ -5096,7 +5218,7 @@ void CoreSIM800Transport::begin()
   #endif
     
   workStream = &GSM_SERIAL;
-  GSM_SERIAL.begin(GSM_BAUDRATE);
+  GSM_SERIAL.begin(GSM_BAUDRATE, SERIAL_8N1);
 
   if(&(GSM_SERIAL) == &Serial) {
        WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
@@ -5194,6 +5316,7 @@ void CoreSIM800Transport::restart()
   flags.onIdleTimer = false;
   flags.isModuleRegistered = false;
   flags.gprsAvailable = false;
+  flags.ignoreNextEmptyLine = false;
   
   timer = millis();
 
@@ -5210,6 +5333,8 @@ void CoreSIM800Transport::restart()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void CoreSIM800Transport::createInitCommands(bool addResetCommand)
 {  
+  UNUSED(addResetCommand);
+  
   // очищаем очередь команд
   clearInitCommands();
 
@@ -5225,6 +5350,8 @@ void CoreSIM800Transport::createInitCommands(bool addResetCommand)
   initCommandsQueue.push_back(smaWaitReg); // ждём регистрации
   
   initCommandsQueue.push_back(smaCIPHEAD);
+  
+  initCommandsQueue.push_back(smaGPRSMultislotClass); // настройки вывода SMS
   initCommandsQueue.push_back(smaSMSSettings); // настройки вывода SMS
   initCommandsQueue.push_back(smaUCS2Encoding); // кодировка сообщений
   initCommandsQueue.push_back(smaPDUEncoding); // формат сообщений
