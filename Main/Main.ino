@@ -271,8 +271,8 @@ AlertModule alertsModule;
 #ifdef USE_EXTERNAL_WATCHDOG
   typedef enum
   {
-    WAIT_FOR_HIGH,
-    WAIT_FOR_LOW 
+    WAIT_FOR_TRIGGERED,
+    WAIT_FOR_NORMAL 
   } ExternalWatchdogState;
   
   typedef struct
@@ -301,10 +301,10 @@ void setup()
 
   #ifdef USE_EXTERNAL_WATCHDOG
     WORK_STATUS.PinMode(WATCHDOG_REBOOT_PIN,OUTPUT,true);
-    digitalWrite(WATCHDOG_REBOOT_PIN,LOW);
+    digitalWrite(WATCHDOG_REBOOT_PIN,WATCHDOG_NORMAL_LEVEL);
 
     watchdogSettings.timer = 0;
-    watchdogSettings.state = WAIT_FOR_HIGH;
+    watchdogSettings.state = WAIT_FOR_TRIGGERED;
   #endif
  
   // настраиваем все железки
@@ -454,7 +454,7 @@ void ModuleUpdateProcessed(AbstractModule* module)
     SIM800.update();
    #endif     
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_EXTERNAL_WATCHDOG
 void updateExternalWatchdog()
 {
@@ -467,24 +467,24 @@ void updateExternalWatchdog()
       watchdogSettings.timer += dt;
       switch(watchdogSettings.state)
       {
-        case WAIT_FOR_HIGH:
+        case WAIT_FOR_TRIGGERED:
         {
           if(watchdogSettings.timer >= WATCHDOG_WORK_INTERVAL)
           {
             watchdogSettings.timer = 0;
-            watchdogSettings.state = WAIT_FOR_LOW;
-            digitalWrite(WATCHDOG_REBOOT_PIN, HIGH);
+            watchdogSettings.state = WAIT_FOR_NORMAL;
+            digitalWrite(WATCHDOG_REBOOT_PIN, WATCHDOG_TRIGGERED_LEVEL);
           }
         }
         break;
 
-        case WAIT_FOR_LOW:
+        case WAIT_FOR_NORMAL:
         {
           if(watchdogSettings.timer >= WATCHDOG_PULSE_DURATION)
           {
             watchdogSettings.timer = 0;
-            watchdogSettings.state = WAIT_FOR_HIGH;
-            digitalWrite(WATCHDOG_REBOOT_PIN, LOW);
+            watchdogSettings.state = WAIT_FOR_TRIGGERED;
+            digitalWrite(WATCHDOG_REBOOT_PIN, WATCHDOG_NORMAL_LEVEL);
           }          
         }
         break;
