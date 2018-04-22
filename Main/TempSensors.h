@@ -37,7 +37,7 @@ typedef struct
 {
   bool OnMyWay : 1; // флаг того, что фрамуга в процессе открытия/закрытия
   uint8_t Direction : 3; // направление, которое задали
-  uint8_t pad : 4;
+  uint8_t Index : 4;
   
 } WindowStateFlags;
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ public:
 
   void UpdateState(uint16_t dt); // обновляет состояние фрамуги
   
-  void Setup(uint8_t relayChannel1, uint8_t relayChannel2); // настраиваем перед пуском
+  void Setup(uint8_t index, uint8_t relayChannel1, uint8_t relayChannel2); // настраиваем перед пуском
 
   void Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents,bool isFirstFeedback);
 

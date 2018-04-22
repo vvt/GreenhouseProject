@@ -373,12 +373,14 @@ public:
     // запись в каналы MCP23S17
     void MCP_SPI_PinMode(byte mcpAddress, byte mpcChannel, byte mode);
     void MCP_SPI_PinWrite(byte mcpAddress, byte mpcChannel, byte level);
+    byte MCP_SPI_PinRead(byte mcpAddress, byte mpcChannel);
   #endif
 
   #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
     // запись в каналы MCP23017
     void MCP_I2C_PinMode(byte mcpAddress, byte mpcChannel, byte mode);
     void MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level);
+    byte MCP_I2C_PinRead(byte mcpAddress, byte mpcChannel);
   #endif  
 
   void SaveWindowState(byte channel, byte state);

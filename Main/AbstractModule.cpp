@@ -153,7 +153,16 @@ void WorkStatus::MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
 
   bank->digitalWrite(mpcChannel,level);
 }
+//--------------------------------------------------------------------------------------------------------------------------------
+byte WorkStatus::MCP_I2C_PinRead(byte mcpAddress, byte mpcChannel)
+{
+  Adafruit_MCP23017* bank = GetMCP_I2C_ByAddress(mcpAddress);
+  if(!bank)
+    return 0xFF; 
 
+  return bank->digitalRead(mpcChannel);
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
@@ -186,6 +195,15 @@ void WorkStatus::MCP_SPI_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
     return;  
 
   bank->digitalWrite(mpcChannel,level);
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+byte WorkStatus::MCP_SPI_PinRead(byte mcpAddress, byte mpcChannel)
+{
+  MCP23S17* bank = GetMCP_SPI_ByAddress(mcpAddress);
+  if(!bank)
+    return 0xFF;  
+
+  return bank->digitalRead(mpcChannel);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 MCP23S17* WorkStatus::GetMCP_SPI_ByAddress(byte addr)
