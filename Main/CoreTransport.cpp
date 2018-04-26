@@ -923,8 +923,8 @@ void CoreESPTransport::update()
 
         #ifdef USE_WIFI_REBOOT_PIN
           // есть пин, который надо использовать при зависании
-          pinMode(WIFI_REBOOT_PIN,OUTPUT);
-          digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
+          WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+          WORK_STATUS.PinWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
        #endif
        
         machineState = espReboot;
@@ -1684,8 +1684,8 @@ void CoreESPTransport::update()
             #endif
             
             #ifdef USE_WIFI_REBOOT_PIN
-              pinMode(WIFI_REBOOT_PIN,OUTPUT);
-              digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_ON);
+              WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+              WORK_STATUS.PinWrite(WIFI_REBOOT_PIN,WIFI_POWER_ON);
             #endif
 
             machineState = espWaitInit;
@@ -1753,8 +1753,8 @@ void CoreESPTransport::begin()
 
   #ifdef USE_WIFI_REBOOT_PIN
     // есть пин, который надо использовать при зависании
-    pinMode(WIFI_REBOOT_PIN,OUTPUT);
-    digitalWrite(WIFI_REBOOT_PIN, WIFI_POWER_OFF);
+    WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(WIFI_REBOOT_PIN, WIFI_POWER_OFF);
     machineState = espReboot;
   #endif
 
@@ -4005,7 +4005,7 @@ void CoreSIM800Transport::rebootModem()
 {
     #ifdef USE_GSM_REBOOT_PIN
       // есть пин, который надо использовать при зависании
-      digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+      WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
     #endif
 
     machineState = sim800Reboot;
@@ -5135,11 +5135,11 @@ void CoreSIM800Transport::update()
               #ifdef GSM_DEBUG_MODE
                 DEBUG_LOGLN(F("SIM800: turn power ON!"));
               #endif
-              digitalWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
+              WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
             #endif
 
             #ifdef USE_SIM800_POWERKEY
-                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+                WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
             #endif
 
             machineState = sim800WaitInit;
@@ -5171,9 +5171,9 @@ void CoreSIM800Transport::update()
                   DEBUG_LOGLN(F("SIM800: use POWERKEY!"));
                #endif
                                 
-                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+                WorkStatus.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
                 delay(SIM800_POWERKEY_PULSE_DURATION);        
-                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
+                WorkStatus.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
                 
               #endif            
 
@@ -5270,12 +5270,12 @@ void CoreSIM800Transport::begin()
       DEBUG_LOGLN(F("SIM800: power OFF!"));
     #endif
     // есть пин, который надо использовать при зависании
-    pinMode(GSM_REBOOT_PIN,OUTPUT);
-    digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+    WORK_STATUS.PinMode(GSM_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
   #endif
 
   #ifdef USE_SIM800_POWERKEY
-      pinMode(SIM800_POWERKEY_PIN,OUTPUT);
+      WORK_STATUS.PinMode(SIM800_POWERKEY_PIN,OUTPUT);
   #endif
   
   machineState = sim800Reboot;
