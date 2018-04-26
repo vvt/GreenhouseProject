@@ -5171,9 +5171,9 @@ void CoreSIM800Transport::update()
                   DEBUG_LOGLN(F("SIM800: use POWERKEY!"));
                #endif
                                 
-                WorkStatus.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+                WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
                 delay(SIM800_POWERKEY_PULSE_DURATION);        
-                WorkStatus.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
+                WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
                 
               #endif            
 
