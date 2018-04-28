@@ -2841,6 +2841,7 @@ void CoreMQTT::update()
             } // hasPublishTopics
             else
             {
+                retain = true;
                 // обычный режим работы, отсылаем показания с хранилища
                 getNextTopic(topicName,data);
 
@@ -3064,9 +3065,19 @@ void CoreMQTT::constructPublishPacket(String& mqttBuffer,int16_t& mqttBufferLeng
   size_t payloadSize = byteBuffer.size();
 
   MQTTBuffer fixedHeader;
+  
   uint8_t command = MQTT_PUBLISH_COMMAND;
+  
   if(retain)
     command |= 1;
+
+  #ifdef MQTT_DEBUG
+    if(retain)
+    {
+      DEBUG_LOG(F("MQTT: RETAIN topic detected, byte #0 is: "));
+      DEBUG_LOG(String(command));
+    }
+  #endif
   
   constructFixedHeader(command,fixedHeader,payloadSize);
 
