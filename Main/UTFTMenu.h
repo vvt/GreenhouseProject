@@ -6,6 +6,7 @@
 #ifdef USE_TFT_MODULE
 
 #include "TinyVector.h"
+#include "DS3231Support.h"
 
 #include <UTFT.h>
 #include <URTouchCD.h>
@@ -105,6 +106,7 @@ class AbstractTFTScreen
     virtual void setup(TFTMenu* menuManager) = 0;
     virtual void update(TFTMenu* menuManager,uint16_t dt) = 0;
     virtual void draw(TFTMenu* menuManager) = 0;
+    virtual void onActivate(TFTMenu* menuManager){}
   
     AbstractTFTScreen();
     virtual ~AbstractTFTScreen();
@@ -135,6 +137,7 @@ class TFTIdleScreen : public AbstractTFTScreen
     void setup(TFTMenu* menuManager);
     void update(TFTMenu* menuManager,uint16_t dt);
     void draw(TFTMenu* menuManager);
+    virtual void onActivate(TFTMenu* menuManager);
 
 private:
 
@@ -267,6 +270,7 @@ class TFTSettingsScreen : public AbstractTFTScreen
     void setup(TFTMenu* menuManager);
     void update(TFTMenu* menuManager,uint16_t dt);
     void draw(TFTMenu* menuManager);
+    virtual void onActivate(TFTMenu* menuManager);
 
     private:
       int backButton, decOpenTempButton, incOpenTempButton, decCloseTempButton, incCloseTempButton, incIntervalButton, decIntervalButton;
@@ -281,7 +285,22 @@ class TFTSettingsScreen : public AbstractTFTScreen
       TFTInfoBox* openTempBox;
       TFTInfoBox* intervalBox;
 
-      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val); 
+      #ifdef USE_DS3231_REALTIME_CLOCK
+      int decTimePartButton, incTimePartButton, dayButton, monthButton, yearButton, hourButton, minuteButton;
+      int selectedTimePartButton;
+      
+      String strDay, strMonth, strYear, strHour, strMinute, strSecond;
+
+      DS3231Time controllerTime;
+      bool controllerTimeChanged;
+
+      void updateTimeButtons(DS3231Time& tm, bool redraw);      
+      
+      uint16_t stepVal(int8_t dir, uint16_t minVal,uint16_t maxVal, int16_t val);
+      String addLeadingZero(int val);
+      #endif
+
+      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val);
 
 
 };

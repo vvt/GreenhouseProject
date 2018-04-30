@@ -742,6 +742,10 @@ void TFTWindowScreen::draw(TFTMenu* menuManager)
 TFTSettingsScreen::TFTSettingsScreen()
 {
   inited = false;
+  
+  #ifdef USE_DS3231_REALTIME_CLOCK
+  selectedTimePartButton = -1;
+  #endif  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTSettingsScreen::~TFTSettingsScreen()
@@ -765,7 +769,9 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
     int textFontHeight = dc->getFontYsize();
   
     screenButtons = new UTFT_Buttons_Rus(dc, menuManager->getTouch(),menuManager->getRusPrinter());
-    screenButtons->setTextFont(SensorFont);
+    screenButtons->setSymbolFont(SensorFont);
+    screenButtons->setTextFont(SevenSegNumFontMDS);
+  
     screenButtons->setButtonColors(TFT_CHANNELS_BUTTON_COLORS);
 
     // первая - кнопка назад
@@ -773,7 +779,6 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
 
  
     int screenWidth = dc->getDisplayXSize();
-    int screenHeight = dc->getDisplayYSize();
 
     // добавляем кнопки для управления температурой
 
@@ -787,8 +792,9 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
     int leftPos = (screenWidth - widthOccupied)/2;
 
     // теперь вычисляем верхнюю границу для отрисовки кнопок
-    int topPos = (screenHeight - TFT_ARROW_BUTTON_HEIGHT*2 - INFO_BOX_V_SPACING*5)/2;
-    int secondRowTopPos = topPos + TFT_ARROW_BUTTON_HEIGHT + INFO_BOX_V_SPACING*3;
+    int topPos = INFO_BOX_V_SPACING*2;//(screenHeight - TFT_ARROW_BUTTON_HEIGHT*2 - INFO_BOX_V_SPACING*5)/2;
+    int secondRowTopPos = topPos + TFT_ARROW_BUTTON_HEIGHT + INFO_BOX_V_SPACING*2;
+    int thirdRowTopPos = secondRowTopPos + TFT_ARROW_BUTTON_HEIGHT + INFO_BOX_V_SPACING*2;
 
     UTFTRus* rusPrinter = menuManager->getRusPrinter();
 
@@ -803,28 +809,124 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
     int secondRowTextBoxTopPos = secondRowTopPos - textFontHeight - INFO_BOX_CONTENT_PADDING;
 
     // теперь добавляем наши кнопки
-    decCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
-    decIntervalButton = screenButtons->addButton( leftPos ,  secondRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
+    decCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption, BUTTON_SYMBOL);
+    decIntervalButton = screenButtons->addButton( leftPos ,  secondRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption, BUTTON_SYMBOL);
+
+    #ifdef USE_DS3231_REALTIME_CLOCK
+    
+    decTimePartButton = screenButtons->addButton( leftPos ,  thirdRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption, BUTTON_SYMBOL);
+    screenButtons->disableButton(decTimePartButton);
+    
+    dc->setFont(SevenSegNumFontMDS);
+    int fontWidth = dc->getFontXsize();
+    int curTimePartLeftPos = leftPos + TFT_ARROW_BUTTON_WIDTH + INFO_BOX_V_SPACING;
+    
+    const int timeButtonPadding = 9;
+    const int timeButtonHSpacing = INFO_BOX_V_SPACING;
+
+    int timeButtonWidth = fontWidth*2+timeButtonPadding*2;
+    int timeButtonWidth2 = fontWidth*4+timeButtonPadding*2;    
+    
+    dayButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strDay.c_str());
+    screenButtons->setButtonFontColor(dayButton,VGA_TEAL);
+    curTimePartLeftPos += timeButtonWidth + timeButtonHSpacing;
+
+    monthButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strMonth.c_str());
+    screenButtons->setButtonFontColor(monthButton,VGA_TEAL);
+    curTimePartLeftPos += timeButtonWidth + timeButtonHSpacing;
+    
+    yearButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth2,  TFT_ARROW_BUTTON_HEIGHT, strYear.c_str());
+    screenButtons->setButtonFontColor(yearButton,VGA_TEAL);
+    curTimePartLeftPos += timeButtonWidth2 + timeButtonHSpacing;
+
+    hourButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strHour.c_str());
+    screenButtons->setButtonFontColor(hourButton,VGA_TEAL);
+    curTimePartLeftPos += timeButtonWidth + timeButtonHSpacing;
+
+    minuteButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strMinute.c_str());
+    screenButtons->setButtonFontColor(minuteButton,VGA_TEAL);
+
+    
+    dc->setFont(BigRusFont);
+    #endif
+    
     leftPos += INFO_BOX_V_SPACING + TFT_ARROW_BUTTON_WIDTH;
 
     closeTempBox = new TFTInfoBox(TFT_TCLOSE_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos,-(TFT_ARROW_BUTTON_WIDTH+INFO_BOX_V_SPACING));
     intervalBox = new TFTInfoBox(TFT_INTERVAL_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,secondRowTextBoxTopPos,-(TFT_ARROW_BUTTON_WIDTH+INFO_BOX_V_SPACING));
     leftPos += INFO_BOX_V_SPACING + TFT_TEXT_INPUT_WIDTH;
         
-    incCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
-    incIntervalButton = screenButtons->addButton( leftPos ,  secondRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
+    incCloseTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption, BUTTON_SYMBOL);
+    incIntervalButton = screenButtons->addButton( leftPos ,  secondRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption, BUTTON_SYMBOL);
     leftPos += INFO_BOX_V_SPACING*2 + TFT_ARROW_BUTTON_WIDTH;
 
-    decOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption);
+    
+    decOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, leftArrowCaption, BUTTON_SYMBOL);
     leftPos += INFO_BOX_V_SPACING + TFT_ARROW_BUTTON_WIDTH;
 
     openTempBox = new TFTInfoBox(TFT_TOPEN_CAPTION,TFT_TEXT_INPUT_WIDTH,textBoxHeightWithCaption,leftPos,textBoxTopPos,-(TFT_ARROW_BUTTON_WIDTH+INFO_BOX_V_SPACING));
     leftPos += INFO_BOX_V_SPACING + TFT_TEXT_INPUT_WIDTH;
    
-    incOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption);
+    incOpenTempButton = screenButtons->addButton( leftPos ,  topPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption, BUTTON_SYMBOL);
 
+    #ifdef USE_DS3231_REALTIME_CLOCK
+      incTimePartButton = screenButtons->addButton( leftPos ,  thirdRowTopPos, TFT_ARROW_BUTTON_WIDTH,  TFT_ARROW_BUTTON_HEIGHT, rightArrowCaption, BUTTON_SYMBOL);
+      screenButtons->disableButton(incTimePartButton);    
+    #endif
   
 }
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_DS3231_REALTIME_CLOCK
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+uint16_t TFTSettingsScreen::stepVal(int8_t dir, uint16_t minVal,uint16_t maxVal, int16_t val)
+{
+  val += dir;
+
+  if(val < minVal)
+    val = maxVal;
+
+  if(val > maxVal)
+    val = minVal;
+
+  return val;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+String TFTSettingsScreen::addLeadingZero(int val)
+{
+  String result;
+
+  if(val < 0)
+    result += '-';
+    
+  if(abs(val) < 10)
+    result += '0';
+
+  result += abs(val);
+
+  return result;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTSettingsScreen::updateTimeButtons(DS3231Time& tm, bool redraw)
+{
+  
+    strDay = addLeadingZero(tm.dayOfMonth);
+    screenButtons->relabelButton(dayButton,strDay.c_str(),redraw);
+
+    strMonth = addLeadingZero(tm.month);
+    screenButtons->relabelButton(monthButton,strMonth.c_str(),redraw);
+
+    strYear = tm.year;
+    screenButtons->relabelButton(yearButton,strYear.c_str(),redraw);
+
+    strHour = addLeadingZero(tm.hour);
+    screenButtons->relabelButton(hourButton,strHour.c_str(),redraw);
+
+    strMinute = addLeadingZero(tm.minute);
+    screenButtons->relabelButton(minuteButton,strMinute.c_str(),redraw);
+  
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#endif // USE_DS3231_REALTIME_CLOCK
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTSettingsScreen::drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val)
 {
@@ -851,6 +953,16 @@ void TFTSettingsScreen::drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, ui
   dc->setFont(BigRusFont);
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTSettingsScreen::onActivate(TFTMenu* menuManager)
+{
+  #ifdef USE_DS3231_REALTIME_CLOCK
+  DS3231Clock rtc = MainController->GetClock();
+  controllerTime = rtc.getTime();  
+  updateTimeButtons(controllerTime,false);
+  controllerTimeChanged = false;
+  #endif
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
 {
  UNUSED(dt);
@@ -861,6 +973,15 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
     
     if(pressed_button == backButton)
     {
+      #ifdef USE_DS3231_REALTIME_CLOCK
+      if(controllerTimeChanged)
+      {
+        controllerTimeChanged = false;
+        DS3231Clock rtc = MainController->GetClock();
+        rtc.setTime(controllerTime);
+      }
+      #endif
+      
       menuManager->switchToScreen("IDLE");
       return;
     }
@@ -940,6 +1061,149 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       menuManager->resetIdleTimer();
       return;
     }    
+
+    #ifdef USE_DS3231_REALTIME_CLOCK
+    static uint32_t controllerTimeChangedTimer = 0;
+    
+    if(pressed_button == dayButton || pressed_button == monthButton || pressed_button == yearButton
+    || pressed_button == hourButton || pressed_button == minuteButton)
+    {
+      if(selectedTimePartButton != -1)
+      {
+        if(selectedTimePartButton == pressed_button)
+        {
+          // та же самая кнопка, что была уже выделена, снимаем выделение
+          screenButtons->setButtonBackColor(selectedTimePartButton,CHANNELS_BUTTONS_BG_COLOR);
+          screenButtons->setButtonFontColor(selectedTimePartButton,VGA_TEAL);
+          screenButtons->drawButton(selectedTimePartButton);
+          selectedTimePartButton = -1;
+          
+          screenButtons->disableButton(incTimePartButton,screenButtons->buttonEnabled(incTimePartButton));
+          screenButtons->disableButton(decTimePartButton,screenButtons->buttonEnabled(decTimePartButton));
+        }
+        else
+        {
+          // выделили другую кнопку, поэтому для предыдущей надо убрать выделение
+          screenButtons->setButtonBackColor(selectedTimePartButton,CHANNELS_BUTTONS_BG_COLOR);
+          screenButtons->setButtonFontColor(selectedTimePartButton,VGA_TEAL);
+          screenButtons->drawButton(selectedTimePartButton);
+          selectedTimePartButton = pressed_button;
+          screenButtons->setButtonBackColor(selectedTimePartButton,MODE_ON_COLOR);
+          screenButtons->setButtonFontColor(selectedTimePartButton,VGA_WHITE);
+          screenButtons->drawButton(selectedTimePartButton);
+
+          screenButtons->enableButton(incTimePartButton,!screenButtons->buttonEnabled(incTimePartButton));
+          screenButtons->enableButton(decTimePartButton,!screenButtons->buttonEnabled(decTimePartButton));
+          
+        }
+      }
+      else
+      {
+        // ничего не выделено, выделяем нажатую кнопку
+        selectedTimePartButton = pressed_button; 
+        screenButtons->setButtonBackColor(selectedTimePartButton,MODE_ON_COLOR);
+        screenButtons->setButtonFontColor(selectedTimePartButton,VGA_WHITE);
+        screenButtons->drawButton(selectedTimePartButton);
+
+        screenButtons->enableButton(incTimePartButton,!screenButtons->buttonEnabled(incTimePartButton));
+        screenButtons->enableButton(decTimePartButton,!screenButtons->buttonEnabled(decTimePartButton));
+      }
+
+      menuManager->resetIdleTimer();
+      return;
+    }
+
+    if(pressed_button == decTimePartButton || pressed_button == incTimePartButton)
+    {
+      if(selectedTimePartButton == -1)
+      {
+        menuManager->resetIdleTimer();
+        return;
+      }
+
+       int dir = pressed_button == decTimePartButton ? -1 : 1;
+       
+      if(selectedTimePartButton == dayButton)
+      {
+        controllerTime.dayOfMonth = stepVal(dir, 0,31, controllerTime.dayOfMonth);
+        strDay = addLeadingZero(controllerTime.dayOfMonth);
+        screenButtons->relabelButton(dayButton,strDay.c_str(),true);
+      }
+      else
+      if(selectedTimePartButton == monthButton)
+      {
+        controllerTime.month = stepVal(dir, 0,12, controllerTime.month);
+        strMonth = addLeadingZero(controllerTime.month);
+        screenButtons->relabelButton(monthButton,strMonth.c_str(),true);
+      }
+      else 
+      if(selectedTimePartButton == yearButton)
+      {
+       if(controllerTime.year == 2000)
+       {
+          dir = 0;
+          controllerTime.year = 2018;
+       }
+                  
+        controllerTime.year = stepVal(dir, 2018,2100, controllerTime.year);
+        strYear = controllerTime.year;
+        screenButtons->relabelButton(yearButton,strYear.c_str(),true);
+      }
+     else
+     if(selectedTimePartButton == hourButton)
+     {
+        controllerTime.hour = stepVal(dir, 0,23, controllerTime.hour);
+        strHour = addLeadingZero(controllerTime.hour);
+        screenButtons->relabelButton(hourButton,strHour.c_str(),true);
+     }
+     else
+     if(selectedTimePartButton == minuteButton)
+     {
+        controllerTime.minute = stepVal(dir, 0,59, controllerTime.minute);
+        strMinute = addLeadingZero(controllerTime.minute);
+        screenButtons->relabelButton(minuteButton,strMinute.c_str(),true);
+    }
+        
+      // вычисляем день недели
+       int32_t dow;
+       byte mArr[12] = {6,2,2,5,0,3,5,1,4,6,2,4};
+       dow = (controllerTime.year % 100);
+       dow = dow*1.25;
+       dow += controllerTime.dayOfMonth;
+       dow += mArr[controllerTime.month-1];
+       
+       if (((controllerTime.year % 4)==0) && (controllerTime.month<3))
+         dow -= 1;
+         
+       while (dow>7)
+         dow -= 7;     
+
+      controllerTime.dayOfWeek = dow;
+      controllerTimeChanged = true;
+      controllerTimeChangedTimer = millis();
+      
+      menuManager->resetIdleTimer();
+      return;
+    }
+
+     
+     if(controllerTimeChanged)
+     {
+        if(millis() - controllerTimeChangedTimer > 5000)
+        {
+          controllerTimeChangedTimer = millis();
+          controllerTimeChanged = false;
+          DS3231Clock rtc = MainController->GetClock();
+          rtc.setTime(controllerTime);
+        }
+     }
+     else
+     {
+        controllerTimeChangedTimer = millis();
+     }
+
+    
+    #endif // USE_DS3231_REALTIME_CLOCK        
        
     inited = true;
      
@@ -958,6 +1222,20 @@ void TFTSettingsScreen::draw(TFTMenu* menuManager)
   closeTempBox->draw(menuManager);
   openTempBox->draw(menuManager);
   intervalBox->draw(menuManager);
+
+  #ifdef USE_DS3231_REALTIME_CLOCK
+
+  UTFT* dc = menuManager->getDC();
+  dc->setFont(BigRusFont);
+  dc->setBackColor(TFT_BACK_COLOR);
+  dc->setColor(INFO_BOX_CAPTION_COLOR);
+  menuManager->getRusPrinter()->print(TFT_CURRENTTIME_CAPTION,30,255);  
+
+  DS3231Clock rtc = MainController->GetClock();
+  controllerTime = rtc.getTime();  
+  updateTimeButtons(controllerTime,true);
+    
+  #endif
 
   drawValueInBox(menuManager,closeTempBox,closeTemp);
   drawValueInBox(menuManager,openTempBox,openTemp);
@@ -1532,12 +1810,19 @@ void TFTIdleScreen::setup(TFTMenu* menuManager)
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void TFTIdleScreen::onActivate(TFTMenu* menuManager)
+{
+  #ifdef USE_DS3231_REALTIME_CLOCK
+  lastMinute = -1;
+  #endif
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 {
 
   #ifdef USE_DS3231_REALTIME_CLOCK
-  if(dt == 0)
-    lastMinute = -1;
+  //if(dt == 0)
+   // lastMinute = -1;
     
     DrawDateTime(menuManager);
   #endif
@@ -1875,6 +2160,7 @@ void TFTMenu::switchToScreen(const char* screenName)
       tftDC->fillScr(TFT_BACK_COLOR); // clear screen first      
       yield();
       currentScreenIndex = i;
+      si->screen->onActivate(this);
       si->screen->update(this,0);
       yield();
       si->screen->draw(this);
