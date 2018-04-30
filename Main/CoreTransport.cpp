@@ -3859,7 +3859,7 @@ void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
       String s = line.substring(0,idx);
       int16_t clientID = s.toInt();
       if(clientID >=0 && clientID < SIM800_MAX_CLIENTS)
-      {
+      {          
         #ifdef GSM_DEBUG_MODE
           DEBUG_LOG(F("SIM800: client connected - #"));
           DEBUG_LOGLN(String(clientID));
@@ -3894,17 +3894,23 @@ void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
       int16_t clientID = s.toInt();
       if(clientID >=0 && clientID < SIM800_MAX_CLIENTS)
       {
+        
+        if(line.indexOf(F("CONNECT FAIL")) != -1) // CONNECT FAIL приходит без ID клиента!!!
+        {
+          clientID = cipstartConnectClientID;
+        }
+        
         #ifdef GSM_DEBUG_MODE
           DEBUG_LOG(F("SIM800: client disconnected - #"));
           DEBUG_LOGLN(String(clientID));
         #endif
 
-        // выставляем клиенту флаг, что он отсоединён
-        CoreTransportClient* client = getClient(clientID);
-        notifyClientConnected(*client,false,CT_ERROR_NONE);
+          // выставляем клиенту флаг, что он отсоединён
+          CoreTransportClient* client = getClient(clientID);
+          notifyClientConnected(*client,false,CT_ERROR_NONE);
 
         if(flags.waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
-        {                
+        {            
           // есть клиент, для которого надо установить ID
           cipstartConnectClient->bind(clientID);
           notifyClientConnected(*cipstartConnectClient,false,CT_ERROR_NONE);
