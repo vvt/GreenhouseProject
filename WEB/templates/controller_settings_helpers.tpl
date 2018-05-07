@@ -2512,6 +2512,12 @@ controller.OnGetModulesList = function(obj)
     
     if(controller.Modules.includes('DELTA'))
       queryDeltasList(); // получаем список дельт
+      
+    controller.queryCommand(true,'STAT|FREERAM',function(obj,answer){
+    
+          closeWaitDialog();
+          
+      });      
   
 };
 //-----------------------------------------------------------------------------------------------------
