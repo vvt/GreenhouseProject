@@ -308,8 +308,7 @@ typedef Vector<TFTScreenInfo> TFTScreensList; // список экранов
 typedef struct
 {
   bool isLCDOn : 1;
-  bool buzzerActive : 1;
-  byte pad : 6;
+  byte pad : 7;
   
 } TFTMenuFlags;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -328,11 +327,7 @@ public:
   URTouch* getTouch() { return tftTouch; };
   UTFTRus* getRusPrinter() { return &rusPrint; };
  
-
   void resetIdleTimer();
-
-  void buzzer(); // пищим пищалкой
-  void updateBuzzer();
 
 private:
 
@@ -344,7 +339,6 @@ private:
   int currentScreenIndex;
 
   unsigned long idleTimer;
-  unsigned long buzzerTimer;
   
   TFTMenuFlags flags;
 

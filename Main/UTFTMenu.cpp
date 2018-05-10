@@ -5,6 +5,10 @@
 #include "InteropStream.h"
 
 #ifdef USE_TFT_MODULE
+
+#ifdef USE_BUZZER_ON_TOUCH
+#include "Buzzer.h"
+#endif
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 TFTMenu* tftMenuManager;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -12,13 +16,14 @@ void BuzzerOn(int btn)
 {
   if(btn != -1)
   {
-    tftMenuManager->buzzer();
+    #ifdef USE_BUZZER_ON_TOUCH
+    Buzzer.buzz();
+    #endif
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void drawButtonsYield() // вызывается после отрисовки каждой кнопки
 {
-  tftMenuManager->updateBuzzer();
   yield();
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -301,7 +306,6 @@ void TFTWateringScreen::update(TFTMenu* menuManager,uint16_t dt)
             }
 
           screenButtons->drawButton(buttonID);
-          menuManager->updateBuzzer();
         }
        
      } // for
@@ -1386,7 +1390,6 @@ void TFTIdleScreen::drawSensorData(TFTMenu* menuManager,TFTInfoBox* box, int sen
   dc->setColor(INFO_BOX_BACK_COLOR);
   dc->fillRect(rc.x,rc.y,rc.x+rc.w,rc.y+rc.h);
   yield();
-  menuManager->updateBuzzer();
   
   dc->setBackColor(INFO_BOX_BACK_COLOR);
   dc->setColor(SENSOR_BOX_FONT_COLOR);  
@@ -1541,7 +1544,6 @@ void TFTIdleScreen::drawSensorData(TFTMenu* menuManager,TFTInfoBox* box, int sen
   dc->print(sensorValue.c_str(),curLeft,curTop);
   yield();
   curLeft += fontWidth*valueLen;
-  menuManager->updateBuzzer();
 
   if(hasSensorData)
   {
@@ -1559,8 +1561,6 @@ void TFTIdleScreen::drawSensorData(TFTMenu* menuManager,TFTInfoBox* box, int sen
           dc->print(sensorFract.c_str(),curLeft,curTop);
           yield();
           curLeft += fontWidth*fractLen;
-
-          menuManager->updateBuzzer();
     
       } // if(dotAvailable)
       
@@ -1579,8 +1579,6 @@ void TFTIdleScreen::drawSensorData(TFTMenu* menuManager,TFTInfoBox* box, int sen
 
   // сбрасываем на шрифт по умолчанию
   dc->setFont(BigRusFont);
-
-  menuManager->updateBuzzer();
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1592,8 +1590,6 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   dc->setColor(INFO_BOX_BACK_COLOR);
   dc->fillRect(rc.x,rc.y,rc.x+rc.w,rc.y+rc.h);
   yield();
-
-  menuManager->updateBuzzer();
 
   dc->setBackColor(INFO_BOX_BACK_COLOR);
   dc->setColor(SENSOR_BOX_FONT_COLOR);
@@ -1625,11 +1621,9 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   }
 
   int captionLen = menuManager->getRusPrinter()->print(toDraw,0, 0, 0, true);
-  menuManager->updateBuzzer();
   
   curLeft = (rc.x + rc.w) - (captionLen*fontWidth);
   menuManager->getRusPrinter()->print(toDraw,curLeft,curTop);
-  menuManager->updateBuzzer();
 
   curTop += fontHeight + INFO_BOX_CONTENT_PADDING;
 
@@ -1645,11 +1639,9 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   }
 
   captionLen = menuManager->getRusPrinter()->print(toDraw,0, 0, 0, true);
-  menuManager->updateBuzzer();
   
   curLeft = (rc.x + rc.w) - (captionLen*fontWidth);
   menuManager->getRusPrinter()->print(toDraw,curLeft,curTop);
-  menuManager->updateBuzzer();  
 
   yield();
   
@@ -1877,7 +1869,6 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 
       for(int i=0;i<TFT_SENSOR_BOXES_COUNT;i++)
       {
-        menuManager->updateBuzzer();
         drawSensorData(menuManager,sensors[i],i);
       }
       
@@ -1888,28 +1879,24 @@ void TFTIdleScreen::update(TFTMenu* menuManager,uint16_t dt)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTIdleScreen::draw(TFTMenu* menuManager)
 {
-  menuManager->updateBuzzer();  
   screenButtons->drawButtons(drawButtonsYield); // рисуем наши кнопки
 
   //int availStatusBoxes = 0;
 
   #ifdef USE_TEMP_SENSORS // рисуем статус окон
     //availStatusBoxes++;
-    menuManager->updateBuzzer();
     windowStatusBox->draw(menuManager);
     drawWindowStatus(menuManager);
   #endif
 
   #ifdef USE_WATERING_MODULE // рисуем статус полива
     //availStatusBoxes++;
-    menuManager->updateBuzzer();
     waterStatusBox->draw(menuManager);
     drawWaterStatus(menuManager);
   #endif
 
   #ifdef USE_LUMINOSITY_MODULE // рисуем статус досветки
     //availStatusBoxes++;
-    menuManager->updateBuzzer();
     lightStatusBox->draw(menuManager);
     drawLightStatus(menuManager);
   #endif
@@ -1922,8 +1909,6 @@ void TFTIdleScreen::draw(TFTMenu* menuManager)
   {
     if(!sensors[i])
       continue;
-
-    menuManager->updateBuzzer();
     
     sensors[i]->draw(menuManager);
     TFTSensorInfo* sensorInfo = &(TFTSensors[i]);
@@ -1933,8 +1918,6 @@ void TFTIdleScreen::draw(TFTMenu* menuManager)
 
   }
 
-  menuManager->updateBuzzer();
-  
   #endif
 
   
@@ -2031,37 +2014,12 @@ void TFTMenu::setup()
     screens.push_back(ssi);
 
 
-  #ifdef USE_BUZZER_ON_TOUCH
-      
-      #if BUZZER_DRIVE_MODE == DRIVE_DIRECT
-      
-        WORK_STATUS.PinMode(BUZZER_DRIVE_PIN,OUTPUT);
-        WORK_STATUS.PinWrite(BUZZER_DRIVE_PIN,BUZZER_OFF);
-        
-      #elif BUZZER_DRIVE_MODE == DRIVE_MCP23S17
-      
-        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-        
-          WORK_STATUS.MCP_SPI_PinMode(BUZZER_MCP23S17_ADDRESS,BUZZER_DRIVE_PIN,OUTPUT);
-          WORK_STATUS.MCP_SPI_PinWrite(BUZZER_MCP23S17_ADDRESS,BUZZER_DRIVE_PIN,BUZZER_OFF);
-          
-        #endif
-        
-      #elif BUZZER_DRIVE_MODE == DRIVE_MCP23017
-      
-        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-        
-          WORK_STATUS.MCP_I2C_PinMode(BUZZER_MCP23017_ADDRESS,BUZZER_DRIVE_PIN,OUTPUT);
-          WORK_STATUS.MCP_I2C_PinWrite(BUZZER_MCP23017_ADDRESS,BUZZER_DRIVE_PIN,BUZZER_OFF);
-          
-        #endif
-        
-      #endif
 
+  #ifdef USE_BUZZER_ON_TOUCH  
     // пискнем баззером при инициализации экрана
-    buzzer(); 
-    
+    Buzzer.buzz();
   #endif // USE_BUZZER_ON_TOUCH
+  
 
   
 }
@@ -2116,9 +2074,6 @@ void TFTMenu::lcdOff()
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void TFTMenu::update(uint16_t dt)
 {
-
-  updateBuzzer();
-  
   if(currentScreenIndex == -1) // ни разу не рисовали ещё ничего, исправляемся
   {
      switchToScreen("IDLE"); // переключаемся на стартовый экран, если ещё ни разу не показали ничего     
@@ -2180,77 +2135,6 @@ void TFTMenu::switchToScreen(const char* screenName)
  void TFTMenu::resetIdleTimer()
 {
   idleTimer = millis();
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void TFTMenu::updateBuzzer()
-{
-  #ifdef USE_BUZZER_ON_TOUCH
-    if(flags.buzzerActive)
-    {
-      if(millis() - buzzerTimer > BUZZER_DURATION)
-      {
-        flags.buzzerActive = false;
-        
-        //TODO: Тут выключаем пищалку, проверить !!!
-        
-          #if BUZZER_DRIVE_MODE == DRIVE_DIRECT
-          
-            WORK_STATUS.PinWrite(BUZZER_DRIVE_PIN,BUZZER_OFF);
-            
-          #elif BUZZER_DRIVE_MODE == DRIVE_MCP23S17
-          
-            #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-            
-              WORK_STATUS.MCP_SPI_PinWrite(BUZZER_MCP23S17_ADDRESS,BUZZER_DRIVE_PIN,BUZZER_OFF);
-              
-            #endif
-            
-          #elif BUZZER_DRIVE_MODE == DRIVE_MCP23017
-          
-            #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-            
-              WORK_STATUS.MCP_I2C_PinWrite(BUZZER_MCP23017_ADDRESS,BUZZER_DRIVE_PIN,BUZZER_OFF);
-              
-            #endif
-            
-          #endif
-              
-      }
-    }
-  #endif // USE_BUZZER_ON_TOUCH  
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void TFTMenu::buzzer()
-{
-  #ifdef USE_BUZZER_ON_TOUCH
-  
-    flags.buzzerActive = true;
-    buzzerTimer = millis();
-          
-      #if BUZZER_DRIVE_MODE == DRIVE_DIRECT
-      
-        WORK_STATUS.PinWrite(BUZZER_DRIVE_PIN,BUZZER_ON);
-        
-      #elif BUZZER_DRIVE_MODE == DRIVE_MCP23S17
-      
-        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
-        
-          WORK_STATUS.MCP_SPI_PinWrite(BUZZER_MCP23S17_ADDRESS,BUZZER_DRIVE_PIN,BUZZER_ON);
-          
-        #endif
-        
-      #elif BUZZER_DRIVE_MODE == DRIVE_MCP23017
-      
-        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
-        
-          WORK_STATUS.MCP_I2C_PinWrite(BUZZER_MCP23017_ADDRESS,BUZZER_DRIVE_PIN,BUZZER_ON);
-          
-        #endif
-        
-      #endif
-       
-    
-  #endif  // USE_BUZZER_ON_TOUCH
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif

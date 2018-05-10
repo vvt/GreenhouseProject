@@ -4,6 +4,10 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_NEXTION_MODULE
 
+#ifdef USE_BUZZER_ON_TOUCH
+#include "Buzzer.h"
+#endif
+
 #ifdef USE_TEMP_SENSORS
 #include "TempSensors.h"
 #endif
@@ -189,6 +193,12 @@ void NextionModule::StringReceived(const char* str)
 {
 
   GlobalSettings* sett = MainController->GetSettings();
+
+  // по-любому кликнули на кнопку, раз пришла команда
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.buzz();
+  #endif
+  
   
   // Обрабатываем пришедшие команды здесь
   String sPassed = str;
@@ -650,6 +660,11 @@ void NextionModule::Update(uint16_t dt)
     txt.text(String(ulI).c_str());    
         
     flags.bInited = true;
+
+    #ifdef USE_BUZZER_ON_TOUCH
+    Buzzer.buzz();
+    #endif
+
     
     return;
   }

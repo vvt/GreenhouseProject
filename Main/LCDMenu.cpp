@@ -4,6 +4,10 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_LCD_MODULE
 
+#ifdef USE_BUZZER_ON_TOUCH
+#include "Buzzer.h"
+#endif
+
 #if defined(USE_TEMP_SENSORS) && defined(WINDOWS_CHANNELS_SCREEN_ENABLED)
 #include "TempSensors.h"
 #endif
@@ -19,6 +23,10 @@ PushButton button(MENU_BUTTON_PIN); // кнопка для управления 
 void ButtonOnClick(const PushButton& Sender, void* UserData) // пришло событие от кнопки - кликнута
 {
   UNUSED(Sender);
+
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.buzz();
+  #endif
   
   LCDMenu* menu = (LCDMenu*) UserData;
   menu->enterSubMenu(); // просим войти в подменю
@@ -1647,6 +1655,11 @@ void LCDMenu::init()
   size_t cnt = items.size();
   for(size_t i=0;i<cnt;i++)
     items[i]->init(this);
+
+
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.buzz();
+  #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::notifyMenuUpdated(AbstractLCDMenuItem* miUpd)

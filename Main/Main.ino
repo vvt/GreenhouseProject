@@ -150,6 +150,12 @@
 #include "TFTModule.h"
 #endif
 
+#ifdef USE_BUZZER_ON_TOUCH
+#include "Buzzer.h"
+#endif
+
+#include "DelayedEvents.h"
+
 // таймер
 unsigned long lastMillis = 0;
 
@@ -319,6 +325,10 @@ void setup()
  
   // настраиваем все железки
   controller.Setup();
+
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.begin();
+  #endif
    
   // устанавливаем провайдера команд для контроллера
   controller.SetCommandParser(&commandParser);
@@ -586,6 +596,7 @@ void loop()
     // обновляем состояние всех зарегистрированных модулей
    controller.UpdateModules(dt,ModuleUpdateProcessed);
 
+   CoreDelayedEvent.update();
 
    
 // отсюда можно добавлять любой сторонний код
@@ -623,9 +634,8 @@ void yield()
     rotaryEncoder.update(); // обновляем энкодер меню
    #endif
 
-   #ifdef USE_TFT_MODULE
-    tftModule.UpdateBuzzer(); // обновляем пищалку
-   #endif   
+   CoreDelayedEvent.update();
+
 
 // отсюда можно добавлять любой сторонний код, который надо вызывать, когда МК чем-то долго занят (например, чтобы успокоить watchdog)
 
