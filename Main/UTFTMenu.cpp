@@ -828,23 +828,28 @@ void TFTSettingsScreen::setup(TFTMenu* menuManager)
     int timeButtonWidth2 = fontWidth*4+timeButtonPadding*2;    
     
     dayButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strDay.c_str());
-    screenButtons->setButtonFontColor(dayButton,VGA_TEAL);
+    screenButtons->setButtonFontColor(dayButton,TIME_PART_FONT_COLOR);
+    screenButtons->setButtonBackColor(dayButton,TIME_PART_BG_COLOR);
     curTimePartLeftPos += timeButtonWidth + timeButtonHSpacing;
 
     monthButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strMonth.c_str());
-    screenButtons->setButtonFontColor(monthButton,VGA_TEAL);
+    screenButtons->setButtonFontColor(monthButton,TIME_PART_FONT_COLOR);
+    screenButtons->setButtonBackColor(monthButton,TIME_PART_BG_COLOR);
     curTimePartLeftPos += timeButtonWidth + timeButtonHSpacing;
     
     yearButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth2,  TFT_ARROW_BUTTON_HEIGHT, strYear.c_str());
-    screenButtons->setButtonFontColor(yearButton,VGA_TEAL);
+    screenButtons->setButtonFontColor(yearButton,TIME_PART_FONT_COLOR);
+    screenButtons->setButtonBackColor(yearButton,TIME_PART_BG_COLOR);
     curTimePartLeftPos += timeButtonWidth2 + timeButtonHSpacing;
 
     hourButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strHour.c_str());
-    screenButtons->setButtonFontColor(hourButton,VGA_TEAL);
+    screenButtons->setButtonFontColor(hourButton,TIME_PART_FONT_COLOR);
+    screenButtons->setButtonBackColor(hourButton,TIME_PART_BG_COLOR);
     curTimePartLeftPos += timeButtonWidth + timeButtonHSpacing;
 
     minuteButton = screenButtons->addButton( curTimePartLeftPos ,  thirdRowTopPos, timeButtonWidth,  TFT_ARROW_BUTTON_HEIGHT, strMinute.c_str());
-    screenButtons->setButtonFontColor(minuteButton,VGA_TEAL);
+    screenButtons->setButtonFontColor(minuteButton,TIME_PART_FONT_COLOR);
+    screenButtons->setButtonBackColor(minuteButton,TIME_PART_BG_COLOR);
 
     
     dc->setFont(BigRusFont);
@@ -1073,8 +1078,8 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
         if(selectedTimePartButton == pressed_button)
         {
           // та же самая кнопка, что была уже выделена, снимаем выделение
-          screenButtons->setButtonBackColor(selectedTimePartButton,CHANNELS_BUTTONS_BG_COLOR);
-          screenButtons->setButtonFontColor(selectedTimePartButton,VGA_TEAL);
+          screenButtons->setButtonBackColor(selectedTimePartButton,TIME_PART_BG_COLOR);
+          screenButtons->setButtonFontColor(selectedTimePartButton,TIME_PART_FONT_COLOR);
           screenButtons->drawButton(selectedTimePartButton);
           selectedTimePartButton = -1;
           
@@ -1084,12 +1089,12 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
         else
         {
           // выделили другую кнопку, поэтому для предыдущей надо убрать выделение
-          screenButtons->setButtonBackColor(selectedTimePartButton,CHANNELS_BUTTONS_BG_COLOR);
-          screenButtons->setButtonFontColor(selectedTimePartButton,VGA_TEAL);
+          screenButtons->setButtonBackColor(selectedTimePartButton,TIME_PART_BG_COLOR);
+          screenButtons->setButtonFontColor(selectedTimePartButton,TIME_PART_FONT_COLOR);
           screenButtons->drawButton(selectedTimePartButton);
           selectedTimePartButton = pressed_button;
-          screenButtons->setButtonBackColor(selectedTimePartButton,MODE_ON_COLOR);
-          screenButtons->setButtonFontColor(selectedTimePartButton,VGA_WHITE);
+          screenButtons->setButtonBackColor(selectedTimePartButton,TIME_PART_SELECTED_BG_COLOR);
+          screenButtons->setButtonFontColor(selectedTimePartButton,TIME_PART_SELECTED_FONT_COLOR);
           screenButtons->drawButton(selectedTimePartButton);
 
           screenButtons->enableButton(incTimePartButton,!screenButtons->buttonEnabled(incTimePartButton));
@@ -1101,8 +1106,8 @@ void TFTSettingsScreen::update(TFTMenu* menuManager,uint16_t dt)
       {
         // ничего не выделено, выделяем нажатую кнопку
         selectedTimePartButton = pressed_button; 
-        screenButtons->setButtonBackColor(selectedTimePartButton,MODE_ON_COLOR);
-        screenButtons->setButtonFontColor(selectedTimePartButton,VGA_WHITE);
+        screenButtons->setButtonBackColor(selectedTimePartButton,TIME_PART_SELECTED_BG_COLOR);
+        screenButtons->setButtonFontColor(selectedTimePartButton,TIME_PART_SELECTED_FONT_COLOR);
         screenButtons->drawButton(selectedTimePartButton);
 
         screenButtons->enableButton(incTimePartButton,!screenButtons->buttonEnabled(incTimePartButton));
@@ -1610,7 +1615,7 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   
   if(status)
   {
-    dc->setColor(VGA_LIME);
+    dc->setColor(STATUS_ON_COLOR);
     toDraw = onStatusString;
   }
   else
@@ -1630,7 +1635,7 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
 
   if(mode)
   {
-    dc->setColor(VGA_LIME);
+    dc->setColor(STATUS_ON_COLOR);
     toDraw = autoModeString;
   }
   else

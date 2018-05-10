@@ -19,35 +19,20 @@
 #include "UTFT_Buttons_Rus.h"
 #include "UTFTRus.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#define TFT_BACK_COLOR 0xFF,0xFF,0xFF
-#define TFT_BUTTON_COLORS VGA_WHITE, VGA_GRAY, VGA_WHITE, /*VGA_SILVER*/VGA_RED, VGA_BLUE
 #define TFT_IDLE_SCREEN_BUTTON_WIDTH 128
 #define TFT_IDLE_SCREEN_BUTTON_HEIGHT 90
 #define TFT_IDLE_SCREEN_BUTTON_SPACING 10
-#define TFT_FONT_COLOR 0x4B, 0x4C, 0x4B //0x4A69
-#define TFT_CHANNELS_BUTTON_COLORS 0x3A8D, VGA_SILVER, VGA_GRAY, /*VGA_SILVER*/VGA_RED, 0xEF7D
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 #define INFO_BOX_WIDTH 240
 #define INFO_BOX_HEIGHT 80
 #define INFO_BOX_V_SPACING 20
 #define INFO_BOX_CONTENT_PADDING 8
-#define INFO_BOX_BACK_COLOR 97,44,8//0xF2, 0xF2, 0xF2//0xEF7D
-#define INFO_BOX_BORDER_COLOR VGA_BLACK//VGA_GRAY
-#define INFO_BOX_CAPTION_COLOR 0x30, 0x7B, 0xB5//0x3A8D
 
 #define SENSOR_BOX_WIDTH 240
 #define SENSOR_BOX_HEIGHT 90
 #define SENSOR_BOX_V_SPACING 20
-#define SENSOR_BOX_FONT_COLOR VGA_WHITE//VGA_TEAL
-#define SENSOR_BOX_UNIT_COLOR VGA_WHITE//0x80, 0xB0, 0x51//0x7D2A
 #define SENSOR_BOXES_PER_LINE 3
 
-#define MODE_ON_COLOR VGA_GREEN
-#define MODE_OFF_COLOR VGA_MAROON
-
-#define CHANNELS_BUTTONS_TEXT_COLOR VGA_WHITE
-#define CHANNELS_BUTTONS_BG_COLOR 0xEF7D
-#define CHANNEL_BUTTONS_TEXT_COLOR 0x3A8D
 #define CHANNELS_BUTTONS_PER_LINE 4
 #define CHANNELS_BUTTON_WIDTH 165
 #define CHANNELS_BUTTON_HEIGHT 50

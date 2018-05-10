@@ -853,6 +853,28 @@
 #define TFT_INIT_DELAY 0 // сколько миллисекунд (при необходимости) ждать перед отсылкой первых команд на дисплей
 #define TFT_EXTRA_RESET // закомментировать, если не нужен дополнительный принудительный пересброс экрана по ноге TFT_RST_PIN
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// цвета для TFT
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#define TFT_BACK_COLOR 0xFF,0xFF,0xFF // цвет фона
+#define TFT_BUTTON_COLORS VGA_WHITE, VGA_GRAY, VGA_WHITE, VGA_RED, VGA_BLUE // цвета кнопок
+#define TFT_FONT_COLOR 0x4B, 0x4C, 0x4B // цвет шрифта по умолчанию
+#define TFT_CHANNELS_BUTTON_COLORS 0x3A8D, VGA_SILVER, VGA_GRAY, VGA_RED, 0xEF7D // цвета кнопок для каналов
+#define INFO_BOX_BACK_COLOR 97,44,8 // цвет фона для информационного бокса
+#define INFO_BOX_BORDER_COLOR VGA_BLACK // цвет рамки информационного бокса
+#define INFO_BOX_CAPTION_COLOR 0x30, 0x7B, 0xB5 // цвет заголовка информационного бокса
+#define SENSOR_BOX_FONT_COLOR VGA_WHITE // цвет показаний датчика
+#define SENSOR_BOX_UNIT_COLOR VGA_WHITE // цвет единиц изменений датчика
+#define MODE_ON_COLOR VGA_GREEN   // цвет "вкл", "авто"
+#define MODE_OFF_COLOR VGA_MAROON // цвет "выкл", "ручной"
+#define CHANNELS_BUTTONS_TEXT_COLOR VGA_WHITE // цвет текста кнопок каналов
+#define CHANNELS_BUTTONS_BG_COLOR 0xEF7D    // цвет фона кнопок каналов
+#define CHANNEL_BUTTONS_TEXT_COLOR 0x3A8D   // цвет текста кнопки одного канала
+#define TIME_PART_FONT_COLOR VGA_TEAL // цвет текста кнопки установки компонента времени
+#define TIME_PART_SELECTED_FONT_COLOR VGA_WHITE // цвет текста активной кнопки компонента времени
+#define TIME_PART_BG_COLOR 0xEF7D // цвет фона кнопки компонента времени
+#define TIME_PART_SELECTED_BG_COLOR VGA_GREEN // цвет фона выбранной кнопки компонента времени
+#define STATUS_ON_COLOR VGA_LIME // цвет статусов на экране ожидания
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // labels settings and so on
 // настройки подписей и пр.
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
