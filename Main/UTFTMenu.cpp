@@ -1329,7 +1329,7 @@ void TFTIdleScreen::DrawDateTime(TFTMenu* menuManager)
     UTFT* dc = menuManager->getDC();
     dc->setFont(BigRusFont);
     dc->setBackColor(TFT_BACK_COLOR);
-    dc->setColor(SENSOR_BOX_FONT_COLOR); 
+    dc->setColor(INFO_BOX_CAPTION_COLOR); 
 
     int screenWidth = dc->getDisplayXSize();
     int screenHeight = dc->getDisplayYSize();
@@ -1591,7 +1591,7 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   menuManager->updateBuzzer();
 
   dc->setBackColor(INFO_BOX_BACK_COLOR);
-  dc->setColor(TFT_FONT_COLOR);
+  dc->setColor(SENSOR_BOX_FONT_COLOR);
 
   int curTop = rc.y;
   int curLeft = rc.x;
@@ -1610,12 +1610,12 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
   
   if(status)
   {
-    dc->setColor(MODE_ON_COLOR);
+    dc->setColor(VGA_LIME);
     toDraw = onStatusString;
   }
   else
   {
-    dc->setColor(MODE_OFF_COLOR);
+    dc->setColor(SENSOR_BOX_FONT_COLOR);
     toDraw = offStatusString;
   }
 
@@ -1630,12 +1630,12 @@ void TFTIdleScreen::drawStatusesInBox(TFTMenu* menuManager,TFTInfoBox* box, bool
 
   if(mode)
   {
-    dc->setColor(MODE_ON_COLOR);
+    dc->setColor(VGA_LIME);
     toDraw = autoModeString;
   }
   else
   {
-    dc->setColor(MODE_OFF_COLOR);
+    dc->setColor(SENSOR_BOX_FONT_COLOR);
     toDraw = manualModeString;
   }
 

@@ -120,14 +120,14 @@ void NextionModule::UpdatePageData(uint8_t pageId)
         closeTemp = sett->GetCloseTemp();
         unsigned long ulI = sett->GetOpenInterval()/1000;
 
-        NextionText txt("topen");
+        NextionText txt("page5.topen");
         txt.bind(nextion);
         txt.text(String(openTemp).c_str());
 
-        txt.setName("tclose");
+        txt.setName("page5.tclose");
         txt.text(String(closeTemp).c_str());
 
-        txt.setName("motors");
+        txt.setName("page5.motors");
         txt.text(String(ulI).c_str());
         
       }
@@ -524,23 +524,17 @@ void NextionModule::updateDisplayData()
     if(flags.openTempChanged)
     {
       flags.openTempChanged = false;
-      if(currentPage == NEXTION_OPTIONS_PAGE)
-      {
-        NextionText txt("topen");
-        txt.bind(nextion);
-        txt.text(String(openTemp).c_str());
-      }
+      NextionText txt("page5.topen");
+      txt.bind(nextion);
+      txt.text(String(openTemp).c_str());
     }
     
     if(flags.closeTempChanged)
     {
       flags.closeTempChanged = false;
-      if(currentPage == NEXTION_OPTIONS_PAGE)
-      {
-        NextionText txt("tclose");
-        txt.bind(nextion);
-        txt.text(String(closeTemp).c_str());
-      }
+      NextionText txt("page5.tclose");
+      txt.bind(nextion);
+      txt.text(String(closeTemp).c_str());
     }
     
    
@@ -648,6 +642,12 @@ void NextionModule::Update(uint16_t dt)
     closeTemp = sett->GetCloseTemp();
     
     updateDisplayData();
+
+    unsigned long ulI = sett->GetOpenInterval()/1000;
+
+    NextionText txt("page5.motors");
+    txt.bind(nextion);
+    txt.text(String(ulI).c_str());    
         
     flags.bInited = true;
     
