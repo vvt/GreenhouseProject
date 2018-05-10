@@ -122,9 +122,11 @@ void AT24CX::write(unsigned int address, byte data) {
     Wire.beginTransmission(_id);
     if(Wire.endTransmission()==0) {
     	Wire.beginTransmission(_id);
-    	Wire.write(address >> 8);
-    	Wire.write(address & 0xFF);
-      	Wire.write(data);
+      uint8_t b1 = address >> 8;
+      uint8_t b2 = address & 0xFF;      
+    	Wire.write(b1);
+    	Wire.write(b2);
+      Wire.write(data);
     	Wire.endTransmission();
     	delay(10);
     }
@@ -234,8 +236,10 @@ void AT24CX::write(unsigned int address, byte *data, int offset, int n) {
     Wire.beginTransmission(_id);
     if (Wire.endTransmission()==0) {
      	Wire.beginTransmission(_id);
-    	Wire.write(address >> 8);
-    	Wire.write(address & 0xFF);
+      uint8_t b1 = address >> 8;
+      uint8_t b2 = address & 0xFF;       
+    	Wire.write(b1);
+    	Wire.write(b2);
     	byte *adr = data+offset;
     	Wire.write(adr, n);
     	Wire.endTransmission();
@@ -252,8 +256,10 @@ byte AT24CX::read(unsigned int address) {
 	Wire.beginTransmission(_id);
     if (Wire.endTransmission()==0) {
      	Wire.beginTransmission(_id);
-    	Wire.write(address >> 8);
-    	Wire.write(address & 0xFF);
+      uint8_t b1 = address >> 8;
+      uint8_t b2 = address & 0xFF;       
+    	Wire.write(b1);
+    	Wire.write(b2);
     	if (Wire.endTransmission()==0) {
 			Wire.requestFrom(_id, 1);
 			while (Wire.available() > 0 && r<1) {
@@ -292,8 +298,10 @@ void AT24CX::read(unsigned int address, byte *data, int offset, int n) {
 	Wire.beginTransmission(_id);
     if (Wire.endTransmission()==0) {
      	Wire.beginTransmission(_id);
-    	Wire.write(address >> 8);
-    	Wire.write(address & 0xFF);
+      uint8_t b1 = address >> 8;
+      uint8_t b2 = address & 0xFF;
+    	Wire.write(b1);
+    	Wire.write(b2);
     	if (Wire.endTransmission()==0) {
 			int r = 0;
     		Wire.requestFrom(_id, n);

@@ -3,7 +3,12 @@
 #include "AbstractModule.h"
 #include "Globals.h"
 #include "DS3231Support.h"
+
+#if TARGET_BOARD == STM32_BOARD
+#include <SdFatSTM32.h>
+#else
 #include <SdFat.h>
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {

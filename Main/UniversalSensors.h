@@ -327,24 +327,6 @@ struct UniNextionWaitScreenData
   }
 };
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-#ifdef USE_UNI_NEXTION_MODULE
-//-------------------------------------------------------------------------------------------------------------------------------------------------------
-class NextionUniClient : public AbstractUniClient
-{
-  public:
-    NextionUniClient();
-    virtual void Register(UniRawScratchpad* scratchpad);
-    virtual void Update(UniRawScratchpad* scratchpad, bool isModuleOnline, UniScratchpadSource receivedThrough);
-
-  private:
-
-    unsigned long updateTimer;
-   // bool tempChanged;
-  
-};
-//-------------------------------------------------------------------------------------------------------------------------------------------------------
-#endif // USE_UNI_NEXTION_MODULE
-//-------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_RS485_GATE
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 enum 
@@ -577,9 +559,6 @@ class UniClientsFactory
 
     DummyUniClient dummyClient;
     SensorsUniClient sensorsClient;
-    #ifdef USE_UNI_NEXTION_MODULE
-    NextionUniClient nextionClient;
-    #endif
 
     #ifdef USE_UNI_EXECUTION_MODULE
     UniExecutionModuleClient executionClient;

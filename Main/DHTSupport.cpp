@@ -21,7 +21,9 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   #if (TARGET_BOARD == MEGA_BOARD)
   uint8_t 
   #elif (TARGET_BOARD == DUE_BOARD)
-  Pio* 
+  Pio*
+  #elif (TARGET_BOARD == STM32_BOARD)
+  gpio_dev*
   #else
     #error "Unknown target board!"
   #endif
@@ -32,6 +34,8 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   uint8_t*
   #elif (TARGET_BOARD == DUE_BOARD)
   RoReg* 
+  #elif (TARGET_BOARD == STM32_BOARD)
+  uint32_t*
   #else
     #error "Unknown target board!"
   #endif  

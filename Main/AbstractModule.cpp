@@ -240,7 +240,12 @@ void WorkStatus::PinMode(byte pinNumber,byte mode, bool setMode)
     
 
    if(setMode && (pinNumber < VIRTUAL_PIN_START_NUMBER))
-    pinMode(pinNumber,mode);
+    pinMode(pinNumber,
+    #if TARGET_BOARD == STM32_BOARD
+    (WiringPinMode)
+    #endif
+    mode
+    );
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void WorkStatus::SaveWindowState(byte channel, byte state)

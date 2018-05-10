@@ -60,7 +60,7 @@ bool HTU21D::begin(void)
   Wire.setClock(400000UL);                //experimental! i2c bus speed: AVR 31kHz..400kHz/31000UL..400000UL, ESP8266 100kHz..400kHz/100000UL..400000UL
   Wire.beginTransmission(HTU21D_ADDRESS);
 
-  if (Wire.endTransmission(true) != 0)    //safety check - make sure the sensor is connected
+  if (Wire.endTransmission(/*true*/) != 0)    //safety check - make sure the sensor is connected
   {
     return false;
   }
@@ -105,7 +105,7 @@ void HTU21D::softReset(void)
   #else
   Wire.send(HTU21D_SOFT_RESET);
   #endif
-  Wire.endTransmission(true);
+  Wire.endTransmission(/*true*/);
 
   delay(15);
 }
@@ -188,19 +188,21 @@ void HTU21D::setHeater(HTU21D_toggleHeaterSwitch heaterSwitch)
 /**************************************************************************/
 float HTU21D::readHumidity(HTU21D_humdOperationMode sensorOperationMode)
 {
-  uint8_t  pollCounter = 8;
+  ////uint8_t  pollCounter = 8;
   uint8_t  checksum    = 0;
   uint16_t rawHumidity = 0;
   float    humidity    = 0;
 
   /* request a humidity measurement */
   Wire.beginTransmission(HTU21D_ADDRESS);
+    
   #if ARDUINO >= 100
   Wire.write(sensorOperationMode);
   #else
   Wire.send(sensorOperationMode);
   #endif
-  Wire.endTransmission(true);
+  if(Wire.endTransmission(/*true*/) != 0)
+    return HTU21D_ERROR;
 
   /* humidity measurement delay */
   switch(_HTU21D_Resolution)
@@ -219,8 +221,12 @@ float HTU21D::readHumidity(HTU21D_humdOperationMode sensorOperationMode)
       break;
   }
 
-  Wire.requestFrom(HTU21D_ADDRESS, 3);
-  /* poll to check the end of the measurement, bacause Si7021 & SHT21 are slower than HTU21D */
+  if(Wire.requestFrom(HTU21D_ADDRESS, 3) != 3)
+  {
+     return HTU21D_ERROR;
+  }
+  // poll to check the end of the measurement, bacause Si7021 & SHT21 are slower than HTU21D
+  /*
   while (Wire.available() != 3)
   {
     pollCounter--;
@@ -234,6 +240,7 @@ float HTU21D::readHumidity(HTU21D_humdOperationMode sensorOperationMode)
       return HTU21D_ERROR;
     }
   }
+  */
 
   /* reads MSB byte, LSB byte & Checksum */
   #if ARDUINO >= 100
@@ -245,7 +252,7 @@ float HTU21D::readHumidity(HTU21D_humdOperationMode sensorOperationMode)
   rawHumidity |= Wire.receive();
   checksum     = Wire.receive();
   #endif
-  if (Wire.endTransmission(true) != 0 || checkCRC8(rawHumidity) != checksum)
+  if (/*Wire.endTransmission(true) != 0 || */checkCRC8(rawHumidity) != checksum)
   {
     return HTU21D_ERROR;
   }
@@ -287,19 +294,21 @@ float HTU21D::readHumidity(HTU21D_humdOperationMode sensorOperationMode)
 /**************************************************************************/
 float HTU21D::readTemperature(HTU21D_tempOperationMode sensorOperationMode)
 {
-  uint8_t  pollCounter    = 8;
+  //uint8_t  pollCounter    = 8;
   uint8_t  checksum       = 0;
   uint16_t rawTemperature = 0;
   float    temperature    = 0;
 
   /* request a temperature measurement or reading */
   Wire.beginTransmission(HTU21D_ADDRESS);
+    
   #if ARDUINO >= 100
   Wire.write(sensorOperationMode); 
   #else
   Wire.send(sensorOperationMode);
   #endif
-  Wire.endTransmission(true);
+  if(Wire.endTransmission(/*true*/) != 0)
+    return HTU21D_ERROR;
 
   if (sensorOperationMode == SI70xx_TEMP_READ_AFTER_RH_MEASURMENT)
   {
@@ -324,8 +333,12 @@ float HTU21D::readTemperature(HTU21D_tempOperationMode sensorOperationMode)
   }
 
  skipMeasurementDelay:
-  Wire.requestFrom(HTU21D_ADDRESS, 3);
+  if(Wire.requestFrom(HTU21D_ADDRESS, 3) != 3)
+  {
+    return HTU21D_ERROR;
+  }
   /* poll to check the end of the measurement, bacause HTU21D & SHT21 are slower than Si7021 */
+  /*
   while (Wire.available() != 3)
   {
     pollCounter--;
@@ -339,6 +352,7 @@ float HTU21D::readTemperature(HTU21D_tempOperationMode sensorOperationMode)
       return HTU21D_ERROR;
     }
   }
+  */
 
   /* reads MSB byte, LSB byte & Checksum */
   #if ARDUINO >= 100
@@ -350,7 +364,7 @@ float HTU21D::readTemperature(HTU21D_tempOperationMode sensorOperationMode)
   rawTemperature |= Wire.receive();
   checksum        = Wire.receive();
   #endif
-  if (Wire.endTransmission(true) != 0 || checkCRC8(rawTemperature) != checksum)
+  if (/*Wire.endTransmission(true) != 0 || */checkCRC8(rawTemperature) != checksum)
   {
     return HTU21D_ERROR;
   }
@@ -414,6 +428,7 @@ uint16_t HTU21D::readDeviceID(void)
 
   /* Serial_2 requests SNB3**, SNB2, SNB1, SNB0 */
   Wire.beginTransmission(HTU21D_ADDRESS);
+
   #if ARDUINO >= 100
   Wire.write(HTU21D_SERIAL2_READ1);
   Wire.write(HTU21D_SERIAL2_READ2);
@@ -421,10 +436,13 @@ uint16_t HTU21D::readDeviceID(void)
   Wire.send(HTU21D_SERIAL2_READ1);
   Wire.send(HTU21D_SERIAL2_READ2);
   #endif
-  Wire.endTransmission(true);
+  if(Wire.endTransmission(/*true*/) != 0)
+    return HTU21D_ERROR;
 
   /* Serial_2 reads SNB3**, SNB2 & CRC */
-  Wire.requestFrom(HTU21D_ADDRESS, 3);
+  if(Wire.requestFrom(HTU21D_ADDRESS, 3) != 3)
+    return HTU21D_ERROR;
+    
   #if ARDUINO >= 100
   deviceID  = Wire.read() << 8;
   deviceID |= Wire.read();
@@ -434,7 +452,7 @@ uint16_t HTU21D::readDeviceID(void)
   deviceID |= Wire.receive();
   checksum  = Wire.receive();
   #endif
-  if (Wire.endTransmission(true) != 0 || checkCRC8(deviceID) != checksum)
+  if (/*Wire.endTransmission(true) != 0 || */checkCRC8(deviceID) != checksum)
   {
     return HTU21D_ERROR;
   }
@@ -474,6 +492,7 @@ uint8_t HTU21D::readFirmwareVersion(void)
   uint8_t firmwareVersion = 0;
  
   Wire.beginTransmission(HTU21D_ADDRESS);
+    
   #if ARDUINO >= 100
   Wire.write(HTU21D_FIRMWARE_READ1);
   Wire.write(HTU21D_FIRMWARE_READ2);
@@ -481,18 +500,24 @@ uint8_t HTU21D::readFirmwareVersion(void)
   Wire.send(HTU21D_FIRMWARE_READ1);
   Wire.send(HTU21D_FIRMWARE_READ2);
   #endif
-  Wire.endTransmission(true);
+  
+  if(Wire.endTransmission(/*true*/) != 0)
+    return HTU21D_ERROR;
 
-  Wire.requestFrom(HTU21D_ADDRESS, 1);
+  if(Wire.requestFrom(HTU21D_ADDRESS, 1) != 1)
+    return HTU21D_ERROR;
+    
   #if ARDUINO >= 100
   firmwareVersion = Wire.read();
   #else
   firmwareVersion = Wire.read();
   #endif
+  /*
   if (Wire.endTransmission(true) != 0)
   {
     return HTU21D_ERROR;
   }
+  */
 
   switch(firmwareVersion)
   {
@@ -517,6 +542,7 @@ uint8_t HTU21D::readFirmwareVersion(void)
 void HTU21D::write8(uint8_t reg, uint8_t value)
 {
   Wire.beginTransmission(HTU21D_ADDRESS);
+    
   #if ARDUINO >= 100
   Wire.write(reg);
   Wire.write(value);
@@ -524,7 +550,7 @@ void HTU21D::write8(uint8_t reg, uint8_t value)
   Wire.send(reg);
   Wire.send(value);
   #endif
-  Wire.endTransmission(true);
+  Wire.endTransmission(/*true*/);
 }
 
 /**************************************************************************/
@@ -537,20 +563,25 @@ uint8_t HTU21D::read8(uint8_t reg)
   uint8_t value = 0;
 
   Wire.beginTransmission(HTU21D_ADDRESS);
+    
   #if ARDUINO >= 100
   Wire.write(reg);
   #else
   Wire.send(reg);
   #endif
-  Wire.endTransmission(true);
+  
+  if(Wire.endTransmission(/*true*/) != 0)
+    return value;
 
-  Wire.requestFrom(HTU21D_ADDRESS, 1);
+  if(Wire.requestFrom(HTU21D_ADDRESS, 1) != 1)
+    return value;
+    
   #if ARDUINO >= 100
   value = Wire.read();
   #else
   value = Wire.receive();
   #endif
-  Wire.endTransmission(true);
+  //Wire.endTransmission(true);
 
   return value;
 }

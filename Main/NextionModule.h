@@ -2,7 +2,6 @@
 #define _NEXTION_MODULE_H
 
 #include "AbstractModule.h"
-#include "NextionController.h"
 #include "Settings.h"
 
 #ifdef USE_NEXTION_MODULE
@@ -12,12 +11,13 @@
   uint8_t sensorType;
   uint8_t sensorIndex;
   const char* moduleName;
+  const char* caption;
     
  } NextionWaitScreenInfo; // структура для хранения информации, которую необходимо показывать на экране ожидания
 //--------------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
-    bool  isDisplaySleep : 1;
+    bool isDisplaySleep : 1;
     bool bInited : 1;
     bool isWindowsOpen : 1;
     bool isWindowAutoMode : 1;
@@ -37,23 +37,40 @@ typedef struct
   
 } NextionModuleFlags;
 //--------------------------------------------------------------------------------------------------------------------------------------
+#define NEXTION_START_PAGE 0
+#define NEXTION_MENU_PAGE 1
+#define NEXTION_WINDOWS_PAGE 2
+#define NEXTION_WATER_PAGE 3
+#define NEXTION_LIGHT_PAGE 4
+#define NEXTION_OPTIONS_PAGE 5
+#define NEXTION_WINDOWS_CHANNELS_PAGE 6
+#define NEXTION_WATER_CHANNELS_PAGE 7
+//--------------------------------------------------------------------------------------------------------------------------------------
 class NextionModule : public AbstractModule // модуль управления дисплеем Nextion
 {
   private:
   
-    NextionController nextion; // класс для управления дисплеем
     NextionModuleFlags flags;
-    
     uint8_t openTemp, closeTemp;
-
     unsigned long rotationTimer;
-    
-    GlobalSettings* sett;
     
     void updateDisplayData();
 
     void displayNextSensorData(int8_t dir=1);
     int8_t currentSensorIndex;
+
+    uint8_t currentPage;
+    void UpdatePageData(uint8_t pageId);
+
+    void updateTime();
+
+    #ifdef USE_TEMP_SENSORS
+    uint16_t windowsPositionFlags;
+    #endif
+
+    #ifdef USE_WATERING_MODULE
+    uint16_t waterChannelsState;
+    #endif
   
   public:
     NextionModule() : AbstractModule("NXT") {}
@@ -64,6 +81,7 @@ class NextionModule : public AbstractModule // модуль управления
     
     void SetSleep(bool bSleep);
     void StringReceived(const char* str);
+    void OnPageChanged(uint8_t pageID);
 
 };
 #endif // USE_NEXTION_MODULE

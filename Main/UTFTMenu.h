@@ -8,7 +8,12 @@
 #include "TinyVector.h"
 #include "DS3231Support.h"
 
+#if TARGET_BOARD == STM32_BOARD
+#include <UTFTSTM32.h>
+#else
 #include <UTFT.h>
+#endif
+
 #include <URTouchCD.h>
 #include <URTouch.h>
 #include "UTFT_Buttons_Rus.h"

@@ -179,8 +179,13 @@ const char* DS3231Clock::getDateStr(const DS3231Time& t)
 void DS3231Clock::begin()
 {
   Wire.begin();
+  #if TARGET_BOARD == STM32_BOARD
+  WORK_STATUS.PinMode(20,INPUT,false);
+  WORK_STATUS.PinMode(21,OUTPUT,false);
+  #else
   WORK_STATUS.PinMode(SDA,INPUT,false);
   WORK_STATUS.PinMode(SCL,OUTPUT,false);
+  #endif
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------

@@ -21,7 +21,11 @@
 #include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
 
 
+#if TARGET_BOARD == STM32_BOARD
+#include <SdFatSTM32.h>
+#else
 #include <SdFat.h>
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------------
 class AbstractModule; // forward declaration
 class AlertRule;

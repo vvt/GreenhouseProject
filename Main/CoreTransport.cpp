@@ -4,7 +4,13 @@
 #include "Memory.h"
 #include "InteropStream.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+#include "Globals.h"
+//--------------------------------------------------------------------------------------------------------------------------------------
+#if TARGET_BOARD == STM32_BOARD
+#include <SdFatSTM32.h>
+#else
 #include <SdFat.h>
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------------
 #define CIPSEND_COMMAND F("AT+CIPSENDBUF=")
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -1734,6 +1740,24 @@ void CoreESPTransport::begin()
   workStream = &WIFI_SERIAL;
   WIFI_SERIAL.begin(WIFI_BAUDRATE);
 
+  #if TARGET_BOARD == STM32_BOARD
+  
+  if((int*)&(WIFI_SERIAL) == (int*)&Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if((int*)&(WIFI_SERIAL) == (int*)&Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if((int*)&(WIFI_SERIAL) == (int*)&Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if((int*)&(WIFI_SERIAL) == (int*)&Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  }
+   
+  #else
+  
   if(&(WIFI_SERIAL) == &Serial) {
        WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(1,OUTPUT,false);
@@ -1746,8 +1770,9 @@ void CoreESPTransport::begin()
   } else if(&(WIFI_SERIAL) == &Serial3) {
        WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(14,OUTPUT,false);
-  } 
-  
+  }
+   
+  #endif
 
   restart();
 
@@ -5270,6 +5295,23 @@ void CoreSIM800Transport::begin()
   workStream = &GSM_SERIAL;
   GSM_SERIAL.begin(GSM_BAUDRATE, SERIAL_8N1);
 
+  #if TARGET_BOARD == STM32_BOARD
+
+  if((int*)&(GSM_SERIAL) == (int*)&Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if((int*)&(GSM_SERIAL) == (int*)&Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if((int*)&(GSM_SERIAL) == (int*)&Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if((int*)&(GSM_SERIAL) == (int*)&Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  } 
+  #else
+
   if(&(GSM_SERIAL) == &Serial) {
        WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(1,OUTPUT,false);
@@ -5283,7 +5325,8 @@ void CoreSIM800Transport::begin()
        WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(14,OUTPUT,false);
   } 
-  
+
+  #endif
 
   restart();
 

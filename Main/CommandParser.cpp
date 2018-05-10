@@ -115,7 +115,7 @@ bool CommandParser::ParseCommand(const String& command, Command& outCommand)
 
   const char* readPtr = command.c_str();
   
-  bool rightPrefix = !strncmp_P(readPtr,(const char*)CMD_PREFIX,CMD_PREFIX_LEN);// || !strncmp_P(readPtr,(const char*)CHILD_PREFIX,CMD_PREFIX_LEN);
+  bool rightPrefix = !strncmp_P(readPtr,(const char*)CMD_PREFIX,CMD_PREFIX_LEN);
 
   if(!rightPrefix)
     return false;

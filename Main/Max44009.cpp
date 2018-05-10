@@ -35,7 +35,8 @@ float Max44009::readLuminosity()
   
   // регистр данных
   Wire.write(0x03);
-  Wire.endTransmission();
+  if(Wire.endTransmission() != 0)
+    return -1.0;
 
   // ждём два байта
   if(Wire.requestFrom(address, 2) == 2)

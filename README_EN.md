@@ -42,7 +42,6 @@ For home use only, any commercial use is strictly prohibited. If you want to use
 <li><b>arduino-1.6.7-windows.exe</b> - Arduino IDE, used for compiling the project;</li>
 <li><b>NewPlan_en.spl7</b> file - SPlan 7.0 project with schematic;</li>
 <li><b>Nextion</b> folder - firmware for Nextion 320x240;</li>
-<li><b>Nextion1WireModule</b> folder - firmware for universal module with Nextion support, for connecting the Nextion through 1-Wire;</li>
 <li><b>UniversalSensorsModule</b> folder - firmware for universal module with sensors;</li>
 <li><b>UniversalExecutionModule</b> folder - firmware for universal module with execution abilities (translate state of the main controller over supported hardware interfaces);</li>
 <li><b>FrequencySoilMoistureSensor</b> folder - firmware for frequency soil moisture sensor support;</li>

@@ -15,6 +15,10 @@
 // Arduino Due, настройки в файле Configuration_DUE.h
 // Arduino Due, settings located in Configuration_DUE.h
 #define DUE_BOARD 2
+
+// STM32F1 support, настройки в файле Configuration_STM32.h
+// STM32F1 support, settings located in Configuration_STM32.h
+#define STM32_BOARD 3
 //--------------------------------------------------------------------------------------------------------------------------------
 // типы подплат
 // board subtypes definition
@@ -34,6 +38,8 @@
   #define TARGET_BOARD MEGA_BOARD
 #elif defined (__arm__) && defined (__SAM3X8E__) // Arduino Due compatible
   #define TARGET_BOARD DUE_BOARD
+#elif defined (__STM32F1__)
+  #define TARGET_BOARD STM32_BOARD
 #else
   #error "Unknown target board!"
 #endif
@@ -67,6 +73,9 @@
   
 #elif (TARGET_BOARD == DUE_BOARD)
   #include "Configuration_DUE.h"
+  
+#elif (TARGET_BOARD == STM32_BOARD)
+  #include "Configuration_STM32.h"  
 #else
   #error "Unknown target board!"
 #endif

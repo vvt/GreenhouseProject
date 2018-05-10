@@ -1,6 +1,10 @@
 #include "DS18B20Query.h"
-#include <OneWire.h>
 #include "Globals.h"
+#if TARGET_BOARD == STM32_BOARD
+#include <OneWireSTM.h>
+#else
+#include <OneWire.h>
+#endif
 #include "AbstractModule.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
 void DS18B20Support::begin(uint8_t _pin) 

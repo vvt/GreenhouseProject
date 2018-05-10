@@ -7,6 +7,10 @@
     #include <stdio.h>
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------------
+#if (TARGET_BOARD == STM32_BOARD)
+extern "C" char* sbrk(int i);
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 // выводит свободную память
 //--------------------------------------------------------------------------------------------------------------------------------------
 #if (TARGET_BOARD == MEGA_BOARD)
@@ -44,10 +48,7 @@ int freeRam()
       free_memory += freeListSize();
     }
     return free_memory;    
-  /*
-    int v;
-    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
- */   
+
  #elif (TARGET_BOARD == DUE_BOARD)
 
     struct mallinfo mi = mallinfo();
@@ -55,7 +56,12 @@ int freeRam()
     register char* stack_ptr asm("sp");
 
     return (stack_ptr - heapend + mi.fordblks);
-    
+
+#elif (TARGET_BOARD == STM32_BOARD)
+
+    char top = 't';
+    return &top - reinterpret_cast<char*>(sbrk(0));
+        
  #else
   #error "Unknown target board!"
  #endif

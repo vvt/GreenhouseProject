@@ -38,7 +38,6 @@ void PCF8574::begin()
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t PCF8574::read8()
 {
- // Wire.beginTransmission(_address);
   if(Wire.requestFrom(_address, 1) == 1)
   {
     
@@ -50,7 +49,6 @@ uint8_t PCF8574::read8()
   }
   else
   {
-    //_error = Wire.endTransmission();
     _error = -100;
   }
   return _data;
