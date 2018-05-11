@@ -2012,15 +2012,6 @@ void TFTMenu::setup()
     ssi.screenName = "OPTIONS"; 
     ssi.screen = settingsScreen;  
     screens.push_back(ssi);
-
-
-
-  #ifdef USE_BUZZER_ON_TOUCH  
-    // пискнем баззером при инициализации экрана
-    Buzzer.buzz();
-  #endif // USE_BUZZER_ON_TOUCH
-  
-
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------

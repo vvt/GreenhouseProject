@@ -555,6 +555,11 @@ void setup()
     controller.Log(&logModule,READY); // печатаем в файл действий строчку Ready, которая скажет нам, что мега стартовала
   #endif
 
+  // пискнем при старте, если есть баззер
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.buzz();
+  #endif
+
  START_LOG(36);
   
 }

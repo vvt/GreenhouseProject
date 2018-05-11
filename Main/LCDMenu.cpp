@@ -1656,10 +1656,6 @@ void LCDMenu::init()
   for(size_t i=0;i<cnt;i++)
     items[i]->init(this);
 
-
-  #ifdef USE_BUZZER_ON_TOUCH
-  Buzzer.buzz();
-  #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void LCDMenu::notifyMenuUpdated(AbstractLCDMenuItem* miUpd)
