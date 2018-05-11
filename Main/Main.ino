@@ -156,6 +156,8 @@
 
 #include "DelayedEvents.h"
 
+#include<Wire.h>
+
 // таймер
 unsigned long lastMillis = 0;
 
@@ -308,6 +310,29 @@ void setup()
 #endif
 
   Serial.begin(SERIAL_BAUD_RATE); // запускаем Serial на нужной скорости
+
+  uint8_t wireScl = 21;
+  #if TARGET_BOARD == STM32_BOARD
+  WORK_STATUS.PinMode(20,INPUT,false);
+  WORK_STATUS.PinMode(21,OUTPUT,false);
+  #else
+  WORK_STATUS.PinMode(SDA,INPUT,false);
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);
+  wireScl = SCL;
+  #endif
+
+  pinMode(wireScl,OUTPUT);
+  for(uint8_t i=0;i<8;i++)
+  {
+    digitalWrite(wireScl,HIGH);
+    delayMicroseconds(3);
+    digitalWrite(wireScl,LOW);
+    delayMicroseconds(3);   
+  }
+  
+  pinMode(wireScl,INPUT);
+  
+   Wire.begin();
 
   // инициализируем память (EEPROM не надо, а вот I2C - надо)
   MemInit();  

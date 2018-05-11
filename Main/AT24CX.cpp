@@ -112,7 +112,7 @@ AT24C512::AT24C512(byte index) {
 void AT24CX::init(byte index, byte pageSize) {
 	_id = AT24CX_ID | (index & 0x7);
 	_pageSize = pageSize;
-	Wire.begin();
+	/////////Wire.begin();
 }
 
 /**

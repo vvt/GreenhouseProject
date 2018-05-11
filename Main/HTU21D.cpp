@@ -55,9 +55,9 @@ bool HTU21D::begin(uint8_t sda, uint8_t scl)
 #else
 bool HTU21D::begin(void) 
 {
-  Wire.begin();
+ /////// Wire.begin();
 #endif
-  Wire.setClock(400000UL);                //experimental! i2c bus speed: AVR 31kHz..400kHz/31000UL..400000UL, ESP8266 100kHz..400kHz/100000UL..400000UL
+  /////////Wire.setClock(400000UL);                //experimental! i2c bus speed: AVR 31kHz..400kHz/31000UL..400000UL, ESP8266 100kHz..400kHz/100000UL..400000UL
   Wire.beginTransmission(HTU21D_ADDRESS);
 
   if (Wire.endTransmission(/*true*/) != 0)    //safety check - make sure the sensor is connected

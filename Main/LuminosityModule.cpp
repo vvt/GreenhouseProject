@@ -20,15 +20,7 @@ BH1750Support::BH1750Support()
 void BH1750Support::begin(BH1750Address addr, BH1750Mode mode)
 {
   deviceAddress = addr;
-  Wire.begin();
-  #if TARGET_BOARD == STM32_BOARD
-  WORK_STATUS.PinMode(20,INPUT,false);
-  WORK_STATUS.PinMode(21,OUTPUT,false);
-  #else
-  WORK_STATUS.PinMode(SDA,INPUT,false);
-  WORK_STATUS.PinMode(SCL,OUTPUT,false);
-  #endif
-    
+  //////////////Wire.begin();    
   writeByte(BH1750PowerOn); // включаем датчик
   ChangeMode(mode); 
 }

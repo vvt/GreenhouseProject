@@ -834,7 +834,7 @@
 // #define NEXTION_WAIT_SCREEN_SENSORS NW_S(StateTemperature,0,"STATE", "Т внутри") ,NW_S(StateTemperature,1,"STATE", "Т снаружи") ,NW_S(StateLuminosity,0,"LIGHT", "Свет") ,NW_S(StateHumidity,0,"HUMIDITY", "Влажность")
 
 // определяем вид экрана ожидания тут
-#define NEXTION_WAIT_SCREEN_SENSORS NW_S(StateTemperature,0,"STATE", "T внутри") ,NW_S(StateHumidity,1,"HUMIDITY", "Влажность") ,NW_S(StateLuminosity,0,"LIGHT", "Свет")
+#define NEXTION_WAIT_SCREEN_SENSORS NW_S(StateTemperature,0,"STATE", "T внутри") ,NW_S(StateHumidity,0,"HUMIDITY", "Влажность Si7021") ,NW_S(StateHumidity,1,"HUMIDITY", "Влажность DHT22") ,NW_S(StateLuminosity,0,"LIGHT", "Свет")
 
 //--------------------------------------------------------------------------------------------------------------------------------
 // настройки модуля учёта воды (актуально при раскомментированной команде USE_WATERFLOW_MODULE)
