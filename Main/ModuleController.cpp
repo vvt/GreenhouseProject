@@ -344,7 +344,7 @@ void ModuleController::ProcessModuleCommand(const Command& c, AbstractModule* mo
 {
 
 if(!mod) // ничего не передали, надо искать модуль
-  mod =  GetModuleByID(c.GetTargetModuleID());\
+  mod =  GetModuleByID(c.GetTargetModuleID());
   
  if(!mod)
  {
