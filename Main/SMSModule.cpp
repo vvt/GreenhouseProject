@@ -238,6 +238,16 @@ void SMSModule::IncomingSMS(const String& phoneNumber,const String& message, boo
     return;
   }
 
+  if(message.startsWith(SMS_RESET_COMMAND))
+  {
+    #ifdef USE_EXTERNAL_WATCHDOG
+      while(1);
+    #else
+      ModuleInterop.QueryCommand(ctSET,F("0|RST"),false);
+    #endif
+    return;
+  }
+
   bool shouldSendSMS = false;
 
     // ищем команды
