@@ -191,7 +191,6 @@ void NextionModule::OnPageChanged(uint8_t pageID)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void NextionModule::StringReceived(const char* str)
 {
-
   GlobalSettings* sett = MainController->GetSettings();
 
   // по-любому кликнули на кнопку, раз пришла команда
@@ -398,13 +397,12 @@ void NextionModule::Setup()
   _thisModule = this;
   currentPage = 0;
   
- // sett = MainController->GetSettings();
+ GlobalSettings* sett = MainController->GetSettings();
 
   rotationTimer = NEXTION_ROTATION_INTERVAL;
   currentSensorIndex = -1;
   
   flags.isDisplaySleep = false;
-  flags.bInited = false;
   
   flags.windowChanged = true;
   flags.windowModeChanged = true;
@@ -414,9 +412,16 @@ void NextionModule::Setup()
   flags.lightModeChanged = true;
   flags.openTempChanged = true;
   flags.closeTempChanged = true;
-  
-  
-  NEXTION_SERIAL.begin(NEXTION_BAUD_RATE);
+
+
+    /*
+    NEXTION_SERIAL.begin(9600);
+    nextion.baudRate(SERIAL_BAUD_RATE,true);
+    delay(500);
+    NEXTION_SERIAL.end();
+    */
+    
+    NEXTION_SERIAL.begin(SERIAL_BAUD_RATE);
 
   #ifdef USE_NEXTION_HARDWARE_UART
 
@@ -455,7 +460,89 @@ void NextionModule::Setup()
            WORK_STATUS.PinMode(NEXTION_SOFTWARE_UART_TX_PIN,OUTPUT,false);
   #endif
 
-    nextion.begin();
+  nextion.begin();
+
+    nextion.sleepDelay(NEXTION_SLEEP_DELAY);
+    nextion.wakeOnTouch(true);
+
+    NextionNumberVariable waitTimer("va0");
+    waitTimer.bind(nextion);
+    waitTimer.value(NEXTION_WAIT_TIMER);
+
+    updateTime();
+
+    #ifndef USE_TEMP_SENSORS
+      // тут скрываем кнопки вызова экранов управления окнами, т.к. модуля нет в прошивке
+      NextionNumberVariable wnd("wndvis");
+      wnd.bind(nextion);
+      wnd.value(0);
+    #else
+      // сохраняем текущее положение окон
+      windowsPositionFlags = 0;
+      for(int i=0;i<SUPPORTED_WINDOWS;i++)
+      {
+        bool isWOpen = WindowModule->IsWindowOpen(i);
+        if(isWOpen)
+          windowsPositionFlags |= (1 << i);
+      }
+      // тут настраиваем кнопки управления каналами окон, скрывая ненужные из них
+      for(int i=SUPPORTED_WINDOWS;i<16;i++)
+      {
+       
+        String nm; nm = "wndch"; nm += i;
+        NextionNumberVariable wndch(nm.c_str());
+        wndch.bind(nextion);
+        wndch.value(0);
+        yield();
+      }
+      
+    #endif    
+
+    #ifndef USE_WATERING_MODULE
+      // тут скрываем кнопки вызова экранов управления поливом, т.к. модуля нет в прошивке
+      NextionNumberVariable wtr("wtrvis");
+      wtr.bind(nextion);
+      wtr.value(0);
+    #else
+       ControllerState state = WORK_STATUS.GetState();
+       waterChannelsState = state.WaterChannelsState;
+      // настраиваем кнопки каналов полива, скрывая ненужные из них
+      for(int i=WATER_RELAYS_COUNT;i<16;i++)
+      {
+        String nm; nm = "wtrch"; nm += i;
+        NextionNumberVariable wtrch(nm.c_str());
+        wtrch.bind(nextion);
+        wtrch.value(0);
+        yield();        
+      }
+    #endif
+
+    #ifndef USE_LUMINOSITY_MODULE
+      // тут скрываем кнопки вызова экранов управления досветкой, т.к. модуля нет в прошивке
+      NextionNumberVariable lum("lumvis");
+      lum.bind(nextion);
+      lum.value(0);
+    #endif          
+        
+    flags.isWindowsOpen = WORK_STATUS.GetStatus(WINDOWS_STATUS_BIT);
+    flags.isWindowAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
+    
+    flags.isWaterOn = WORK_STATUS.GetStatus(WATER_STATUS_BIT);
+    flags.isWaterAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
+
+    flags.isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
+    flags.isLightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
+
+    openTemp = sett->GetOpenTemp();
+    closeTemp = sett->GetCloseTemp();
+    
+    updateDisplayData();
+
+    unsigned long ulI = sett->GetOpenInterval()/1000;
+
+    NextionText txt("page5.motors");
+    txt.bind(nextion);
+    txt.text(String(ulI).c_str());
 
  }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -574,95 +661,6 @@ void NextionModule::Update(uint16_t dt)
   rotationTimer += dt;
   // обновление модуля тут
   GlobalSettings* sett = MainController->GetSettings();
-  
-  if(!flags.bInited) // ещё не инициализировались, начинаем
-  {
-    nextion.sleepDelay(NEXTION_SLEEP_DELAY);
-    nextion.wakeOnTouch(true);
-
-    NextionNumberVariable waitTimer("va0");
-    waitTimer.bind(nextion);
-    waitTimer.value(NEXTION_WAIT_TIMER);
-
-    updateTime();
-
-    #ifndef USE_TEMP_SENSORS
-      // тут скрываем кнопки вызова экранов управления окнами, т.к. модуля нет в прошивке
-      NextionNumberVariable wnd("wndvis");
-      wnd.bind(nextion);
-      wnd.value(0);
-    #else
-      // сохраняем текущее положение окон
-      windowsPositionFlags = 0;
-      for(int i=0;i<SUPPORTED_WINDOWS;i++)
-      {
-        bool isWOpen = WindowModule->IsWindowOpen(i);
-        if(isWOpen)
-          windowsPositionFlags |= (1 << i);
-      }
-      // тут настраиваем кнопки управления каналами окон, скрывая ненужные из них
-      for(int i=SUPPORTED_WINDOWS;i<16;i++)
-      {
-       
-        String nm; nm = "wndch"; nm += i;
-        NextionNumberVariable wndch(nm.c_str());
-        wndch.bind(nextion);
-        wndch.value(0);
-        yield();
-      }
-      
-    #endif    
-
-    #ifndef USE_WATERING_MODULE
-      // тут скрываем кнопки вызова экранов управления поливом, т.к. модуля нет в прошивке
-      NextionNumberVariable wtr("wtrvis");
-      wtr.bind(nextion);
-      wtr.value(0);
-    #else
-       ControllerState state = WORK_STATUS.GetState();
-       waterChannelsState = state.WaterChannelsState;
-      // настраиваем кнопки каналов полива, скрывая ненужные из них
-      for(int i=WATER_RELAYS_COUNT;i<16;i++)
-      {
-        String nm; nm = "wtrch"; nm += i;
-        NextionNumberVariable wtrch(nm.c_str());
-        wtrch.bind(nextion);
-        wtrch.value(0);
-        yield();        
-      }
-    #endif
-
-    #ifndef USE_LUMINOSITY_MODULE
-      // тут скрываем кнопки вызова экранов управления досветкой, т.к. модуля нет в прошивке
-      NextionNumberVariable lum("lumvis");
-      lum.bind(nextion);
-      lum.value(0);
-    #endif          
-        
-    flags.isWindowsOpen = WORK_STATUS.GetStatus(WINDOWS_STATUS_BIT);
-    flags.isWindowAutoMode = WORK_STATUS.GetStatus(WINDOWS_MODE_BIT);
-    
-    flags.isWaterOn = WORK_STATUS.GetStatus(WATER_STATUS_BIT);
-    flags.isWaterAutoMode = WORK_STATUS.GetStatus(WATER_MODE_BIT);
-
-    flags.isLightOn = WORK_STATUS.GetStatus(LIGHT_STATUS_BIT);
-    flags.isLightAutoMode = WORK_STATUS.GetStatus(LIGHT_MODE_BIT);
-
-    openTemp = sett->GetOpenTemp();
-    closeTemp = sett->GetCloseTemp();
-    
-    updateDisplayData();
-
-    unsigned long ulI = sett->GetOpenInterval()/1000;
-
-    NextionText txt("page5.motors");
-    txt.bind(nextion);
-    txt.text(String(ulI).c_str());    
-        
-    flags.bInited = true;
-    
-    return;
-  }
   
   nextion.update(); // обновляем работу с дисплеем
 

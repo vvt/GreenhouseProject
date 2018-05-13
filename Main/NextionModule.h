@@ -18,7 +18,6 @@
 typedef struct
 {
     bool isDisplaySleep : 1;
-    bool bInited : 1;
     bool isWindowsOpen : 1;
     bool isWindowAutoMode : 1;
     bool isWaterOn : 1;

@@ -425,15 +425,7 @@ void setup()
 
   START_LOG(16);
   
-  #ifdef USE_LCD_MODULE
-  controller.RegisterModule(&lcdModule);
-  #endif
-
   START_LOG(17);
-
-  #ifdef USE_NEXTION_MODULE
-  controller.RegisterModule(&nextionModule);
-  #endif
 
   START_LOG(18);
 
@@ -510,6 +502,14 @@ void setup()
   #endif
 
   START_LOG(30);
+
+  #ifdef USE_LCD_MODULE
+  controller.RegisterModule(&lcdModule);
+  #endif
+
+  #ifdef USE_NEXTION_MODULE
+  controller.RegisterModule(&nextionModule);
+  #endif
 
   #ifdef USE_TFT_MODULE
     controller.RegisterModule(&tftModule);
@@ -623,6 +623,32 @@ void updateExternalWatchdog()
 }
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------
+void processCommandsFromSerial()
+{
+ // смотрим, есть ли входящие команды
+   if(commandsFromSerial.HasCommand())
+   {
+    // есть новая команда
+    Command cmd;
+    if(commandParser.ParseCommand(commandsFromSerial.GetCommand(), cmd))
+    {
+       Stream* answerStream = commandsFromSerial.GetStream();
+      // разобрали, назначили поток, с которого пришла команда
+        cmd.SetIncomingStream(answerStream);
+
+      // запустили команду в обработку
+       controller.ProcessModuleCommand(cmd);
+ 
+    } // if
+    else
+    {
+      // что-то пошло не так, игнорируем команду
+    } // else
+    
+    commandsFromSerial.ClearCommand(); // очищаем полученную команду
+   } // if  
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 void loop() 
 {
 // отсюда можно добавлять любой сторонний код
@@ -681,29 +707,9 @@ void loop()
 #endif
 
   // смотрим, есть ли входящие команды
-   if(commandsFromSerial.HasCommand())
-   {
-    // есть новая команда
-    Command cmd;
-    if(commandParser.ParseCommand(commandsFromSerial.GetCommand(), cmd))
-    {
-       Stream* answerStream = commandsFromSerial.GetStream();
-      // разобрали, назначили поток, с которого пришла команда
-        cmd.SetIncomingStream(answerStream);
-
-      // запустили команду в обработку
-       controller.ProcessModuleCommand(cmd);
- 
-    } // if
-    else
-    {
-      // что-то пошло не так, игнорируем команду
-    } // else
+   processCommandsFromSerial();
     
-    commandsFromSerial.ClearCommand(); // очищаем полученную команду
-   } // if
-    
-    // обновляем состояние всех зарегистрированных модулей
+   // обновляем состояние всех зарегистрированных модулей
    controller.UpdateModules(dt,ModuleUpdateProcessed);
 
    CoreDelayedEvent.update();

@@ -1738,7 +1738,7 @@ void CoreESPTransport::begin()
   #endif
     
   workStream = &WIFI_SERIAL;
-  WIFI_SERIAL.begin(WIFI_BAUDRATE);
+  WIFI_SERIAL.begin(SERIAL_BAUD_RATE);
 
   #if TARGET_BOARD == STM32_BOARD
   
@@ -5293,7 +5293,7 @@ void CoreSIM800Transport::begin()
   #endif
     
   workStream = &GSM_SERIAL;
-  GSM_SERIAL.begin(GSM_BAUDRATE, SERIAL_8N1);
+  GSM_SERIAL.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
 
   #if TARGET_BOARD == STM32_BOARD
 

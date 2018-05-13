@@ -50,7 +50,7 @@ void UniRS485Gate::Setup()
   
   enableSend();
   
-  RS_485_SERIAL.begin(RS485_SPEED);
+  RS_485_SERIAL.begin(SERIAL_BAUD_RATE);
   
   #if TARGET_BOARD == STM32_BOARD
   if((int*)&(RS_485_SERIAL) == (int*)&Serial) {
@@ -397,8 +397,8 @@ void UniRS485Gate::Update(uint16_t dt)
             // запоминаем время начала чтения
             unsigned long startReadingTime = micros();
             // вычисляем таймаут как время для чтения десяти байт.
-            // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
-            const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
+            // в SERIAL_BAUD_RATE - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
+            const unsigned long readTimeout  = (10000000ul/SERIAL_BAUD_RATE)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
 
             // начинаем читать данные
             while(1)
@@ -575,8 +575,8 @@ void UniRS485Gate::Update(uint16_t dt)
             // запоминаем время начала чтения
             unsigned long startReadingTime = micros();
             // вычисляем таймаут как время для чтения десяти байт.
-            // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
-            const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
+            // в SERIAL_BAUD_RATE - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
+            const unsigned long readTimeout  = (10000000ul/SERIAL_BAUD_RATE)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
 
             // начинаем читать данные
             while(1)
@@ -988,8 +988,8 @@ void UniRS485Gate::Update(uint16_t dt)
         // запоминаем время начала чтения
         unsigned long startReadingTime = micros();
         // вычисляем таймаут как время для чтения десяти байт.
-        // в RS485_SPEED - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
-        const unsigned long readTimeout  = (10000000ul/RS485_SPEED)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
+        // в SERIAL_BAUD_RATE - у нас скорость в битах в секунду. Для чтения десяти байт надо вычитать 100 бит.
+        const unsigned long readTimeout  = (10000000ul/SERIAL_BAUD_RATE)*RS485_BYTES_TIMEOUT; // кол-во микросекунд, необходимое для вычитки десяти байт
 
         // начинаем читать данные
         while(1)
