@@ -349,6 +349,14 @@ void setup()
   
    Wire.begin();
 
+   #if TARGET_BOARD == MEGA_BOARD
+   #else
+      if(DS3231_WIRE_NUMBER == 1)
+      {
+        Wire1.begin();
+      }
+   #endif
+
    START_LOG(4);
 
   // инициализируем память (EEPROM не надо, а вот I2C - надо)
