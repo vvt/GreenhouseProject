@@ -206,7 +206,7 @@ void ModuleController::Setup()
   MainController = this;
 
 #ifdef USE_DS3231_REALTIME_CLOCK
-_rtc.begin();
+_rtc.begin(DS3231_WIRE_NUMBER);
 SdFile::dateTimeCallback(setFileDateTime);
 #endif
 
