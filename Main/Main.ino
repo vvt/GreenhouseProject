@@ -312,6 +312,7 @@ bool canCallYield = false;
 //--------------------------------------------------------------------------------------------------------------------------------
 void setup() 
 {
+  canCallYield = false;
 
 #if (TARGET_BOARD == DUE_BOARD)
   while(!Serial); // ждём инициализации Serial
