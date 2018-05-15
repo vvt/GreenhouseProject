@@ -128,6 +128,7 @@ public:
   void SetHTTPProvider(byte idx, HTTPQueryProvider* prov) {httpQueryProviders[idx] = prov; }
 
   void Alarm(AlertRule* rule); // обработчик тревог
+  void RemoveAlarm(AlertRule* rule); // обработчик тревог
   #ifdef USE_ALARM_DISPATCHER
     AlarmDispatcher* GetAlarmDispatcher(){ return &alarmDispatcher;}
   #endif

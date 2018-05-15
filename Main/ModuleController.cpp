@@ -372,6 +372,15 @@ void ModuleController::Alarm(AlertRule* rule)
   #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+void ModuleController::RemoveAlarm(AlertRule* rule)
+{
+  #ifdef USE_ALARM_DISPATCHER
+    alarmDispatcher.RemoveAlarm(rule);
+  #else
+    UNUSED(rule);
+  #endif
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ModuleController::UpdateModules(uint16_t dt, CallbackUpdateFunc func)
 {  
   

@@ -1010,6 +1010,7 @@ void AlertModule::LoadRules() // читаем настройки из EEPROM
   for(uint8_t i=0;i<rulesCnt;i++)
   {
     AlertRule* r = alertRules[i];
+    MainController->RemoveAlarm(r);
     delete r;
   }
   InitRules(); // инициализируем массив
@@ -1521,8 +1522,8 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                   for(uint8_t i=0;i<rulesCnt;i++)
                   {
                      AlertRule* rule = alertRules[i];
-                     if(rule)
-                      delete rule;
+                     MainController->RemoveAlarm(rule);
+                     delete rule;
 
                      alertRules[i] = NULL;
                   } // for
@@ -1536,7 +1537,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                   rulesCnt = 0;
                   
                   PublishSingleton.Flags.Status = true;
-                  PublishSingleton = RULE_DELETE; 
+                  PublishSingleton = t; 
                   PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << REG_DEL;
 
                 }
@@ -1560,7 +1561,8 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                         } // for
 
                         lastIterationRaisedRules = thisLastIterationRaisedRules;
-                        
+
+                        MainController->RemoveAlarm(rule);
                         delete rule;
                         bDeleted = true;
                         deletedIdx = i; 
@@ -1579,7 +1581,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                     //TODO: Удалять из параметров имя правила и у всех связанных правил удалять индекс этого имени!!!
  
                     PublishSingleton.Flags.Status = true;
-                    PublishSingleton = RULE_DELETE; 
+                    PublishSingleton = t; 
                     PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << REG_DEL;
                    } // if(bDeleted)
                 } // else not ALL
