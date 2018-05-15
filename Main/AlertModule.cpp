@@ -1530,6 +1530,9 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                   // чистим все параметры, поскольку у нас больше нет правил
                   ClearParams();
 
+                  // чистим список правил, сработавших на последней итерации
+                  lastIterationRaisedRules.clear();
+
                   rulesCnt = 0;
                   
                   PublishSingleton.Flags.Status = true;
@@ -1546,6 +1549,18 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                       AlertRule* rule = alertRules[i];
                       if(rule && !strcmp(rule->GetName(),sParam.c_str())) // нашли правило
                       {
+                        // очищаем из списка сработавших на последней итерации
+                        RulesVector thisLastIterationRaisedRules;
+                        for(size_t k=0;k<lastIterationRaisedRules.size();k++)
+                        {
+                          if(lastIterationRaisedRules[k] != rule)
+                          {
+                            thisLastIterationRaisedRules.push_back(lastIterationRaisedRules[k]);
+                          }
+                        } // for
+
+                        lastIterationRaisedRules = thisLastIterationRaisedRules;
+                        
                         delete rule;
                         bDeleted = true;
                         deletedIdx = i; 
