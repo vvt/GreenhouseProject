@@ -348,12 +348,14 @@ void setup()
   START_LOG(3);
   
    Wire.begin();
+   Wire.setClock(I2C_SPEED);
 
    #if TARGET_BOARD == MEGA_BOARD
    #else
       if(DS3231_WIRE_NUMBER == 1)
       {
         Wire1.begin();
+        Wire1.setClock(I2C_SPEED);
       }
    #endif
 
