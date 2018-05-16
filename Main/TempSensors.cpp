@@ -94,7 +94,7 @@ bool WindowState::ChangePosition(unsigned long newPos)
     
  //   Serial.println(F("SAME POSITION!"));
     // говорим, что мы сменили позицию
-    SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
+    //SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
     return false;
   }
 
