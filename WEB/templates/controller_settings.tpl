@@ -450,7 +450,7 @@
                 </div>
                 
                 <div id='ruleWndInterval' class='hdn'>
-                Интервал, с:<br/>
+                Положение окна, с:<br/>
                 <input type='text' id='rule_wnd_interval_input' style='width:100%' placeholder='0 - не указано'/>
                 </div>
                 
