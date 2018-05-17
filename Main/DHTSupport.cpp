@@ -6,8 +6,9 @@ DHTSupport::DHTSupport()
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
+HumidityAnswer DHTSupport::read(uint8_t pin, DHTType sensorType)
 {
+  HumidityAnswer answer;
   answer.IsOK = false;
 
   uint8_t wakeup_delay = DHT2x_WAKEUP;

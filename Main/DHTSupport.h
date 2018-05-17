@@ -15,12 +15,9 @@ enum { DHT2x_WAKEUP=1, DHT11_WAKEUP=18 }; // таймауты инициализ
 class DHTSupport
 {
   private:
-
-  HumidityAnswer answer;
-
   public:
     DHTSupport();
-    const HumidityAnswer& read(uint8_t pin, DHTType sensorType); // читаем показания с датчика
+    HumidityAnswer read(uint8_t pin, DHTType sensorType); // читаем показания с датчика
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif

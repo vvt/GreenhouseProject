@@ -10,9 +10,10 @@ void Si7021::begin()
   sensor.begin();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-const HumidityAnswer& Si7021::read()
+HumidityAnswer Si7021::read()
 {
- 
+
+  HumidityAnswer dt;
   dt.IsOK = false;
   dt.Humidity = NO_TEMPERATURE_DATA;
   dt.Temperature = NO_TEMPERATURE_DATA;
@@ -42,12 +43,14 @@ const HumidityAnswer& Si7021::read()
       dt.Humidity = NO_TEMPERATURE_DATA;
       dt.HumidityDecimal = 0;
     }
-      
-    
+          
     iTmp = temperature*100;
+
+    int8_t t1 =     iTmp/100;
+    uint8_t t2 = abs(iTmp%100);
     
-    dt.Temperature = iTmp/100;
-    dt.TemperatureDecimal = iTmp%100;
+    dt.Temperature = t1;
+    dt.TemperatureDecimal = t2;
 
     if(dt.Temperature < -40 || dt.Temperature > 125)
     {
@@ -55,8 +58,8 @@ const HumidityAnswer& Si7021::read()
       dt.TemperatureDecimal = 0;
     }
        
-  }
-  
+  } 
+
   return dt;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
