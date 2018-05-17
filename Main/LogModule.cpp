@@ -14,6 +14,7 @@ String LogModule::_NEWLINE;
 //--------------------------------------------------------------------------------------------------------------------------------
 void LogModule::writeToFile(SdFile& f, const String& data)
 {
+  //Serial.println(data);  
   for(size_t i=0;i<data.length();i++)
   {
     f.write(data[i]);

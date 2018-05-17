@@ -309,6 +309,9 @@
 // правило алерта CTSET=ALERT|RULE_ADD|RuleName|STATE|TEMP|1|>|23|Время начала работы|Продолжительность работы, мин|Маска дней недели|Список связанных правил|Команды для стороннего модуля
 // пример №1: CTSET=ALERT|RULE_ADD|N1|STATE|TEMP|1|>|23|0|30|127|N3,N4|CTSET=STATE|WINDOW|ALL|OPEN
 // пример №2: CTSET=ALERT|RULE_ADD|N1|STATE|TEMP|1|>|23|0|0|127|_|CTSET=STATE|WINDOW|ALL|OPEN
+// Пример (открытие окон) #:  CTSET=ALERT|RULE_ADD|WOP|STATE|TEMP|0|>|%TO%|0|0|127|_|0|CTSET=STATE|WINDOW|ALL|OPEN
+// Пример (закрыите окон) #:  CTSET=ALERT|RULE_ADD|WCL|STATE|TEMP|0|<|%TC%|0|0|127|_|0|CTSET=STATE|WINDOW|ALL|CLOSE
+
 #define ADD_RULE F("RULE_ADD") // добавить правило
 #define RULE_CNT F("RULES_CNT") // кол-во правил CTGET=ALERT|RULES_CNT
 #define RULE_VIEW F("RULE_VIEW") // просмотр правила по индексу CTGET=ALERT|RULE_VIEW|0

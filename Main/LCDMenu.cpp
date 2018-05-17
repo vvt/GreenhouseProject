@@ -19,6 +19,7 @@ PushButton button(MENU_BUTTON_PIN); // кнопка для управления 
 void ButtonOnClick(const PushButton& Sender, void* UserData) // пришло событие от кнопки - кликнута
 {
   UNUSED(Sender);
+  //Serial.println("Button pressed!");
   
   LCDMenu* menu = (LCDMenu*) UserData;
   menu->enterSubMenu(); // просим войти в подменю
@@ -79,6 +80,8 @@ void AbstractLCDMenuItem::OnButtonClicked(LCDMenu* menu)
   // кликнули по кнопке, когда наше меню на экране.
   // фокус ввода может быть ещё не установлен (первое нажатие на кнопку),
   // или - установлен (повторные нажатия на кнопку)
+
+  //Serial.println("ONButtonClicked");
   
   bool lastNDC = (flags & 2);//needToDrawCursor;
   //needToDrawCursor = true;

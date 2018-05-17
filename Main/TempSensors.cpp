@@ -35,8 +35,8 @@ void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool WindowState::ChangePosition(unsigned long newPos)
 {
-//  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
-//  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+ // Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
+ // Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
   
  // GlobalSettings* settings = MainController->GetSettings();
 //  unsigned long interval = settings->GetOpenInterval();
