@@ -20,10 +20,7 @@ BH1750Support::BH1750Support()
 void BH1750Support::begin(BH1750Address addr, BH1750Mode mode)
 {
   deviceAddress = addr;
-  Wire.begin();
-  WORK_STATUS.PinMode(SDA,INPUT,false);
-  WORK_STATUS.PinMode(SCL,OUTPUT,false);
-    
+  //////////////Wire.begin();    
   writeByte(BH1750PowerOn); // включаем датчик
   ChangeMode(mode); 
 }
@@ -56,10 +53,8 @@ void BH1750Support::writeByte(uint8_t toWrite)
 //--------------------------------------------------------------------------------------------------------------------------------------
 long BH1750Support::GetCurrentLuminosity() 
 {
-
   long curLuminosity = NO_LUMINOSITY_DATA;
 
- //// Wire.beginTransmission(deviceAddress); // начинаем опрос датчика освещенности
  if(Wire.requestFrom(deviceAddress, 2) == 2)// ждём два байта
  {
   // читаем два байта
@@ -68,8 +63,6 @@ long BH1750Support::GetCurrentLuminosity()
   curLuminosity |= BH1750_WIRE_READ();
   curLuminosity = curLuminosity/1.2; // конвертируем в люксы
  }
-
-////  Wire.endTransmission();
 
 
   return curLuminosity;

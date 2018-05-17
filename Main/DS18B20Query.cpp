@@ -1,6 +1,10 @@
 #include "DS18B20Query.h"
-#include <OneWire.h>
 #include "Globals.h"
+#if TARGET_BOARD == STM32_BOARD
+#include <OneWireSTM.h>
+#else
+#include <OneWire.h>
+#endif
 #include "AbstractModule.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
 void DS18B20Support::begin(uint8_t _pin) 
@@ -89,7 +93,7 @@ bool DS18B20Support::readTemperature(DS18B20Temperature* result,DSSensorType typ
    
 
   result->Whole = tc_100/100;
-  result->Fract = tc_100 % 100;
+  result->Fract = abs(tc_100 % 100);
 
   if(result->Whole < -55 || result->Whole > 125)
   {

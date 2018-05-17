@@ -4,7 +4,13 @@
 #include "Memory.h"
 #include "InteropStream.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+#include "Globals.h"
+//--------------------------------------------------------------------------------------------------------------------------------------
+#if TARGET_BOARD == STM32_BOARD
+#include <SdFatSTM32.h>
+#else
 #include <SdFat.h>
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------------
 #define CIPSEND_COMMAND F("AT+CIPSENDBUF=")
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -923,8 +929,8 @@ void CoreESPTransport::update()
 
         #ifdef USE_WIFI_REBOOT_PIN
           // есть пин, который надо использовать при зависании
-          pinMode(WIFI_REBOOT_PIN,OUTPUT);
-          digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
+          WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+          WORK_STATUS.PinWrite(WIFI_REBOOT_PIN,WIFI_POWER_OFF);
        #endif
        
         machineState = espReboot;
@@ -1684,8 +1690,8 @@ void CoreESPTransport::update()
             #endif
             
             #ifdef USE_WIFI_REBOOT_PIN
-              pinMode(WIFI_REBOOT_PIN,OUTPUT);
-              digitalWrite(WIFI_REBOOT_PIN,WIFI_POWER_ON);
+              WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+              WORK_STATUS.PinWrite(WIFI_REBOOT_PIN,WIFI_POWER_ON);
             #endif
 
             machineState = espWaitInit;
@@ -1732,8 +1738,26 @@ void CoreESPTransport::begin()
   #endif
     
   workStream = &WIFI_SERIAL;
-  WIFI_SERIAL.begin(WIFI_BAUDRATE);
+  WIFI_SERIAL.begin(SERIAL_BAUD_RATE);
 
+  #if TARGET_BOARD == STM32_BOARD
+  
+  if((int*)&(WIFI_SERIAL) == (int*)&Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if((int*)&(WIFI_SERIAL) == (int*)&Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if((int*)&(WIFI_SERIAL) == (int*)&Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if((int*)&(WIFI_SERIAL) == (int*)&Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  }
+   
+  #else
+  
   if(&(WIFI_SERIAL) == &Serial) {
        WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(1,OUTPUT,false);
@@ -1746,15 +1770,16 @@ void CoreESPTransport::begin()
   } else if(&(WIFI_SERIAL) == &Serial3) {
        WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(14,OUTPUT,false);
-  } 
-  
+  }
+   
+  #endif
 
   restart();
 
   #ifdef USE_WIFI_REBOOT_PIN
     // есть пин, который надо использовать при зависании
-    pinMode(WIFI_REBOOT_PIN,OUTPUT);
-    digitalWrite(WIFI_REBOOT_PIN, WIFI_POWER_OFF);
+    WORK_STATUS.PinMode(WIFI_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(WIFI_REBOOT_PIN, WIFI_POWER_OFF);
     machineState = espReboot;
   #endif
 
@@ -2755,6 +2780,7 @@ void CoreMQTT::update()
             int16_t mqttBufferLength;
   
             String topicName, data;
+            bool retain = false;
 
             if(hasReportTopics)
             {
@@ -2810,6 +2836,8 @@ void CoreMQTT::update()
             else
             if(hasPublishTopics)
             {
+
+              retain = true;
               // есть пакеты для публикации
               MQTTPublishQueue pq = publishList[0];
 
@@ -2838,6 +2866,7 @@ void CoreMQTT::update()
             } // hasPublishTopics
             else
             {
+                retain = true;
                 // обычный режим работы, отсылаем показания с хранилища
                 getNextTopic(topicName,data);
 
@@ -2846,7 +2875,7 @@ void CoreMQTT::update()
               if(data.length() && topicName.length())
               {
                  // конструируем пакет публикации
-                 constructPublishPacket(mqttBuffer,mqttBufferLength,topicName.c_str(), data.c_str()); 
+                 constructPublishPacket(mqttBuffer,mqttBufferLength,topicName.c_str(), data.c_str(), retain); 
       
                 // переключаемся на ожидание результата отсылки пакета
                 machineState = mqttWaitSendPublishPacketDone;
@@ -3041,7 +3070,7 @@ void CoreMQTT::clearReportsQueue()
   reportQueue.clear();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void CoreMQTT::constructPublishPacket(String& mqttBuffer,int16_t& mqttBufferLength, const char* topic, const char* payload)
+void CoreMQTT::constructPublishPacket(String& mqttBuffer,int16_t& mqttBufferLength, const char* topic, const char* payload, bool retain)
 {
   MQTTBuffer byteBuffer; // наш буфер из байт, в котором будет содержаться пакет
 
@@ -3062,7 +3091,20 @@ void CoreMQTT::constructPublishPacket(String& mqttBuffer,int16_t& mqttBufferLeng
 
   MQTTBuffer fixedHeader;
   
-  constructFixedHeader(MQTT_PUBLISH_COMMAND,fixedHeader,payloadSize);
+  uint8_t command = MQTT_PUBLISH_COMMAND;
+  
+  if(retain)
+    command |= 1;
+
+  #ifdef MQTT_DEBUG
+    if(retain)
+    {
+      DEBUG_LOG(F("MQTT: RETAIN topic detected, byte #0 is: "));
+      DEBUG_LOG(String(command));
+    }
+  #endif
+  
+  constructFixedHeader(command,fixedHeader,payloadSize);
 
   writePacket(fixedHeader,byteBuffer,mqttBuffer,mqttBufferLength);
   
@@ -3842,7 +3884,7 @@ void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
       String s = line.substring(0,idx);
       int16_t clientID = s.toInt();
       if(clientID >=0 && clientID < SIM800_MAX_CLIENTS)
-      {
+      {          
         #ifdef GSM_DEBUG_MODE
           DEBUG_LOG(F("SIM800: client connected - #"));
           DEBUG_LOGLN(String(clientID));
@@ -3877,17 +3919,23 @@ void CoreSIM800Transport::processKnownStatusFromSIM800(const String& line)
       int16_t clientID = s.toInt();
       if(clientID >=0 && clientID < SIM800_MAX_CLIENTS)
       {
+        
+        if(line.indexOf(F("CONNECT FAIL")) != -1) // CONNECT FAIL приходит без ID клиента!!!
+        {
+          clientID = cipstartConnectClientID;
+        }
+        
         #ifdef GSM_DEBUG_MODE
           DEBUG_LOG(F("SIM800: client disconnected - #"));
           DEBUG_LOGLN(String(clientID));
         #endif
 
-        // выставляем клиенту флаг, что он отсоединён
-        CoreTransportClient* client = getClient(clientID);
-        notifyClientConnected(*client,false,CT_ERROR_NONE);
+          // выставляем клиенту флаг, что он отсоединён
+          CoreTransportClient* client = getClient(clientID);
+          notifyClientConnected(*client,false,CT_ERROR_NONE);
 
         if(flags.waitCipstartConnect && cipstartConnectClient != NULL && clientID == cipstartConnectClientID)
-        {                
+        {            
           // есть клиент, для которого надо установить ID
           cipstartConnectClient->bind(clientID);
           notifyClientConnected(*cipstartConnectClient,false,CT_ERROR_NONE);
@@ -4005,7 +4053,7 @@ void CoreSIM800Transport::rebootModem()
 {
     #ifdef USE_GSM_REBOOT_PIN
       // есть пин, который надо использовать при зависании
-      digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+      WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
     #endif
 
     machineState = sim800Reboot;
@@ -5135,11 +5183,11 @@ void CoreSIM800Transport::update()
               #ifdef GSM_DEBUG_MODE
                 DEBUG_LOGLN(F("SIM800: turn power ON!"));
               #endif
-              digitalWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
+              WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_ON);
             #endif
 
             #ifdef USE_SIM800_POWERKEY
-                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
+                WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);
             #endif
 
             machineState = sim800WaitInit;
@@ -5171,9 +5219,9 @@ void CoreSIM800Transport::update()
                   DEBUG_LOGLN(F("SIM800: use POWERKEY!"));
                #endif
                                 
-                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
+                WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_ON_LEVEL);
                 delay(SIM800_POWERKEY_PULSE_DURATION);        
-                digitalWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
+                WORK_STATUS.PinWrite(SIM800_POWERKEY_PIN,SIM800_POWERKEY_OFF_LEVEL);          
                 
               #endif            
 
@@ -5245,7 +5293,24 @@ void CoreSIM800Transport::begin()
   #endif
     
   workStream = &GSM_SERIAL;
-  GSM_SERIAL.begin(GSM_BAUDRATE, SERIAL_8N1);
+  GSM_SERIAL.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
+
+  #if TARGET_BOARD == STM32_BOARD
+
+  if((int*)&(GSM_SERIAL) == (int*)&Serial) {
+       WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(1,OUTPUT,false);
+  } else if((int*)&(GSM_SERIAL) == (int*)&Serial1) {
+       WORK_STATUS.PinMode(19,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(18,OUTPUT,false);
+  } else if((int*)&(GSM_SERIAL) == (int*)&Serial2) {
+       WORK_STATUS.PinMode(17,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(16,OUTPUT,false);
+  } else if((int*)&(GSM_SERIAL) == (int*)&Serial3) {
+       WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
+       WORK_STATUS.PinMode(14,OUTPUT,false);
+  } 
+  #else
 
   if(&(GSM_SERIAL) == &Serial) {
        WORK_STATUS.PinMode(0,INPUT_PULLUP,true);
@@ -5260,7 +5325,8 @@ void CoreSIM800Transport::begin()
        WORK_STATUS.PinMode(15,INPUT_PULLUP,true);
        WORK_STATUS.PinMode(14,OUTPUT,false);
   } 
-  
+
+  #endif
 
   restart();
 
@@ -5270,12 +5336,12 @@ void CoreSIM800Transport::begin()
       DEBUG_LOGLN(F("SIM800: power OFF!"));
     #endif
     // есть пин, который надо использовать при зависании
-    pinMode(GSM_REBOOT_PIN,OUTPUT);
-    digitalWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
+    WORK_STATUS.PinMode(GSM_REBOOT_PIN,OUTPUT);
+    WORK_STATUS.PinWrite(GSM_REBOOT_PIN,GSM_POWER_OFF);
   #endif
 
   #ifdef USE_SIM800_POWERKEY
-      pinMode(SIM800_POWERKEY_PIN,OUTPUT);
+      WORK_STATUS.PinMode(SIM800_POWERKEY_PIN,OUTPUT);
   #endif
   
   machineState = sim800Reboot;

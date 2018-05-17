@@ -1,6 +1,8 @@
 /*
  ПЕРЕД КОМПИЛЯЦИЕЙ!
 
+ 0. Перед ПЕРВОЙ заливкой прошивки, в зависимости от типа используемой EEPROM - почистить EEPROM, забив все ячейки значением 0xFF !!!
+
  1. УСТАНОВИТЬ ВСЕ БИБЛИОТЕКИ ИМЕННО ИЗ АРХИВА С ПРОЕКТОМ (НЕКОТОРЫЕ БИБЛИОТЕКИ ПРАВЛЕНЫ ИМЕННО ПОД ПРОЕКТ)!!!
  
  2. ПРИ СБОРКЕ ПОД Mega2560: пойти в папку установки Arduino, найти в подпапке hardware\arduino\avr\cores\arduino
@@ -23,10 +25,18 @@
 
     ПЕРЕЗАПУСТИТЬ Arduino IDE !!!!
 
- 4. В зависимости от типа платы (Mega2560 или Due) - пойти в настройки Configuration_MEGA.h или Configuration_DUE.h,
+ 4. ПРИ СБОРКЕ ПОД STM32 - установить поддержку Due (см. выше), затем распаковать архив Libraries\Arduino_STM32.zip в папку <ПАПКА_СКЕТЧЕЙ>\hardware
+    ( если папки hardware в папке скетчей нет - создать её). Внутри папки hardware должна появиться папка Arduino_STM32, внутри которой будет код
+    поддержки STM32.
+
+    ВНИМАНИЕ: ПОДДЕРЖКА STM32 ТЕСТИРУЕТСЯ НА КАМНЕ STM32F103ZE6 !!!
+
+    ВНИМАНИЕ: ПОДДЕРЖКА STM32 ТОЛЬКО ВВОДИТСЯ, ПОЭТОМУ НЕ ВСЕ МОДУЛИ ЕЩЁ ПРОТЕСТИРОВАНЫ НА КОМПИЛИРУЕМОСТЬ !!!
+
+ 5. В зависимости от типа платы (Mega2560, Due, STM32) - пойти в настройки Configuration_MEGA.h или Configuration_DUE.h или Configuration_STM32.h,
     привести настройки в тот вид, который вам нужен, внимательно читая инструкции.
 
- 5. Если что-то работает не так - есть отладочные режимы (конфигуратор с ними не работает!) - пойти в Configuration_DEBUG.h,
+ 6. Если что-то работает не так - есть отладочные режимы (конфигуратор с ними не работает!) - пойти в Configuration_DEBUG.h,
     раскомментировать нужный отладочный режим, в мониторе порта (или любой другой терминальной программе) смотреть, что происходит.
     Если ничего не понятно, то: создать документ, где описать проблему (я, такой-то такой-то, делал то-то и то-то, не получается что-то),
     приложить к документу лог из монитора порта и выложить на форум, с просьбой к разработчику посмотреть, в чём дело. Не забыть приложить
@@ -138,6 +148,20 @@
 
 #ifdef USE_TFT_MODULE
 #include "TFTModule.h"
+#endif
+
+#ifdef USE_BUZZER_ON_TOUCH
+#include "Buzzer.h"
+#endif
+
+#include "DelayedEvents.h"
+
+#include<Wire.h>
+
+#ifdef DUE_START_DEBUG
+#define START_LOG(x) {Serial.println((x)); Serial.flush(); }
+#else
+#define START_LOG(x) (void) 0
 #endif
 
 // таймер
@@ -271,8 +295,8 @@ AlertModule alertsModule;
 #ifdef USE_EXTERNAL_WATCHDOG
   typedef enum
   {
-    WAIT_FOR_HIGH,
-    WAIT_FOR_LOW 
+    WAIT_FOR_TRIGGERED,
+    WAIT_FOR_NORMAL 
   } ExternalWatchdogState;
   
   typedef struct
@@ -284,8 +308,11 @@ AlertModule alertsModule;
   ExternalWatchdogSettings watchdogSettings;
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------
+bool canCallYield = false;
+//--------------------------------------------------------------------------------------------------------------------------------
 void setup() 
 {
+  canCallYield = false;
 
 #if (TARGET_BOARD == DUE_BOARD)
   while(!Serial); // ждём инициализации Serial
@@ -293,55 +320,202 @@ void setup()
 
   Serial.begin(SERIAL_BAUD_RATE); // запускаем Serial на нужной скорости
 
+  START_LOG(1);
+
+  uint8_t wireScl = 21;
+  #if TARGET_BOARD == STM32_BOARD
+  WORK_STATUS.PinMode(20,INPUT,false);
+  WORK_STATUS.PinMode(21,OUTPUT,false);
+  #else
+  WORK_STATUS.PinMode(SDA,INPUT,false);
+  WORK_STATUS.PinMode(SCL,OUTPUT,false);
+  wireScl = SCL;
+  #endif
+
+  START_LOG(2);
+  
+  pinMode(wireScl,OUTPUT);
+  for(uint8_t i=0;i<8;i++)
+  {
+    digitalWrite(wireScl,HIGH);
+    delayMicroseconds(3);
+    digitalWrite(wireScl,LOW);
+    delayMicroseconds(3);   
+  }
+  
+  pinMode(wireScl,INPUT);
+
+  START_LOG(3);
+  
+   Wire.begin();
+   Wire.setClock(I2C_SPEED);
+
+   #if TARGET_BOARD == MEGA_BOARD
+   #else
+      if(DS3231_WIRE_NUMBER == 1)
+      {
+        Wire1.begin();
+        Wire1.setClock(I2C_SPEED);
+      }
+   #endif
+
+   START_LOG(4);
+
   // инициализируем память (EEPROM не надо, а вот I2C - надо)
-  MemInit();  
+  MemInit(); 
+
+  START_LOG(5);
 
   WORK_STATUS.PinMode(0,INPUT,false);
   WORK_STATUS.PinMode(1,OUTPUT,false);
 
+  START_LOG(6);
+
   #ifdef USE_EXTERNAL_WATCHDOG
     WORK_STATUS.PinMode(WATCHDOG_REBOOT_PIN,OUTPUT,true);
-    digitalWrite(WATCHDOG_REBOOT_PIN,LOW);
+    digitalWrite(WATCHDOG_REBOOT_PIN,WATCHDOG_NORMAL_LEVEL);
 
     watchdogSettings.timer = 0;
-    watchdogSettings.state = WAIT_FOR_HIGH;
+    watchdogSettings.state = WAIT_FOR_TRIGGERED;
   #endif
  
   // настраиваем все железки
   controller.Setup();
+
+  START_LOG(7);
+
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.begin();
+  #endif
+
+  START_LOG(8);
    
   // устанавливаем провайдера команд для контроллера
   controller.SetCommandParser(&commandParser);
 
+  START_LOG(9);
+  
   // регистрируем модули  
   #ifdef USE_PIN_MODULE  
   controller.RegisterModule(&pinModule);
   #endif
+
+  START_LOG(10);
   
   #ifdef USE_STAT_MODULE
   controller.RegisterModule(&statModule);
   #endif
 
+  START_LOG(11);
+
   #ifdef USE_TEMP_SENSORS
   controller.RegisterModule(&tempSensors);
   #endif
+
+  START_LOG(12);
 
   #ifdef USE_WATERING_MODULE
   controller.RegisterModule(&wateringModule);
   #endif
 
+  START_LOG(13);
+
   #ifdef USE_LUMINOSITY_MODULE
   controller.RegisterModule(&luminosityModule);
   #endif
+
+  START_LOG(14);
 
   #ifdef USE_HUMIDITY_MODULE
   controller.RegisterModule(&humidityModule);
   #endif
 
+  START_LOG(15);
+
   #ifdef USE_DELTA_MODULE
   controller.RegisterModule(&deltaModule);
   #endif
+
+  START_LOG(16);
   
+  START_LOG(17);
+
+  START_LOG(18);
+
+  #ifdef USE_WATERFLOW_MODULE
+  controller.RegisterModule(&waterflowModule);
+  #endif
+
+  START_LOG(19);
+
+  #ifdef USE_COMPOSITE_COMMANDS_MODULE
+  controller.RegisterModule(&compositeCommands);
+  #endif
+
+  START_LOG(20);
+ 
+  #ifdef USE_SOIL_MOISTURE_MODULE
+  controller.RegisterModule(&soilMoistureModule);
+  #endif
+
+  START_LOG(21);
+
+  #ifdef USE_PH_MODULE
+  controller.RegisterModule(&phModule);
+  #endif
+
+  START_LOG(22);
+
+  #ifdef USE_W5100_MODULE
+  controller.RegisterModule(&ethernetModule);
+  #endif
+
+  START_LOG(23);
+
+  #ifdef USE_RESERVATION_MODULE
+  controller.RegisterModule(&reservationModule);
+  #endif
+
+  START_LOG(24);
+
+  #ifdef USE_TIMER_MODULE
+  controller.RegisterModule(&timerModule);
+  #endif
+
+  START_LOG(25);
+
+  #ifdef USE_LOG_MODULE
+  controller.RegisterModule(&logModule);
+  controller.SetLogWriter(&logModule); // задаём этот модуль как модуль, который записывает события в лог
+  #endif
+
+  START_LOG(26);
+
+  // модуль Wi-Fi регистрируем до модуля SMS, поскольку Wi-Fi дешевле, чем GPRS, для отсыла данных в IoT-хранилища
+  #ifdef USE_WIFI_MODULE
+  controller.RegisterModule(&wifiModule);
+  #endif 
+
+  START_LOG(27);
+
+  #ifdef USE_SMS_MODULE
+  controller.RegisterModule(&smsModule);
+  #endif
+
+  START_LOG(28);
+
+  #ifdef USE_IOT_MODULE
+    controller.RegisterModule(&iotModule);
+  #endif
+
+  START_LOG(29);
+
+  #ifdef USE_HTTP_MODULE
+    controller.RegisterModule(&httpModule);
+  #endif
+
+  START_LOG(30);
+
   #ifdef USE_LCD_MODULE
   controller.RegisterModule(&lcdModule);
   #endif
@@ -350,65 +524,24 @@ void setup()
   controller.RegisterModule(&nextionModule);
   #endif
 
-  #ifdef USE_WATERFLOW_MODULE
-  controller.RegisterModule(&waterflowModule);
-  #endif
-
-  #ifdef USE_COMPOSITE_COMMANDS_MODULE
-  controller.RegisterModule(&compositeCommands);
-  #endif
-  
-  #ifdef USE_SOIL_MOISTURE_MODULE
-  controller.RegisterModule(&soilMoistureModule);
-  #endif
-
-  #ifdef USE_PH_MODULE
-  controller.RegisterModule(&phModule);
-  #endif
-
-  #ifdef USE_W5100_MODULE
-  controller.RegisterModule(&ethernetModule);
-  #endif
-
-  #ifdef USE_RESERVATION_MODULE
-  controller.RegisterModule(&reservationModule);
-  #endif
-
-  #ifdef USE_TIMER_MODULE
-  controller.RegisterModule(&timerModule);
-  #endif
-
-  #ifdef USE_LOG_MODULE
-  controller.RegisterModule(&logModule);
-  controller.SetLogWriter(&logModule); // задаём этот модуль как модуль, который записывает события в лог
-  #endif
-
-  // модуль Wi-Fi регистрируем до модуля SMS, поскольку Wi-Fi дешевле, чем GPRS, для отсыла данных в IoT-хранилища
-  #ifdef USE_WIFI_MODULE
-  controller.RegisterModule(&wifiModule);
-  #endif 
-
-  #ifdef USE_SMS_MODULE
-  controller.RegisterModule(&smsModule);
-  #endif
-
-  #ifdef USE_IOT_MODULE
-    controller.RegisterModule(&iotModule);
-  #endif
-
-  #ifdef USE_HTTP_MODULE
-    controller.RegisterModule(&httpModule);
-  #endif
-
   #ifdef USE_TFT_MODULE
     controller.RegisterModule(&tftModule);
   #endif
-  
+
+ START_LOG(31);
+
   controller.RegisterModule(&zeroStreamModule);
+
+ START_LOG(32);
+
  // модуль алертов регистрируем последним, т.к. он должен вычитать зависимости с уже зарегистрированными модулями
   controller.RegisterModule(&alertsModule);
 
+ START_LOG(33);
+
   controller.begin(); // начинаем работу
+
+ START_LOG(34);
 
   // Печатаем в Serial готовность
   Serial.print(READY);
@@ -427,11 +560,23 @@ void setup()
       
   #endif 
 
-  Serial.println(F(""));
+  Serial.println();
+
+ START_LOG(35);
 
   #ifdef USE_LOG_MODULE
     controller.Log(&logModule,READY); // печатаем в файл действий строчку Ready, которая скажет нам, что мега стартовала
   #endif
+
+  // пискнем при старте, если есть баззер
+  #ifdef USE_BUZZER_ON_TOUCH
+  Buzzer.buzz();
+  #endif
+
+ START_LOG(36);
+
+ canCallYield = true;
+  
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 // эта функция вызывается после обновления состояния каждого модуля.
@@ -454,7 +599,7 @@ void ModuleUpdateProcessed(AbstractModule* module)
     SIM800.update();
    #endif     
 }
-
+//--------------------------------------------------------------------------------------------------------------------------------
 #ifdef USE_EXTERNAL_WATCHDOG
 void updateExternalWatchdog()
 {
@@ -467,24 +612,24 @@ void updateExternalWatchdog()
       watchdogSettings.timer += dt;
       switch(watchdogSettings.state)
       {
-        case WAIT_FOR_HIGH:
+        case WAIT_FOR_TRIGGERED:
         {
           if(watchdogSettings.timer >= WATCHDOG_WORK_INTERVAL)
           {
             watchdogSettings.timer = 0;
-            watchdogSettings.state = WAIT_FOR_LOW;
-            digitalWrite(WATCHDOG_REBOOT_PIN, HIGH);
+            watchdogSettings.state = WAIT_FOR_NORMAL;
+            digitalWrite(WATCHDOG_REBOOT_PIN, WATCHDOG_TRIGGERED_LEVEL);
           }
         }
         break;
 
-        case WAIT_FOR_LOW:
+        case WAIT_FOR_NORMAL:
         {
           if(watchdogSettings.timer >= WATCHDOG_PULSE_DURATION)
           {
             watchdogSettings.timer = 0;
-            watchdogSettings.state = WAIT_FOR_HIGH;
-            digitalWrite(WATCHDOG_REBOOT_PIN, LOW);
+            watchdogSettings.state = WAIT_FOR_TRIGGERED;
+            digitalWrite(WATCHDOG_REBOOT_PIN, WATCHDOG_NORMAL_LEVEL);
           }          
         }
         break;
@@ -492,6 +637,32 @@ void updateExternalWatchdog()
   
 }
 #endif
+//--------------------------------------------------------------------------------------------------------------------------------
+void processCommandsFromSerial()
+{
+ // смотрим, есть ли входящие команды
+   if(commandsFromSerial.HasCommand())
+   {
+    // есть новая команда
+    Command cmd;
+    if(commandParser.ParseCommand(commandsFromSerial.GetCommand(), cmd))
+    {
+       Stream* answerStream = commandsFromSerial.GetStream();
+      // разобрали, назначили поток, с которого пришла команда
+        cmd.SetIncomingStream(answerStream);
+
+      // запустили команду в обработку
+       controller.ProcessModuleCommand(cmd);
+ 
+    } // if
+    else
+    {
+      // что-то пошло не так, игнорируем команду
+    } // else
+    
+    commandsFromSerial.ClearCommand(); // очищаем полученную команду
+   } // if  
+}
 //--------------------------------------------------------------------------------------------------------------------------------
 void loop() 
 {
@@ -551,31 +722,12 @@ void loop()
 #endif
 
   // смотрим, есть ли входящие команды
-   if(commandsFromSerial.HasCommand())
-   {
-    // есть новая команда
-    Command cmd;
-    if(commandParser.ParseCommand(commandsFromSerial.GetCommand(), cmd))
-    {
-       Stream* answerStream = commandsFromSerial.GetStream();
-      // разобрали, назначили поток, с которого пришла команда
-        cmd.SetIncomingStream(answerStream);
-
-      // запустили команду в обработку
-       controller.ProcessModuleCommand(cmd);
- 
-    } // if
-    else
-    {
-      // что-то пошло не так, игнорируем команду
-    } // else
+   processCommandsFromSerial();
     
-    commandsFromSerial.ClearCommand(); // очищаем полученную команду
-   } // if
-    
-    // обновляем состояние всех зарегистрированных модулей
+   // обновляем состояние всех зарегистрированных модулей
    controller.UpdateModules(dt,ModuleUpdateProcessed);
 
+   CoreDelayedEvent.update();
 
    
 // отсюда можно добавлять любой сторонний код
@@ -590,6 +742,9 @@ void loop()
 //--------------------------------------------------------------------------------------------------------------------------------
 void yield()
 {
+  if(!canCallYield)
+    return;
+    
 // отсюда можно добавлять любой сторонний код, который надо вызывать, когда МК чем-то долго занят (например, чтобы успокоить watchdog)
 
 
@@ -613,9 +768,8 @@ void yield()
     rotaryEncoder.update(); // обновляем энкодер меню
    #endif
 
-   #ifdef USE_TFT_MODULE
-    tftModule.UpdateBuzzer(); // обновляем пищалку
-   #endif   
+   CoreDelayedEvent.update();
+
 
 // отсюда можно добавлять любой сторонний код, который надо вызывать, когда МК чем-то долго занят (например, чтобы успокоить watchdog)
 

@@ -6,43 +6,33 @@
 #ifdef USE_TFT_MODULE
 
 #include "TinyVector.h"
+#include "DS3231Support.h"
 
+#if TARGET_BOARD == STM32_BOARD
+#include <UTFTSTM32.h>
+#else
 #include <UTFT.h>
+#endif
+
 #include <URTouchCD.h>
 #include <URTouch.h>
 #include "UTFT_Buttons_Rus.h"
 #include "UTFTRus.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#define TFT_BACK_COLOR 0xFF,0xFF,0xFF
-#define TFT_BUTTON_COLORS VGA_WHITE, VGA_GRAY, VGA_WHITE, /*VGA_SILVER*/VGA_RED, VGA_BLUE
 #define TFT_IDLE_SCREEN_BUTTON_WIDTH 128
 #define TFT_IDLE_SCREEN_BUTTON_HEIGHT 90
 #define TFT_IDLE_SCREEN_BUTTON_SPACING 10
-#define TFT_FONT_COLOR 0x4B, 0x4C, 0x4B //0x4A69
-#define TFT_CHANNELS_BUTTON_COLORS 0x3A8D, VGA_SILVER, VGA_GRAY, /*VGA_SILVER*/VGA_RED, 0xEF7D
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 #define INFO_BOX_WIDTH 240
 #define INFO_BOX_HEIGHT 80
 #define INFO_BOX_V_SPACING 20
 #define INFO_BOX_CONTENT_PADDING 8
-#define INFO_BOX_BACK_COLOR 0xF2, 0xF2, 0xF2//0xEF7D
-#define INFO_BOX_BORDER_COLOR VGA_GRAY
-#define INFO_BOX_CAPTION_COLOR 0x30, 0x7B, 0xB5//0x3A8D
 
 #define SENSOR_BOX_WIDTH 240
 #define SENSOR_BOX_HEIGHT 90
 #define SENSOR_BOX_V_SPACING 20
-#define SENSOR_BOX_BORDER_COLOR VGA_GRAY
-#define SENSOR_BOX_FONT_COLOR VGA_TEAL
-#define SENSOR_BOX_UNIT_COLOR 0x80, 0xB0, 0x51//0x7D2A
 #define SENSOR_BOXES_PER_LINE 3
 
-#define MODE_ON_COLOR VGA_GREEN
-#define MODE_OFF_COLOR VGA_MAROON
-
-#define CHANNELS_BUTTONS_TEXT_COLOR VGA_WHITE
-#define CHANNELS_BUTTONS_BG_COLOR 0xEF7D
-#define CHANNEL_BUTTONS_TEXT_COLOR 0x3A8D
 #define CHANNELS_BUTTONS_PER_LINE 4
 #define CHANNELS_BUTTON_WIDTH 165
 #define CHANNELS_BUTTON_HEIGHT 50
@@ -105,6 +95,7 @@ class AbstractTFTScreen
     virtual void setup(TFTMenu* menuManager) = 0;
     virtual void update(TFTMenu* menuManager,uint16_t dt) = 0;
     virtual void draw(TFTMenu* menuManager) = 0;
+    virtual void onActivate(TFTMenu* menuManager){}
   
     AbstractTFTScreen();
     virtual ~AbstractTFTScreen();
@@ -135,6 +126,7 @@ class TFTIdleScreen : public AbstractTFTScreen
     void setup(TFTMenu* menuManager);
     void update(TFTMenu* menuManager,uint16_t dt);
     void draw(TFTMenu* menuManager);
+    virtual void onActivate(TFTMenu* menuManager);
 
 private:
 
@@ -267,6 +259,7 @@ class TFTSettingsScreen : public AbstractTFTScreen
     void setup(TFTMenu* menuManager);
     void update(TFTMenu* menuManager,uint16_t dt);
     void draw(TFTMenu* menuManager);
+    virtual void onActivate(TFTMenu* menuManager);
 
     private:
       int backButton, decOpenTempButton, incOpenTempButton, decCloseTempButton, incCloseTempButton, incIntervalButton, decIntervalButton;
@@ -281,7 +274,22 @@ class TFTSettingsScreen : public AbstractTFTScreen
       TFTInfoBox* openTempBox;
       TFTInfoBox* intervalBox;
 
-      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val); 
+      #ifdef USE_DS3231_REALTIME_CLOCK
+      int decTimePartButton, incTimePartButton, dayButton, monthButton, yearButton, hourButton, minuteButton;
+      int selectedTimePartButton;
+      
+      String strDay, strMonth, strYear, strHour, strMinute, strSecond;
+
+      DS3231Time controllerTime;
+      bool controllerTimeChanged;
+
+      void updateTimeButtons(DS3231Time& tm, bool redraw);      
+      
+      uint16_t stepVal(int8_t dir, uint16_t minVal,uint16_t maxVal, int16_t val);
+      String addLeadingZero(int val);
+      #endif
+
+      void drawValueInBox(TFTMenu* menuManager, TFTInfoBox* box, uint16_t val);
 
 
 };
@@ -300,8 +308,7 @@ typedef Vector<TFTScreenInfo> TFTScreensList; // список экранов
 typedef struct
 {
   bool isLCDOn : 1;
-  bool buzzerActive : 1;
-  byte pad : 6;
+  byte pad : 7;
   
 } TFTMenuFlags;
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -320,11 +327,7 @@ public:
   URTouch* getTouch() { return tftTouch; };
   UTFTRus* getRusPrinter() { return &rusPrint; };
  
-
   void resetIdleTimer();
-
-  void buzzer(); // пищим пищалкой
-  void updateBuzzer();
 
 private:
 
@@ -336,7 +339,6 @@ private:
   int currentScreenIndex;
 
   unsigned long idleTimer;
-  unsigned long buzzerTimer;
   
   TFTMenuFlags flags;
 

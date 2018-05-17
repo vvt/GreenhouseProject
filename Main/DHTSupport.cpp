@@ -6,8 +6,9 @@ DHTSupport::DHTSupport()
   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
+HumidityAnswer DHTSupport::read(uint8_t pin, DHTType sensorType)
 {
+  HumidityAnswer answer;
   answer.IsOK = false;
 
   uint8_t wakeup_delay = DHT2x_WAKEUP;
@@ -21,7 +22,9 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   #if (TARGET_BOARD == MEGA_BOARD)
   uint8_t 
   #elif (TARGET_BOARD == DUE_BOARD)
-  Pio* 
+  Pio*
+  #elif (TARGET_BOARD == STM32_BOARD)
+  gpio_dev*
   #else
     #error "Unknown target board!"
   #endif
@@ -32,6 +35,8 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
   uint8_t*
   #elif (TARGET_BOARD == DUE_BOARD)
   RoReg* 
+  #elif (TARGET_BOARD == STM32_BOARD)
+  uint32_t*
   #else
     #error "Unknown target board!"
   #endif  
@@ -140,7 +145,7 @@ const HumidityAnswer& DHTSupport::read(uint8_t pin, DHTType sensorType)
      long temp = (((bytes[2] & 0x7F) << 8) + bytes[3])*10;
       
       answer.Temperature =  temp/100;
-      answer.TemperatureDecimal = temp%100;
+      answer.TemperatureDecimal = abs(temp%100);
       
       if(bytes[2] & 0x80) // температура ниже нуля
         answer.Temperature = -answer.Temperature;

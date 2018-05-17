@@ -6,6 +6,7 @@ char DS3231Clock::workBuff[12] = {0};
 //--------------------------------------------------------------------------------------------------------------------------------------
 DS3231Clock::DS3231Clock()
 {
+    wireInterface = &Wire;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t DS3231Clock::dec2bcd(uint8_t val)
@@ -29,18 +30,18 @@ void DS3231Clock::setTime(uint8_t second, uint8_t minute, uint8_t hour, uint8_t 
   while(year > 100) // приводим к диапазону 0-99
     year -= 100;
  
-  Wire.beginTransmission(DS3231Address);
+  wireInterface->beginTransmission(DS3231Address);
   
-  DS3231_WIRE_WRITE(0); // указываем, что начинаем писать с регистра секунд
-  DS3231_WIRE_WRITE(dec2bcd(second)); // пишем секунды
-  DS3231_WIRE_WRITE(dec2bcd(minute)); // пишем минуты
-  DS3231_WIRE_WRITE(dec2bcd(hour)); // пишем часы
-  DS3231_WIRE_WRITE(dec2bcd(dayOfWeek)); // пишем день недели
-  DS3231_WIRE_WRITE(dec2bcd(dayOfMonth)); // пишем дату
-  DS3231_WIRE_WRITE(dec2bcd(month)); // пишем месяц
-  DS3231_WIRE_WRITE(dec2bcd(year)); // пишем год
+  wireInterface->write(0); // указываем, что начинаем писать с регистра секунд
+  wireInterface->write(dec2bcd(second)); // пишем секунды
+  wireInterface->write(dec2bcd(minute)); // пишем минуты
+  wireInterface->write(dec2bcd(hour)); // пишем часы
+  wireInterface->write(dec2bcd(dayOfWeek)); // пишем день недели
+  wireInterface->write(dec2bcd(dayOfMonth)); // пишем дату
+  wireInterface->write(dec2bcd(month)); // пишем месяц
+  wireInterface->write(dec2bcd(year)); // пишем год
   
-  Wire.endTransmission();
+  wireInterface->endTransmission();
 
   delay(10); // немного подождём для надёжности
 }
@@ -54,15 +55,15 @@ Temperature DS3231Clock::getTemperature()
        byte b[2];
    } rtcTemp;
      
-  Wire.beginTransmission(DS3231Address);
-  Wire.write(0x11);
-  if(Wire.endTransmission() != 0) // ошибка
+  wireInterface->beginTransmission(DS3231Address);
+  wireInterface->write(0x11);
+  if(wireInterface->endTransmission() != 0) // ошибка
     return res;
 
-  if(Wire.requestFrom(DS3231Address, 2) == 2)
+  if(wireInterface->requestFrom(DS3231Address, 2) == 2)
   {
-    rtcTemp.b[1] = DS3231_WIRE_READ();
-    rtcTemp.b[0] = DS3231_WIRE_READ();
+    rtcTemp.b[1] = wireInterface->read();
+    rtcTemp.b[0] = wireInterface->read();
 
     long tempC100 = (rtcTemp.i >> 6) * 25;
 
@@ -78,21 +79,21 @@ DS3231Time DS3231Clock::getTime()
 {
   DS3231Time t;
 
-  Wire.beginTransmission(DS3231Address);
-  DS3231_WIRE_WRITE(0); // говорим, что мы собираемся читать с регистра 0
+  wireInterface->beginTransmission(DS3231Address);
+  wireInterface->write(0); // говорим, что мы собираемся читать с регистра 0
   
-  if(Wire.endTransmission() != 0) // ошибка
+  if(wireInterface->endTransmission() != 0) // ошибка
     return t;
   
-  if(Wire.requestFrom(DS3231Address, 7) == 7) // читаем 7 байт, начиная с регистра 0
+  if(wireInterface->requestFrom(DS3231Address, 7) == 7) // читаем 7 байт, начиная с регистра 0
   {
-      t.second = bcd2dec(DS3231_WIRE_READ() & 0x7F);
-      t.minute = bcd2dec(DS3231_WIRE_READ());
-      t.hour = bcd2dec(DS3231_WIRE_READ() & 0x3F);
-      t.dayOfWeek = bcd2dec(DS3231_WIRE_READ());
-      t.dayOfMonth = bcd2dec(DS3231_WIRE_READ());
-      t.month = bcd2dec(DS3231_WIRE_READ());
-      t.year = bcd2dec(DS3231_WIRE_READ());     
+      t.second = bcd2dec(wireInterface->read() & 0x7F);
+      t.minute = bcd2dec(wireInterface->read());
+      t.hour = bcd2dec(wireInterface->read() & 0x3F);
+      t.dayOfWeek = bcd2dec(wireInterface->read());
+      t.dayOfMonth = bcd2dec(wireInterface->read());
+      t.month = bcd2dec(wireInterface->read());
+      t.year = bcd2dec(wireInterface->read());     
       t.year += 2000; // приводим время к нормальному формату
   } // if
   
@@ -176,12 +177,16 @@ const char* DS3231Clock::getDateStr(const DS3231Time& t)
   return workBuff;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void DS3231Clock::begin()
+void DS3231Clock::begin(uint8_t wireNumber)
 {
-  Wire.begin();
-  WORK_STATUS.PinMode(SDA,INPUT,false);
-  WORK_STATUS.PinMode(SCL,OUTPUT,false);
-  
+  #if TARGET_BOARD == MEGA_BOARD
+    wireInterface = &Wire;
+  #else
+    if(wireNumber == 1)
+      wireInterface = &Wire1;
+    else
+      wireInterface = &Wire;
+  #endif
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 

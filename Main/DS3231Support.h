@@ -4,14 +4,6 @@
 #include <Wire.h>
 #include "AbstractModule.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
-#if (ARDUINO >= 100)
-  #define DS3231_WIRE_READ Wire.read
-  #define DS3231_WIRE_WRITE Wire.write
-#else
-  #define DS3231_WIRE_READ Wire.receive
-  #define DS3231_WIRE_WRITE Wire.send
-#endif
-//--------------------------------------------------------------------------------------------------------------------------------------
 struct DS3231Time // данные по текущему времени
 {
   uint8_t second; // секунда (0-59)
@@ -34,6 +26,8 @@ class DS3231Clock
     uint8_t bcd2dec(uint8_t val);
 
     static char workBuff[12]; // буфер под дату/время
+
+    TwoWire* wireInterface;
   
   public:
     DS3231Clock();
@@ -50,7 +44,7 @@ class DS3231Clock
 
     Temperature getTemperature();
  
-    void begin();
+    void begin(uint8_t wireNumber);
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
 #endif

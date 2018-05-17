@@ -23,6 +23,7 @@ class AlarmDispatcher
   public:
     AlarmDispatcher();
 
+    void RemoveAlarm(AlertRule* rule);
     void Alarm(AlertRule* rule);
     void ClearProcessedAlarms();
 

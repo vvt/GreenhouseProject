@@ -238,6 +238,16 @@ void SMSModule::IncomingSMS(const String& phoneNumber,const String& message, boo
     return;
   }
 
+  if(message.startsWith(SMS_RESET_COMMAND))
+  {
+    #ifdef USE_EXTERNAL_WATCHDOG
+      while(1);
+    #else
+      ModuleInterop.QueryCommand(ctSET,F("0|RST"),false);
+    #endif
+    return;
+  }
+
   bool shouldSendSMS = false;
 
     // ищем команды
@@ -930,6 +940,18 @@ void SMSModule::Update(uint16_t dt)
   UNUSED(dt);
   
   SIM800.update();
+
+  #ifdef SEND_WORK_STARTED_SMS
+    static bool workStartedSmsSent = false;
+    if(SIM800.ready())
+    {
+        if(!workStartedSmsSent)
+        {
+          workStartedSmsSent = true;
+          SIM800.sendSMS(MainController->GetSettings()->GetSmsPhoneNumber(), WORK_STARTED_SMS_TEXT,false);
+        }
+    }
+  #endif
 
     #if defined(USE_ALARM_DISPATCHER) && defined(CLEAR_ALARM_STATUS)
     

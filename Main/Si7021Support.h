@@ -29,10 +29,9 @@ class Si7021
     Si7021();    
     void begin();
     
-    const HumidityAnswer& read();
+    HumidityAnswer read();
     
   private:
-    HumidityAnswer dt;
     HTU21D sensor;
 
   //  void setResolution();

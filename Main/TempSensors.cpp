@@ -13,12 +13,17 @@ static TempSensorSettings TEMP_SENSORS[] = { TEMP_SENSORS_PINS };
 static uint8_t WINDOWS_RELAYS[] = { WINDOWS_RELAYS_PINS };
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------------
+#ifdef USE_WINDOWS_ENDSTOPS
+static uint8_t ENDSTOPS_OPEN[] = { WINDOWS_ENDSTOPS_OPEN_PINS };
+static uint8_t ENDSTOPS_CLOSE[] = { WINDOWS_ENDSTOPS_CLOSE_PINS };
+#endif
+//--------------------------------------------------------------------------------------------------------------------------------------
 void WindowState::ResetToMaxPosition()
 {
   CurrentPosition = MainController->GetSettings()->GetOpenInterval();
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
+void WindowState::Setup(uint8_t index, uint8_t relayChannel1, uint8_t relayChannel2)
 {
   #ifdef USE_FEEDBACK_MANAGER
     CurrentPosition = 0;
@@ -31,15 +36,58 @@ void WindowState::Setup(uint8_t relayChannel1, uint8_t relayChannel2)
   RelayChannel1 = relayChannel1;
   RelayChannel2 = relayChannel2;
 
+  // запоминаем индекс окна
+  flags.Index = index;
+
+  // настраиваем концевики
+  #ifdef USE_WINDOWS_ENDSTOPS
+
+    #if WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_DIRECT
+    
+      WORK_STATUS.PinMode(ENDSTOPS_OPEN[flags.Index],INPUT);
+      WORK_STATUS.PinMode(ENDSTOPS_CLOSE[flags.Index],INPUT);
+      
+    #elif WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_MCP23S17
+    
+        #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+        
+          WORK_STATUS.MCP_SPI_PinMode(WINDOWS_ENDSTOPS_OPEN_MCP23S17_ADDRESS,ENDSTOPS_OPEN[flags.Index],INPUT);
+          WORK_STATUS.MCP_SPI_PinMode(WINDOWS_ENDSTOPS_CLOSE_MCP23S17_ADDRESS,ENDSTOPS_CLOSE[flags.Index],INPUT);
+          
+        #endif
+        
+    #elif WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_MCP23017
+    
+        #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+        
+          WORK_STATUS.MCP_I2C_PinMode(WINDOWS_ENDSTOPS_OPEN_MCP23017_ADDRESS,ENDSTOPS_OPEN[flags.Index],INPUT);
+          WORK_STATUS.MCP_I2C_PinMode(WINDOWS_ENDSTOPS_CLOSE_MCP23017_ADDRESS,ENDSTOPS_CLOSE[flags.Index],INPUT);
+          
+        #endif
+        
+    #endif    
+
+  
+  #endif // USE_WINDOWS_ENDSTOPS
+  
+
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-bool WindowState::ChangePosition(unsigned long newPos)
+bool WindowState::ChangePosition(unsigned long newPos, bool waitFor)
 {
- // Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
- // Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+  /*
+  Serial.print(F("Window #")); Serial.println(flags.Index); 
+  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
+  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+  Serial.println();
+  */
   
- // GlobalSettings* settings = MainController->GetSettings();
-//  unsigned long interval = settings->GetOpenInterval();
+ if(IsBusy() && waitForChangePositionDone)
+ {
+   // ещё двигаемся, при этом нас попросили подождать, пока мы не достигнем этой позиции
+  // Serial.println("Position  not reached!");
+   return false;
+ }
   
   long currentDifference = 0;
   if(CurrentPosition > newPos)
@@ -54,12 +102,15 @@ bool WindowState::ChangePosition(unsigned long newPos)
     
  //   Serial.println(F("SAME POSITION!"));
     // говорим, что мы сменили позицию
-    SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
+    //SAVE_STATUS(WINDOWS_POS_CHANGED_BIT,1);    
     return false;
   }
 
   // если текущая позиция больше запрошенной - надо закрывать, иначе - открывать
   uint8_t dir = CurrentPosition > newPos ? dirCLOSE : dirOPEN;
+
+  // сохраняем флаг ожидания окончания смены позиции
+  waitForChangePositionDone = waitFor;
  
   if(dir == dirOPEN)
   {
@@ -106,8 +157,17 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
   GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();
 
+  if(hasPosition)
+  {
+    // есть информация о позиции, не надо дожидаться смены позиции, даже если попросили при старте (когда окна гонятся в закрытое положение)
+    waitForChangePositionDone = false;
+  }
+
   if(isCloseSwitchTriggered || isOpenSwitchTriggered) // если сработал один из концевиков, то это значит, что нам надо выключить моторы, и обновить позицию
   {
+    // если мы ждали окончания смены позиции - надо по-любому сбросить этот флаг, т.к. сработал один из концевиков
+    waitForChangePositionDone = false;
+        
     if(IsBusy())
     {
       // двигаемся, надо останавливаться
@@ -129,7 +189,7 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
      if(isOpenSwitchTriggered)
      {
       // концевик на открытие
-      CurrentPosition = interval; 
+      CurrentPosition = interval;
      }
    
    return;  // поскольку сработали концевики - мы установили позицию по ним, и переданную можно игнорировать
@@ -177,6 +237,13 @@ void WindowState::UpdateState(uint16_t dt)
     dt = TimerInterval;
 
    TimerInterval -= dt;
+
+  // проверяем концевики
+  #ifdef USE_WINDOWS_ENDSTOPS
+
+    bool bAnyEndstopTriggered = false;
+    
+  #endif // USE_WINDOWS_ENDSTOPS   
        
    switch(flags.Direction)
    {
@@ -185,16 +252,79 @@ void WindowState::UpdateState(uint16_t dt)
         bRelay1State = RELAY_ON; // крутимся в одну сторону
         bRelay2State = RELAY_OFF;
         CurrentPosition += dt;
+
+        #ifdef USE_WINDOWS_ENDSTOPS
+
+            #if WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_DIRECT
+
+              bAnyEndstopTriggered = digitalRead(ENDSTOPS_OPEN[flags.Index]) == WINDOWS_ENDSTOP_TRIGGERED_LEVEL;
+                            
+            #elif WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_MCP23S17
+            
+                #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+                
+                  bAnyEndstopTriggered = WORK_STATUS.MCP_SPI_PinRead(WINDOWS_ENDSTOPS_OPEN_MCP23S17_ADDRESS,ENDSTOPS_OPEN[flags.Index]) == WINDOWS_ENDSTOP_TRIGGERED_LEVEL;
+                  
+                #endif
+                
+            #elif WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_MCP23017
+            
+                #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+                
+                  bAnyEndstopTriggered = WORK_STATUS.MCP_I2C_PinRead(WINDOWS_ENDSTOPS_OPEN_MCP23017_ADDRESS,ENDSTOPS_OPEN[flags.Index]) == WINDOWS_ENDSTOP_TRIGGERED_LEVEL;
+                                    
+                #endif
+                
+            #endif    
+
+            if(bAnyEndstopTriggered)
+            {
+              CurrentPosition = MainController->GetSettings()->GetOpenInterval();
+            }
+        
+        #endif // USE_WINDOWS_ENDSTOPS
       } 
-      break;
+      break; // dirOPEN
 
       case dirCLOSE:
       {
         bRelay1State = RELAY_OFF; // или в другую
         bRelay2State = RELAY_ON;
         CurrentPosition -= dt;
+
+        #ifdef USE_WINDOWS_ENDSTOPS
+
+            #if WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_DIRECT
+
+              bAnyEndstopTriggered = digitalRead(ENDSTOPS_CLOSE[flags.Index]) == WINDOWS_ENDSTOP_TRIGGERED_LEVEL;
+                            
+            #elif WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_MCP23S17
+            
+                #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
+                
+                  bAnyEndstopTriggered = WORK_STATUS.MCP_SPI_PinRead(WINDOWS_ENDSTOPS_CLOSE_MCP23S17_ADDRESS,ENDSTOPS_CLOSE[flags.Index]) == WINDOWS_ENDSTOP_TRIGGERED_LEVEL;
+                  
+                #endif
+                
+            #elif WINDOWS_ENDSTOPS_DRIVE_MODE == DRIVE_MCP23017
+            
+                #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
+                
+                  bAnyEndstopTriggered = WORK_STATUS.MCP_I2C_PinRead(WINDOWS_ENDSTOPS_CLOSE_MCP23017_ADDRESS,ENDSTOPS_CLOSE[flags.Index]) == WINDOWS_ENDSTOP_TRIGGERED_LEVEL;
+                                    
+                #endif
+                
+            #endif    
+
+            if(bAnyEndstopTriggered)
+            {
+              CurrentPosition = 0;
+            }
+                    
+        #endif // USE_WINDOWS_ENDSTOPS
+        
       } 
-      break;
+      break; // dirCLOSE
 
       case dirNOTHING:
       default:
@@ -202,15 +332,22 @@ void WindowState::UpdateState(uint16_t dt)
         bRelay1State = SHORT_CIRQUIT_STATE; // накоротко, мотор не крутится
         bRelay2State = SHORT_CIRQUIT_STATE;
       } 
-      break;
+      break; // dirNOTHING
+      
    } // switch
 
 
-
-     if(!TimerInterval)
-     {
+     if(!TimerInterval
+#ifdef USE_WINDOWS_ENDSTOPS
+        || bAnyEndstopTriggered
+#endif     
+     )
+     {        
        // приехали, останавливаемся
        flags.Direction = dirNOTHING; // уже никуда не движемся
+
+       // сбрасываем флаг ожидания достижения позиции
+       waitForChangePositionDone = false;
        
         //ВЫКЛЮЧАЕМ РЕЛЕ
         SwitchRelays();
@@ -330,7 +467,7 @@ void TempSensors::SetupWindows()
   for(uint8_t i=0, j=0;i<SUPPORTED_WINDOWS;i++, j+=2)
   {
       // раздаём каналы реле: первому окну - 0,1, второму - 2,3 и т.д.
-      Windows[i].Setup(j,j+1);
+      Windows[i].Setup(i, j, j+1);
 
       #ifdef USE_WINDOWS_SHIFT_REGISTER // если используем сдвиговые регистры
         // ничего не делаем, поскольку у нас все реле будут выключены после первоначальной настройки
@@ -351,10 +488,19 @@ void TempSensors::SetupWindows()
       // используем менеджер обратной связи
     #else
     // просим окна закрыться при старте контроллера
-    Windows[i].ChangePosition(0);
+    Windows[i].ChangePosition(0,true);
     #endif
     
   } // for
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void TempSensors::CloseWindow(uint8_t num)
+{
+  if(num >= SUPPORTED_WINDOWS)
+    return;
+    
+   Windows[num].ResetToMaxPosition();
+   Windows[num].ChangePosition(0,true); // закрываем окно  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::CloseAllWindows()
@@ -362,7 +508,7 @@ void TempSensors::CloseAllWindows()
   for(int i=0;i<SUPPORTED_WINDOWS;i++)
   {
      Windows[i].ResetToMaxPosition();
-     Windows[i].ChangePosition(0); // закрываем окно
+     Windows[i].ChangePosition(0,true); // закрываем окно
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------

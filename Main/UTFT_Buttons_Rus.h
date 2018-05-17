@@ -20,8 +20,10 @@
   examples and tools supplied with the library.
 */
 
-#ifndef UTFT_Buttons_Rus_h
-#define UTFT_Buttons_Rus_h
+#pragma once
+#include "Globals.h"
+
+#ifdef USE_TFT_MODULE
 
 #define UTFT_BUTTONS_VERSION	103
 
@@ -33,7 +35,12 @@
 	#include "Arduino.h"
 #endif
 
+#if TARGET_BOARD == STM32_BOARD
+#include <UTFTSTM32.h>
+#else
 #include <UTFT.h>
+#endif
+
 #include <URTouch.h>
 #if ((!defined(UTFT_VERSION)) || (UTFT_VERSION<241))
 	#error : You will need UTFT v2.41 or higher to use this add-on library...

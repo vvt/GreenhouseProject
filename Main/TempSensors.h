@@ -37,7 +37,7 @@ typedef struct
 {
   bool OnMyWay : 1; // флаг того, что фрамуга в процессе открытия/закрытия
   uint8_t Direction : 3; // направление, которое задали
-  uint8_t pad : 4;
+  uint8_t Index : 4;
   
 } WindowStateFlags;
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -54,12 +54,13 @@ class WindowState
   uint8_t RelayChannel2;
 
   WindowStateFlags flags;
+  bool waitForChangePositionDone;
 
 public:
 
   bool IsBusy() {return flags.OnMyWay;} // заняты или нет?
   
-  bool ChangePosition(unsigned long newPos); // меняет позицию
+  bool ChangePosition(unsigned long newPos, bool waitForChangePositionDone=false); // меняет позицию
   
   unsigned long GetCurrentPosition() {return CurrentPosition;}
   void ResetToMaxPosition();
@@ -67,7 +68,7 @@ public:
 
   void UpdateState(uint16_t dt); // обновляет состояние фрамуги
   
-  void Setup(uint8_t relayChannel1, uint8_t relayChannel2); // настраиваем перед пуском
+  void Setup(uint8_t index, uint8_t relayChannel1, uint8_t relayChannel2); // настраиваем перед пуском
 
   void Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents,bool isFirstFeedback);
 
@@ -80,6 +81,7 @@ public:
     RelayChannel1 = 0;
     RelayChannel2 = 0;
     flags.Direction = dirNOTHING;
+    waitForChangePositionDone = false;
   }  
   
   
@@ -129,6 +131,7 @@ class TempSensors : public AbstractModule // модуль опроса темп�
     
     bool IsWindowOpen(uint8_t windowNumber); // сообщает, открывается или открыто ли нужное окно
     void CloseAllWindows();
+    void CloseWindow(uint8_t num);
 
     // получена информация обратной связи по состоянию окна
     void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback);

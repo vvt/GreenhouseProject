@@ -35,7 +35,7 @@ void HumidityModule::Setup()
  }
 //--------------------------------------------------------------------------------------------------------------------------------------
 #if SUPPORTED_HUMIDITY_SENSORS > 0
-const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t pin, uint8_t pin2, HumiditySensorType type)
+HumidityAnswer HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t pin, uint8_t pin2, HumiditySensorType type)
 {
   UNUSED(sensorNumber);
   
@@ -108,7 +108,7 @@ const HumidityAnswer& HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t 
         // has temperature
         int conv = temp * 100;
         dummyAnswer.Temperature = conv/100;
-        dummyAnswer.TemperatureDecimal = conv%100;
+        dummyAnswer.TemperatureDecimal = abs(conv%100);
       }
 
       if(!(hum < 0))
@@ -151,7 +151,7 @@ void HumidityModule::Update(uint16_t dt)
       {
         h.Value = answer.Humidity;
         h.Fract = answer.HumidityDecimal;
-
+        
         t.Value = answer.Temperature;
         t.Fract = answer.TemperatureDecimal;
 

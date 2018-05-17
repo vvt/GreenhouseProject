@@ -31,14 +31,11 @@ PCF8574::PCF8574(int address)
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void PCF8574::begin()
 {
-  Wire.begin();
-  WORK_STATUS.PinMode(SDA,INPUT,false);
-  WORK_STATUS.PinMode(SCL,OUTPUT,false);    
+  ////////////Wire.begin();
 }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 uint8_t PCF8574::read8()
 {
- // Wire.beginTransmission(_address);
   if(Wire.requestFrom(_address, 1) == 1)
   {
     
@@ -50,7 +47,6 @@ uint8_t PCF8574::read8()
   }
   else
   {
-    //_error = Wire.endTransmission();
     _error = -100;
   }
   return _data;
@@ -169,8 +165,9 @@ void PhModule::ApplyCalculation(Temperature* temp)
   #endif
 
   long ulDiff = tDiff.Value;
+  uint8_t sign = tDiff.Value < 0 ? -1 : 1;
   ulDiff *= 100;
-  ulDiff += tDiff.Fract;
+  ulDiff += tDiff.Fract*sign;
 
   #ifdef PH_DEBUG
     PH_DEBUG_OUT(F("ulDiff: "), ulDiff);

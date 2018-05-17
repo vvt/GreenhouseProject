@@ -21,7 +21,14 @@
 */
 
 #include "UTFT_Buttons_Rus.h"
+
+#ifdef USE_TFT_MODULE
+#if TARGET_BOARD == STM32_BOARD
+#include <UTFTSTM32.h>
+#else
 #include <UTFT.h>
+#endif
+
 #include <URTouch.h>
 
 UTFT_Buttons_Rus::UTFT_Buttons_Rus(UTFT *ptrUTFT, URTouch *ptrURTouch, UTFTRus* pTFTRus)
@@ -328,3 +335,5 @@ void UTFT_Buttons_Rus::setButtonColors(word atxt, word iatxt, word brd, word brd
 	_color_border			= brd;
 	_color_hilite			= brdhi;
 }
+
+#endif // USE_TFT_MODULE

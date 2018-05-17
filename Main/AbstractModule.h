@@ -77,12 +77,13 @@ struct Temperature // структура показаний с датчика т
     
     if(from.Value == NO_TEMPERATURE_DATA) // no data from sensor
       return result;
-      
-    int rawC = from.Value*100 + from.Fract;
+
+    int8_t sign = from.Value < 0 : -1 : 1;
+    int rawC = from.Value*100 + from.Fract*sign;
     int rawF = (rawC*9)/5 + 3200;
 
     result.Value = rawF/100;
-    result.Fract = rawF%100;
+    result.Fract = abs(rawF%100);
 
     return result;
     
@@ -373,12 +374,14 @@ public:
     // запись в каналы MCP23S17
     void MCP_SPI_PinMode(byte mcpAddress, byte mpcChannel, byte mode);
     void MCP_SPI_PinWrite(byte mcpAddress, byte mpcChannel, byte level);
+    byte MCP_SPI_PinRead(byte mcpAddress, byte mpcChannel);
   #endif
 
   #if defined(USE_MCP23017_EXTENDER) && COUNT_OF_MCP23017_EXTENDERS > 0
     // запись в каналы MCP23017
     void MCP_I2C_PinMode(byte mcpAddress, byte mpcChannel, byte mode);
     void MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level);
+    byte MCP_I2C_PinRead(byte mcpAddress, byte mpcChannel);
   #endif  
 
   void SaveWindowState(byte channel, byte state);
@@ -422,6 +425,7 @@ class FeedbacksManager
   private:
   #ifdef USE_TEMP_SENSORS
     unsigned long waitingWindowsFeedbackTimer;
+    uint16_t windowFeedbackReceivedFlags;
   #endif
 
   FeedbacksManagerFlags flags;

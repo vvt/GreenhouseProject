@@ -21,7 +21,11 @@
 #include "HTTPInterfaces.h" // подключаем интерфейсы для работы с HTTP-запросами
 
 
+#if TARGET_BOARD == STM32_BOARD
+#include <SdFatSTM32.h>
+#else
 #include <SdFat.h>
+#endif
 //--------------------------------------------------------------------------------------------------------------------------------------
 class AbstractModule; // forward declaration
 class AlertRule;
@@ -124,6 +128,7 @@ public:
   void SetHTTPProvider(byte idx, HTTPQueryProvider* prov) {httpQueryProviders[idx] = prov; }
 
   void Alarm(AlertRule* rule); // обработчик тревог
+  void RemoveAlarm(AlertRule* rule); // обработчик тревог
   #ifdef USE_ALARM_DISPATCHER
     AlarmDispatcher* GetAlarmDispatcher(){ return &alarmDispatcher;}
   #endif

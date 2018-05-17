@@ -153,7 +153,16 @@ void WorkStatus::MCP_I2C_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
 
   bank->digitalWrite(mpcChannel,level);
 }
+//--------------------------------------------------------------------------------------------------------------------------------
+byte WorkStatus::MCP_I2C_PinRead(byte mcpAddress, byte mpcChannel)
+{
+  Adafruit_MCP23017* bank = GetMCP_I2C_ByAddress(mcpAddress);
+  if(!bank)
+    return 0xFF; 
 
+  return bank->digitalRead(mpcChannel);
+}
+//--------------------------------------------------------------------------------------------------------------------------------
 #endif
 //--------------------------------------------------------------------------------------------------------------------------------
 #if defined(USE_MCP23S17_EXTENDER) && COUNT_OF_MCP23S17_EXTENDERS > 0
@@ -186,6 +195,15 @@ void WorkStatus::MCP_SPI_PinWrite(byte mcpAddress, byte mpcChannel, byte level)
     return;  
 
   bank->digitalWrite(mpcChannel,level);
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+byte WorkStatus::MCP_SPI_PinRead(byte mcpAddress, byte mpcChannel)
+{
+  MCP23S17* bank = GetMCP_SPI_ByAddress(mcpAddress);
+  if(!bank)
+    return 0xFF;  
+
+  return bank->digitalRead(mpcChannel);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 MCP23S17* WorkStatus::GetMCP_SPI_ByAddress(byte addr)
@@ -222,7 +240,12 @@ void WorkStatus::PinMode(byte pinNumber,byte mode, bool setMode)
     
 
    if(setMode && (pinNumber < VIRTUAL_PIN_START_NUMBER))
-    pinMode(pinNumber,mode);
+    pinMode(pinNumber,
+    #if TARGET_BOARD == STM32_BOARD
+    (WiringPinMode)
+    #endif
+    mode
+    );
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void WorkStatus::SaveWindowState(byte channel, byte state)
@@ -1263,6 +1286,7 @@ void FeedbacksManager::Setup()
 {
   #ifdef USE_TEMP_SENSORS
   waitingWindowsFeedbackTimer = 0;
+  windowFeedbackReceivedFlags = 0;
   #endif
   
   flags.inWaitingWindowsFeedbackMode = true;
@@ -1307,6 +1331,25 @@ void FeedbacksManager::WindowFeedbackDone()
         #endif
       }
     }
+    else
+    {
+       // получили хотя бы один пакет информации по обратной связи. Надо закрыть те окна,
+       // которые не получали информацию по обратной связи.
+       if(flags.isFirstCallOfWindowsFeedback) // и первый раз вызвали эту функцию
+       {
+          flags.isFirstCallOfWindowsFeedback = false;
+          #ifdef USE_TEMP_SENSORS
+            for(int i=0;i<SUPPORTED_WINDOWS;i++)
+            {
+              if(!bitRead(windowFeedbackReceivedFlags, i))
+              {
+                // для окна не получена обратная связь
+                WindowModule->CloseWindow(i);
+              }
+            }
+          #endif
+       }
+    }
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void FeedbacksManager::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
@@ -1314,6 +1357,7 @@ void FeedbacksManager::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTr
   #ifdef USE_TEMP_SENSORS
   
     flags.isAnyWindowsFeedbackReceived = true; // говорим, что получили инфу по обратной связи по крайней мере для одного окна
+    windowFeedbackReceivedFlags |= (1 << windowNumber);
     
     WindowModule->WindowFeedback(windowNumber,isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents, flags.inWaitingWindowsFeedbackMode);
   #endif

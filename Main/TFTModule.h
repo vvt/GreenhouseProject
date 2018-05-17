@@ -19,8 +19,6 @@ class TFTModule : public AbstractModule // модуль поддержки 7'' T
     void Setup();
     void Update(uint16_t dt);
 
-    void UpdateBuzzer();
-
 };
 #endif // USE_TFT_MODULE
 //--------------------------------------------------------------------------------------------------------------------------------------

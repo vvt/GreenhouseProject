@@ -297,8 +297,9 @@ bool AlertRule::HasAlert()
        TemperaturePair tp = *os;
 
        #ifdef ALERT_INCLUDE_COMMA_VALUES
-       int curTemp = tp.Current.Value*100 + tp.Current.Fract;
-       int tAlert = (int8_t) Settings.DataAlert*100; // следим за переданной температурой
+       int8_t sign = tp.Current.Value < 0 ? -1 : 1;
+       int curTemp = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
+       int tAlert = (int) Settings.DataAlert*100; // следим за переданной температурой
        #else 
        int8_t curTemp = tp.Current.Value;
        int8_t tAlert = (int8_t) Settings.DataAlert; // следим за переданной температурой
@@ -315,7 +316,8 @@ bool AlertRule::HasAlert()
           TemperaturePair tp = *reservedState; 
          
           #ifdef ALERT_INCLUDE_COMMA_VALUES
-          curTemp = tp.Current.Value*100 + tp.Current.Fract;
+          int8_t sign = tp.Current.Value < 0 ? -1 : 1;
+          curTemp = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
           #else
           curTemp = tp.Current.Value;
           #endif
@@ -402,7 +404,8 @@ bool AlertRule::HasAlert()
 
        HumidityPair hp = *os;
        #ifdef ALERT_INCLUDE_COMMA_VALUES
-       int curHumidity = hp.Current.Value*100 + hp.Current.Fract;
+       int8_t sign = hp.Current.Value < 0 ? -1 : 1;
+       int curHumidity = (abs(hp.Current.Value)*100 + hp.Current.Fract)*sign;
        int humidityAlert = Settings.DataAlert*100;
        #else
        int8_t curHumidity = hp.Current.Value;
@@ -420,7 +423,8 @@ bool AlertRule::HasAlert()
             HumidityPair tp = *reservedState;
             
             #ifdef ALERT_INCLUDE_COMMA_VALUES
-            curHumidity = tp.Current.Value*100 + tp.Current.Fract;
+            int8_t sign = tp.Current.Value < 0 ? -1 : 1;
+            curHumidity = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
             #else 
             curHumidity = tp.Current.Value;
             #endif
@@ -452,7 +456,8 @@ bool AlertRule::HasAlert()
        HumidityPair hp = *os;
 
        #ifdef ALERT_INCLUDE_COMMA_VALUES
-       int curHumidity = hp.Current.Value*100 + hp.Current.Fract;
+       int8_t sign = hp.Current.Value < 0 ? -1 : 1;
+       int curHumidity = (abs(hp.Current.Value)*100 + hp.Current.Fract)*sign;
        int humidityAlert = Settings.DataAlert*100;
        #else
        int8_t curHumidity = hp.Current.Value;
@@ -469,7 +474,8 @@ bool AlertRule::HasAlert()
           {
             HumidityPair tp = *reservedState;
             #ifdef ALERT_INCLUDE_COMMA_VALUES
-            curHumidity = tp.Current.Value*100 + tp.Current.Fract;
+            int8_t sign = tp.Current.Value < 0 ? -1 : 1;
+            curHumidity = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
             #else 
             curHumidity = tp.Current.Value;
             #endif
@@ -499,7 +505,8 @@ bool AlertRule::HasAlert()
 
        HumidityPair hp = *os;
        #ifdef ALERT_INCLUDE_COMMA_VALUES
-       int curHumidity = hp.Current.Value*100 + hp.Current.Fract;
+       int8_t sign = hp.Current.Value < 0 ? -1 : 1;
+       int curHumidity = (abs(hp.Current.Value)*100 + hp.Current.Fract)*sign;
        int phAlert = Settings.DataAlert*100;
        #else
        int8_t curHumidity = hp.Current.Value;
@@ -516,7 +523,8 @@ bool AlertRule::HasAlert()
           {
             HumidityPair tp = *reservedState;
             #ifdef ALERT_INCLUDE_COMMA_VALUES
-            curHumidity = tp.Current.Value*100 + tp.Current.Fract;
+            int8_t sign = tp.Current.Value < 0 ? -1 : 1;
+            curHumidity = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
             #else 
             curHumidity = tp.Current.Value;
             #endif
@@ -1010,6 +1018,7 @@ void AlertModule::LoadRules() // читаем настройки из EEPROM
   for(uint8_t i=0;i<rulesCnt;i++)
   {
     AlertRule* r = alertRules[i];
+    MainController->RemoveAlarm(r);
     delete r;
   }
   InitRules(); // инициализируем массив
@@ -1521,8 +1530,8 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                   for(uint8_t i=0;i<rulesCnt;i++)
                   {
                      AlertRule* rule = alertRules[i];
-                     if(rule)
-                      delete rule;
+                     MainController->RemoveAlarm(rule);
+                     delete rule;
 
                      alertRules[i] = NULL;
                   } // for
@@ -1530,10 +1539,13 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                   // чистим все параметры, поскольку у нас больше нет правил
                   ClearParams();
 
+                  // чистим список правил, сработавших на последней итерации
+                  lastIterationRaisedRules.clear();
+
                   rulesCnt = 0;
                   
                   PublishSingleton.Flags.Status = true;
-                  PublishSingleton = RULE_DELETE; 
+                  PublishSingleton = t; 
                   PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << REG_DEL;
 
                 }
@@ -1546,6 +1558,19 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                       AlertRule* rule = alertRules[i];
                       if(rule && !strcmp(rule->GetName(),sParam.c_str())) // нашли правило
                       {
+                        // очищаем из списка сработавших на последней итерации
+                        RulesVector thisLastIterationRaisedRules;
+                        for(size_t k=0;k<lastIterationRaisedRules.size();k++)
+                        {
+                          if(lastIterationRaisedRules[k] != rule)
+                          {
+                            thisLastIterationRaisedRules.push_back(lastIterationRaisedRules[k]);
+                          }
+                        } // for
+
+                        lastIterationRaisedRules = thisLastIterationRaisedRules;
+
+                        MainController->RemoveAlarm(rule);
                         delete rule;
                         bDeleted = true;
                         deletedIdx = i; 
@@ -1564,7 +1589,7 @@ bool  AlertModule::ExecCommand(const Command& command, bool wantAnswer)
                     //TODO: Удалять из параметров имя правила и у всех связанных правил удалять индекс этого имени!!!
  
                     PublishSingleton.Flags.Status = true;
-                    PublishSingleton = RULE_DELETE; 
+                    PublishSingleton = t; 
                     PublishSingleton << PARAM_DELIMITER <<  sParam << PARAM_DELIMITER << REG_DEL;
                    } // if(bDeleted)
                 } // else not ALL

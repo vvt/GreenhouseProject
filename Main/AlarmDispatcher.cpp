@@ -4,6 +4,29 @@ AlarmDispatcher::AlarmDispatcher()
 {
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+void AlarmDispatcher::RemoveAlarm(AlertRule* rule)
+{
+  #ifdef USE_SMS_MODULE
+    RaisedAlarmsList q;
+    RaisedAlarmsList p;
+    for(size_t i=0;i<queueSMSAlarms.size();i++)
+    {
+      if(queueSMSAlarms[i] != rule)
+        q.push_back(queueSMSAlarms[i]);
+    }
+
+    queueSMSAlarms = q;
+
+    for(size_t i=0;i<processedSMSAlarms.size();i++)
+    {
+      if(processedSMSAlarms[i] != rule)
+        p.push_back(processedSMSAlarms[i]);
+    }
+
+    processedSMSAlarms = p;
+  #endif
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void AlarmDispatcher::Alarm(AlertRule* rule)
 {
   #ifdef USE_SMS_MODULE

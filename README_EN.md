@@ -34,15 +34,14 @@ For home use only, any commercial use is strictly prohibited. If you want to use
 
 <h1>Project structure</h1>
 <ul>
+<li>Arduino IDE version, used for compiling the project - is <b>1.8.5</b>;</li>
 <li><b>Main</b> folder - firmware for the microcontroller;</li>
 <li><b>ESP_BIN</b> folder - firmware for the ESP8266;</li>
 <li><b>SOFT</b> folder - configuration software, can be connected to microcontroller by using the COM-port;</li>
 <li><b>Libraries</b> folder - libraries, used in project, need to be installed in Arduino IDE before compiling the firmware;</li>
 <li><b>SD</b> folder - these files should be placed on SD card;</li>
-<li><b>arduino-1.6.7-windows.exe</b> - Arduino IDE, used for compiling the project;</li>
 <li><b>NewPlan_en.spl7</b> file - SPlan 7.0 project with schematic;</li>
 <li><b>Nextion</b> folder - firmware for Nextion 320x240;</li>
-<li><b>Nextion1WireModule</b> folder - firmware for universal module with Nextion support, for connecting the Nextion through 1-Wire;</li>
 <li><b>UniversalSensorsModule</b> folder - firmware for universal module with sensors;</li>
 <li><b>UniversalExecutionModule</b> folder - firmware for universal module with execution abilities (translate state of the main controller over supported hardware interfaces);</li>
 <li><b>FrequencySoilMoistureSensor</b> folder - firmware for frequency soil moisture sensor support;</li>
