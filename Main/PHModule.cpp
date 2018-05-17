@@ -165,8 +165,9 @@ void PhModule::ApplyCalculation(Temperature* temp)
   #endif
 
   long ulDiff = tDiff.Value;
+  uint8_t sign = tDiff.Value < 0 ? -1 : 1;
   ulDiff *= 100;
-  ulDiff += tDiff.Fract;
+  ulDiff += tDiff.Fract*sign;
 
   #ifdef PH_DEBUG
     PH_DEBUG_OUT(F("ulDiff: "), ulDiff);

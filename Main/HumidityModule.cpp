@@ -108,7 +108,7 @@ HumidityAnswer HumidityModule::QuerySensor(uint8_t sensorNumber, uint8_t pin, ui
         // has temperature
         int conv = temp * 100;
         dummyAnswer.Temperature = conv/100;
-        dummyAnswer.TemperatureDecimal = conv%100;
+        dummyAnswer.TemperatureDecimal = abs(conv%100);
       }
 
       if(!(hum < 0))

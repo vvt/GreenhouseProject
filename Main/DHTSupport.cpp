@@ -145,7 +145,7 @@ HumidityAnswer DHTSupport::read(uint8_t pin, DHTType sensorType)
      long temp = (((bytes[2] & 0x7F) << 8) + bytes[3])*10;
       
       answer.Temperature =  temp/100;
-      answer.TemperatureDecimal = temp%100;
+      answer.TemperatureDecimal = abs(temp%100);
       
       if(bytes[2] & 0x80) // температура ниже нуля
         answer.Temperature = -answer.Temperature;
