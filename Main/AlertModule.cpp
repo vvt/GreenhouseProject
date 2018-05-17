@@ -298,8 +298,8 @@ bool AlertRule::HasAlert()
 
        #ifdef ALERT_INCLUDE_COMMA_VALUES
        int8_t sign = tp.Current.Value < 0 ? -1 : 1;
-       int curTemp = tp.Current.Value*100 + tp.Current.Fract*sign;
-       int tAlert = (int8_t) Settings.DataAlert*100; // следим за переданной температурой
+       int curTemp = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
+       int tAlert = (int) Settings.DataAlert*100; // следим за переданной температурой
        #else 
        int8_t curTemp = tp.Current.Value;
        int8_t tAlert = (int8_t) Settings.DataAlert; // следим за переданной температурой
@@ -317,7 +317,7 @@ bool AlertRule::HasAlert()
          
           #ifdef ALERT_INCLUDE_COMMA_VALUES
           int8_t sign = tp.Current.Value < 0 ? -1 : 1;
-          curTemp = tp.Current.Value*100 + tp.Current.Fract*sign;
+          curTemp = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
           #else
           curTemp = tp.Current.Value;
           #endif
@@ -405,7 +405,7 @@ bool AlertRule::HasAlert()
        HumidityPair hp = *os;
        #ifdef ALERT_INCLUDE_COMMA_VALUES
        int8_t sign = hp.Current.Value < 0 ? -1 : 1;
-       int curHumidity = hp.Current.Value*100 + hp.Current.Fract*sign;
+       int curHumidity = (abs(hp.Current.Value)*100 + hp.Current.Fract)*sign;
        int humidityAlert = Settings.DataAlert*100;
        #else
        int8_t curHumidity = hp.Current.Value;
@@ -424,7 +424,7 @@ bool AlertRule::HasAlert()
             
             #ifdef ALERT_INCLUDE_COMMA_VALUES
             int8_t sign = tp.Current.Value < 0 ? -1 : 1;
-            curHumidity = tp.Current.Value*100 + tp.Current.Fract*sign;
+            curHumidity = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
             #else 
             curHumidity = tp.Current.Value;
             #endif
@@ -457,7 +457,7 @@ bool AlertRule::HasAlert()
 
        #ifdef ALERT_INCLUDE_COMMA_VALUES
        int8_t sign = hp.Current.Value < 0 ? -1 : 1;
-       int curHumidity = hp.Current.Value*100 + hp.Current.Fract*sign;
+       int curHumidity = (abs(hp.Current.Value)*100 + hp.Current.Fract)*sign;
        int humidityAlert = Settings.DataAlert*100;
        #else
        int8_t curHumidity = hp.Current.Value;
@@ -475,7 +475,7 @@ bool AlertRule::HasAlert()
             HumidityPair tp = *reservedState;
             #ifdef ALERT_INCLUDE_COMMA_VALUES
             int8_t sign = tp.Current.Value < 0 ? -1 : 1;
-            curHumidity = tp.Current.Value*100 + tp.Current.Fract*sign;
+            curHumidity = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
             #else 
             curHumidity = tp.Current.Value;
             #endif
@@ -506,7 +506,7 @@ bool AlertRule::HasAlert()
        HumidityPair hp = *os;
        #ifdef ALERT_INCLUDE_COMMA_VALUES
        int8_t sign = hp.Current.Value < 0 ? -1 : 1;
-       int curHumidity = hp.Current.Value*100 + hp.Current.Fract*sign;
+       int curHumidity = (abs(hp.Current.Value)*100 + hp.Current.Fract)*sign;
        int phAlert = Settings.DataAlert*100;
        #else
        int8_t curHumidity = hp.Current.Value;
@@ -524,7 +524,7 @@ bool AlertRule::HasAlert()
             HumidityPair tp = *reservedState;
             #ifdef ALERT_INCLUDE_COMMA_VALUES
             int8_t sign = tp.Current.Value < 0 ? -1 : 1;
-            curHumidity = tp.Current.Value*100 + tp.Current.Fract*sign;
+            curHumidity = (abs(tp.Current.Value)*100 + tp.Current.Fract)*sign;
             #else 
             curHumidity = tp.Current.Value;
             #endif
