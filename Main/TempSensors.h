@@ -54,12 +54,13 @@ class WindowState
   uint8_t RelayChannel2;
 
   WindowStateFlags flags;
+  bool waitForChangePositionDone;
 
 public:
 
   bool IsBusy() {return flags.OnMyWay;} // заняты или нет?
   
-  bool ChangePosition(unsigned long newPos); // меняет позицию
+  bool ChangePosition(unsigned long newPos, bool waitForChangePositionDone=false); // меняет позицию
   
   unsigned long GetCurrentPosition() {return CurrentPosition;}
   void ResetToMaxPosition();
@@ -80,6 +81,7 @@ public:
     RelayChannel1 = 0;
     RelayChannel2 = 0;
     flags.Direction = dirNOTHING;
+    waitForChangePositionDone = false;
   }  
   
   

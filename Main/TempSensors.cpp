@@ -73,13 +73,19 @@ void WindowState::Setup(uint8_t index, uint8_t relayChannel1, uint8_t relayChann
 
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-bool WindowState::ChangePosition(unsigned long newPos)
+bool WindowState::ChangePosition(unsigned long newPos, bool waitFor)
 {
+//  Serial.print(F("Window #")); Serial.println(flags.Index); 
 //  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
 //  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+//  Serial.println();
   
- // GlobalSettings* settings = MainController->GetSettings();
-//  unsigned long interval = settings->GetOpenInterval();
+ if(IsBusy() && waitForChangePositionDone)
+ {
+   // ещё двигаемся, при этом нас попросили подождать, пока мы не достигнем этой позиции
+//   Serial.println("Position  not reached!");
+   return false;
+ }
   
   long currentDifference = 0;
   if(CurrentPosition > newPos)
@@ -100,6 +106,9 @@ bool WindowState::ChangePosition(unsigned long newPos)
 
   // если текущая позиция больше запрошенной - надо закрывать, иначе - открывать
   uint8_t dir = CurrentPosition > newPos ? dirCLOSE : dirOPEN;
+
+  // сохраняем флаг ожидания окончания смены позиции
+  waitForChangePositionDone = waitFor;
  
   if(dir == dirOPEN)
   {
@@ -146,8 +155,17 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
   GlobalSettings* settings = MainController->GetSettings();
   unsigned long interval = settings->GetOpenInterval();
 
+  if(hasPosition)
+  {
+    // есть информация о позиции, не надо дожидаться смены позиции, даже если попросили при старте (когда окна гонятся в закрытое положение)
+    waitForChangePositionDone = false;
+  }
+
   if(isCloseSwitchTriggered || isOpenSwitchTriggered) // если сработал один из концевиков, то это значит, что нам надо выключить моторы, и обновить позицию
   {
+    // если мы ждали окончания смены позиции - надо по-любому сбросить этот флаг, т.к. сработал один из концевиков
+    waitForChangePositionDone = false;
+        
     if(IsBusy())
     {
       // двигаемся, надо останавливаться
@@ -169,7 +187,7 @@ void WindowState::Feedback(bool isCloseSwitchTriggered, bool isOpenSwitchTrigger
      if(isOpenSwitchTriggered)
      {
       // концевик на открытие
-      CurrentPosition = interval; 
+      CurrentPosition = interval;
      }
    
    return;  // поскольку сработали концевики - мы установили позицию по ним, и переданную можно игнорировать
@@ -322,9 +340,12 @@ void WindowState::UpdateState(uint16_t dt)
         || bAnyEndstopTriggered
 #endif     
      )
-     {
+     {        
        // приехали, останавливаемся
        flags.Direction = dirNOTHING; // уже никуда не движемся
+
+       // сбрасываем флаг ожидания достижения позиции
+       waitForChangePositionDone = false;
        
         //ВЫКЛЮЧАЕМ РЕЛЕ
         SwitchRelays();
@@ -465,7 +486,7 @@ void TempSensors::SetupWindows()
       // используем менеджер обратной связи
     #else
     // просим окна закрыться при старте контроллера
-    Windows[i].ChangePosition(0);
+    Windows[i].ChangePosition(0,true);
     #endif
     
   } // for
@@ -476,7 +497,7 @@ void TempSensors::CloseAllWindows()
   for(int i=0;i<SUPPORTED_WINDOWS;i++)
   {
      Windows[i].ResetToMaxPosition();
-     Windows[i].ChangePosition(0); // закрываем окно
+     Windows[i].ChangePosition(0,true); // закрываем окно
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
