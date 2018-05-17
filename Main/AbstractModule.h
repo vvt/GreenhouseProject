@@ -424,6 +424,7 @@ class FeedbacksManager
   private:
   #ifdef USE_TEMP_SENSORS
     unsigned long waitingWindowsFeedbackTimer;
+    uint16_t windowFeedbackReceivedFlags;
   #endif
 
   FeedbacksManagerFlags flags;

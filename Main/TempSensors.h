@@ -131,6 +131,7 @@ class TempSensors : public AbstractModule // модуль опроса темп�
     
     bool IsWindowOpen(uint8_t windowNumber); // сообщает, открывается или открыто ли нужное окно
     void CloseAllWindows();
+    void CloseWindow(uint8_t num);
 
     // получена информация обратной связи по состоянию окна
     void WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents, bool isFirstFeedback);

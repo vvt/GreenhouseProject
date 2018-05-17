@@ -75,15 +75,17 @@ void WindowState::Setup(uint8_t index, uint8_t relayChannel1, uint8_t relayChann
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool WindowState::ChangePosition(unsigned long newPos, bool waitFor)
 {
-//  Serial.print(F("Window #")); Serial.println(flags.Index); 
-//  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
-//  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
-//  Serial.println();
+  /*
+  Serial.print(F("Window #")); Serial.println(flags.Index); 
+  Serial.print(F("POSITION REQUESTED: ")); Serial.println(newPos);
+  Serial.print(F("POSITION CURRENT: ")); Serial.println(CurrentPosition);
+  Serial.println();
+  */
   
  if(IsBusy() && waitForChangePositionDone)
  {
    // ещё двигаемся, при этом нас попросили подождать, пока мы не достигнем этой позиции
-//   Serial.println("Position  not reached!");
+  // Serial.println("Position  not reached!");
    return false;
  }
   
@@ -490,6 +492,15 @@ void TempSensors::SetupWindows()
     #endif
     
   } // for
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void TempSensors::CloseWindow(uint8_t num)
+{
+  if(num >= SUPPORTED_WINDOWS)
+    return;
+    
+   Windows[num].ResetToMaxPosition();
+   Windows[num].ChangePosition(0,true); // закрываем окно  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void TempSensors::CloseAllWindows()

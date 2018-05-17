@@ -1286,6 +1286,7 @@ void FeedbacksManager::Setup()
 {
   #ifdef USE_TEMP_SENSORS
   waitingWindowsFeedbackTimer = 0;
+  windowFeedbackReceivedFlags = 0;
   #endif
   
   flags.inWaitingWindowsFeedbackMode = true;
@@ -1330,6 +1331,25 @@ void FeedbacksManager::WindowFeedbackDone()
         #endif
       }
     }
+    else
+    {
+       // получили хотя бы один пакет информации по обратной связи. Надо закрыть те окна,
+       // которые не получали информацию по обратной связи.
+       if(flags.isFirstCallOfWindowsFeedback) // и первый раз вызвали эту функцию
+       {
+          flags.isFirstCallOfWindowsFeedback = false;
+          #ifdef USE_TEMP_SENSORS
+            for(int i=0;i<SUPPORTED_WINDOWS;i++)
+            {
+              if(!bitRead(windowFeedbackReceivedFlags, i))
+              {
+                // для окна не получена обратная связь
+                WindowModule->CloseWindow(i);
+              }
+            }
+          #endif
+       }
+    }
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 void FeedbacksManager::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTriggered, bool isOpenSwitchTriggered, bool hasPosition, uint8_t positionPercents)
@@ -1337,6 +1357,7 @@ void FeedbacksManager::WindowFeedback(uint8_t windowNumber, bool isCloseSwitchTr
   #ifdef USE_TEMP_SENSORS
   
     flags.isAnyWindowsFeedbackReceived = true; // говорим, что получили инфу по обратной связи по крайней мере для одного окна
+    windowFeedbackReceivedFlags |= (1 << windowNumber);
     
     WindowModule->WindowFeedback(windowNumber,isCloseSwitchTriggered,isOpenSwitchTriggered,hasPosition,positionPercents, flags.inWaitingWindowsFeedbackMode);
   #endif
